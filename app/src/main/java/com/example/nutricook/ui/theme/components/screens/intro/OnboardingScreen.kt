@@ -2,6 +2,7 @@ package com.example.nutricook.ui.screens.intro
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
@@ -17,7 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
 import com.example.nutricook.R
+import com.example.nutricook.ui.theme.White
 
 private data class OnboardingPage(val imageRes: Int, val title: String, val subtitle: String)
 
@@ -49,7 +52,7 @@ fun OnboardingScreen(navController: NavController) {
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.Center
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -59,7 +62,9 @@ fun OnboardingScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+
             ) {
                 Image(
                     painter = painterResource(id = p.imageRes),
@@ -69,6 +74,25 @@ fun OnboardingScreen(navController: NavController) {
                         .height(220.dp)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp)
+                ) {
+                    repeat(pages.size) { index ->
+                        val isSelected = pagerState.currentPage == index
+                        val size = if (isSelected) 10.dp else 8.dp
+                        val color = if (isSelected) androidx.compose.ui.graphics.Color(0xFF3AC7BF) else androidx.compose.ui.graphics.Color.LightGray
+
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(size)
+                                .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+                        )
+                    }
+                }
                 Text(text = p.title, fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -90,7 +114,6 @@ fun OnboardingScreen(navController: NavController) {
                 )
             }
         }
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -105,7 +128,9 @@ fun OnboardingScreen(navController: NavController) {
                     navController.navigate("login")
                 }
             }) {
-                Text(if (pagerState.currentPage < pages.lastIndex) "Tiếp tục →" else "Bắt đầu")
+                Text(if (pagerState.currentPage < pages.lastIndex) "Tiếp tục →" else "Bắt đầu",
+                    color = White
+                )
             }
         }
     }

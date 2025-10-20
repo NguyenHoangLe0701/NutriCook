@@ -8,8 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF00FFFF), // Cyan
-    secondary = Color(0xFFFF5722), // Orange
+    primary = Color(0xFF3AC7BF), // Cyan
+    secondary = Color(0xFFFF7900), // Orange
     background = Color.White,
     surface = Color.White,
     onPrimary = Color.Black,
@@ -19,8 +19,8 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF00FFFF),
-    secondary = Color(0xFFFF5722),
+    primary = Color(0xFF3AC7BF), // Cyan
+    secondary = Color(0xFFFF7900), // Orange
     background = Color.Black,
     surface = Color.Black,
     onPrimary = Color.White,
