@@ -44,7 +44,7 @@ fun CategoriesScreen(navController: NavController) {
         CategoryTab("Rau củ", R.drawable.salad, Color(0xFF20B2AA)),
         CategoryTab("Trái cây", R.drawable.fruit, Color(0xFFFF8C00)),
         CategoryTab("Hải sản", R.drawable.seafood, Color(0xFFDC143C)),
-        CategoryTab("Fish and Seafood", R.drawable.seafood, Color(0xFF4169E1))
+        CategoryTab("Seafood", R.drawable.seafood, Color(0xFF4169E1))
     )
     
     val vegetables = listOf(
@@ -126,7 +126,7 @@ fun CategoriesScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             items(categories.size) { index ->
                 CategoryTabItem(
@@ -145,7 +145,7 @@ fun CategoriesScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(currentFoodList) { food ->
@@ -182,7 +182,7 @@ fun CategoryTabItem(
             Image(
                 painter = painterResource(id = category.icon),
                 contentDescription = category.name,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(40.dp)
             )
         }
         
@@ -190,7 +190,7 @@ fun CategoryTabItem(
         
         Text(
             text = category.name,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color = if (isSelected) category.color else Color.Gray
         )
@@ -202,7 +202,7 @@ fun FoodItemCard(food: FoodItem) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f),
+            .aspectRatio(0.8f),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -218,7 +218,7 @@ fun FoodItemCard(food: FoodItem) {
                 painter = painterResource(id = food.imageRes),
                 contentDescription = food.name,
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(72.dp)
                     .clip(RoundedCornerShape(8.dp))
             )
             
@@ -227,7 +227,7 @@ fun FoodItemCard(food: FoodItem) {
             ) {
                 Text(
                     text = food.name,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     lineHeight = 14.sp
@@ -235,7 +235,7 @@ fun FoodItemCard(food: FoodItem) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = food.calories,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     color = Color.Gray
                 )
             }

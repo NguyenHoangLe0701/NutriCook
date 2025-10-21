@@ -1,5 +1,5 @@
 package com.example.nutricook.ui.navigation
-
+import com.example.nutricook.ui.theme.components.screens.notifications.NotificationsScreen
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -123,5 +123,8 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
+        composable("notifications") {
+             NotificationsScreen(navController)
+            }
     }
 }
