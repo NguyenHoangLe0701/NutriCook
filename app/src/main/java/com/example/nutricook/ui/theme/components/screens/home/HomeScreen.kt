@@ -53,29 +53,33 @@ fun HomeScreen(navController: NavController) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Nút Edit
             IconButton(
                 onClick = { /* TODO: Profile */ },
                 modifier = Modifier
                     .size(40.dp)
-                    .background(Color(0xFF20B2AA), CircleShape)
             ) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
+                Image(
+                    painter = painterResource(id = R.drawable.ic_notification_status),
+                    contentDescription = "Edit",
+                    modifier = Modifier.size(28.dp) // chỉnh kích thước hình trong nút
+                )
             }
 
+            // Nút Notifications
             IconButton(
                 onClick = { navController.navigate("notifications") },
                 modifier = Modifier
                     .size(40.dp)
-                    .background(Color(0xFF20B2AA), CircleShape)
             ) {
-                Icon(
-                    Icons.Default.Notifications,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_noti),
                     contentDescription = "Notifications",
-                    tint = Color.White
+                    modifier = Modifier.size(28.dp)
                 )
-
             }
         }
+
         // 🔹 Search Bar
         Card(
             modifier = Modifier
