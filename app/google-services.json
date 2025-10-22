@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "697610921161",
+    "project_id": "nutricook-fff8f",
+    "storage_bucket": "nutricook-fff8f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:697610921161:android:800b6ee4f1a2650e999918",
+        "android_client_info": {
+          "package_name": "com.example.nutricook"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCx-pbM8hgeLZtPEy7G0-6KeyBCqcO_a9s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
