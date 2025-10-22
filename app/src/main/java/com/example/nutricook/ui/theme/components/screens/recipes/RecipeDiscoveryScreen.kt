@@ -39,7 +39,7 @@ fun RecipeDiscoveryScreen(navController: NavController) {
             category = "Món ăn Việt Nam",
             categoryColor = Color(0xFF4CAF50),
             title = "Phở bò (mì nước Việt Nam)",
-            imageRes = R.drawable.pizza,
+            imageRes = R.drawable.pho,
             userCount = 3,
             additionalUsers = 5
         ),
@@ -47,7 +47,7 @@ fun RecipeDiscoveryScreen(navController: NavController) {
             category = "Công thức cá hồi",
             categoryColor = Color(0xFFFF8C00),
             title = "7 công thức cá hồi nướng khay cho những buổi tối bận rộn",
-            imageRes = R.drawable.pizza,
+            imageRes = R.drawable.cahoi,
             userCount = 2,
             additionalUsers = 3
         ),
@@ -55,7 +55,7 @@ fun RecipeDiscoveryScreen(navController: NavController) {
             category = "Công thức gà",
             categoryColor = Color(0xFF2196F3),
             title = "25 công thức gà nấu với dứa cho bữa tối ngọt ngào và đậm đà",
-            imageRes = R.drawable.pizza,
+            imageRes = R.drawable.ga,
             userCount = 4,
             additionalUsers = 21
         )
@@ -98,7 +98,7 @@ fun RecipeDiscoveryScreen(navController: NavController) {
             items(recipes) { recipe ->
                 RecipeCardItem(
                     recipe = recipe,
-                    onClick = { navController.navigate("recipe_detail/${recipe.title}") }
+                    onClick = { navController.navigate("recipe_detail/${recipe.title}/${recipe.imageRes}") }
                 )
             }
         }

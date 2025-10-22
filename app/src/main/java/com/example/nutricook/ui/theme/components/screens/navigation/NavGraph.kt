@@ -18,10 +18,14 @@ import com.example.nutricook.ui.screens.recipes.RecipeDetailScreen
 import com.example.nutricook.ui.screens.profile.ProfileScreen
 import com.example.nutricook.ui.screens.profile.RecipeGuidanceScreen
 import com.example.nutricook.ui.screens.profile.ExerciseSuggestionsScreen
+import com.example.nutricook.ui.theme.components.screens.recipes.IngredientsFilterScreen
 import com.example.nutricook.R
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.Modifier
+import com.example.nutricook.ui.theme.components.screens.recipes.IngredientDetailScreen
+
 @Composable
 fun NavGraph(navController: NavHostController) {
     NavHost(navController = navController, startDestination = "intro") {
@@ -47,24 +51,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-        composable("recipes") {
-    Scaffold(
-        bottomBar = { BottomNavigationBar(navController) }
-    ) { paddingValues ->
-        Box(
-            modifier = androidx.compose.ui.Modifier
-                .padding(paddingValues)
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.feed),
-                contentDescription = "Công thức",
-                modifier = androidx.compose.ui.Modifier.size(200.dp)
-            )
-        }
-    }
-}
+   composable("recipes") { Scaffold( bottomBar = { BottomNavigationBar(navController) } ) { paddingValues -> Box( modifier = Modifier .padding(paddingValues) .fillMaxSize() ) { RecipeDiscoveryScreen(navController) } } }
         composable("profile") { 
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -77,9 +64,22 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_discovery") { 
             RecipeDiscoveryScreen(navController)
         }
-        composable("recipe_detail/{recipeTitle}") { backStackEntry ->
+      // ✅ Recipe Detail (chỉ 1 lần)
+        composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
-            RecipeDetailScreen(navController, recipeTitle)
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
+            RecipeDetailScreen(navController, recipeTitle, imageRes)
+        }
+
+        // ✅ Ingredients Filter
+        composable("ingredients") {
+            IngredientsFilterScreen(navController = navController)
+        }
+
+        // ✅ Ingredient Detail mới thêm
+        composable("ingredient_detail/{ingredientName}") { backStackEntry ->
+            val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
+            IngredientDetailScreen(navController, ingredientName)
         }
         composable("recipe_guidance") { 
             RecipeGuidanceScreen(navController)
