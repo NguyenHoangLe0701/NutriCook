@@ -11,11 +11,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,7 +24,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nutricook.R
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.layout.ContentScale
 
 data class Category(val name: String, val icon: Int)
 data class NutritionItem(val name: String, val calories: String, val weight: String, val icon: Int)
@@ -34,10 +34,6 @@ fun HomeScreen(navController: NavController) {
         Category("Rau củ", R.drawable.vegetable),
         Category("Trái cây", R.drawable.fruit),
         Category("Thịt", R.drawable.meat)
-    )
-
-    val nutritionItems = listOf(
-        NutritionItem("Dứa/Thơm", "48 kcal", "100 g", R.drawable.pizza)
     )
 
     Column(
@@ -53,25 +49,14 @@ fun HomeScreen(navController: NavController) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Nút Edit
-            IconButton(
-                onClick = { /* TODO: Profile */ },
-                modifier = Modifier
-                    .size(40.dp)
-            ) {
+            IconButton(onClick = { /* TODO */ }, modifier = Modifier.size(40.dp)) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_notification_status),
                     contentDescription = "Edit",
-                    modifier = Modifier.size(28.dp) // chỉnh kích thước hình trong nút
+                    modifier = Modifier.size(28.dp)
                 )
             }
-
-            // Nút Notifications
-            IconButton(
-                onClick = { navController.navigate("notifications") },
-                modifier = Modifier
-                    .size(40.dp)
-            ) {
+            IconButton(onClick = { navController.navigate("notifications") }, modifier = Modifier.size(40.dp)) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_noti),
                     contentDescription = "Notifications",
@@ -101,7 +86,7 @@ fun HomeScreen(navController: NavController) {
                     color = Color.Gray,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { /* TODO: Filter */ }) {
+                IconButton(onClick = { /* TODO */ }) {
                     Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = Color.Gray)
                 }
             }
@@ -129,13 +114,12 @@ fun HomeScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp),
-                    contentScale = ContentScale.Crop // giúp ảnh phủ đều toàn khung
+                    contentScale = ContentScale.Crop
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 🔹 Indicator Dots (3 chấm dưới banner)
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -145,9 +129,7 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier
                             .size(if (index == 0) 10.dp else 6.dp)
                             .clip(CircleShape)
-                            .background(
-                                if (index == 0) Color(0xFF20B2AA) else Color(0xFFE0E0E0)
-                            )
+                            .background(if (index == 0) Color(0xFF20B2AA) else Color(0xFFE0E0E0))
                     )
                     if (index < 2) Spacer(modifier = Modifier.width(6.dp))
                 }
@@ -164,15 +146,11 @@ fun HomeScreen(navController: NavController) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text("Phân loại", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Text(
-                text = "Phân loại",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Xem tất cả",
+                "Xem tất cả",
                 color = Color(0xFF20B2AA),
-                modifier = Modifier.clickable { /* TODO: See all categories */ }
+                modifier = Modifier.clickable { /* TODO */ }
             )
         }
 
@@ -227,15 +205,14 @@ fun HomeScreen(navController: NavController) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text("Giá trị dinh dưỡng", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Text(
-                text = "Giá trị dinh dưỡng",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Xem tất cả",
+                "Xem tất cả",
                 color = Color(0xFF20B2AA),
-                modifier = Modifier.clickable { /* TODO */ }
+                modifier = Modifier.clickable {
+                // Navigate đến màn hình NutritionDetailScreen
+                navController.navigate("nutrition_detail")
+             }
             )
         }
 
@@ -246,9 +223,9 @@ fun HomeScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFF20B2AA))
+            border = BorderStroke(2.dp, Color(0xFFB2EBF2))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
@@ -256,72 +233,106 @@ fun HomeScreen(navController: NavController) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.pizza),
+                        painter = painterResource(id = R.drawable.pineapple),
                         contentDescription = "Pineapple",
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFF8E1)),
+                        contentScale = ContentScale.Crop
                     )
+
                     Spacer(modifier = Modifier.width(12.dp))
+
                     Column {
-                        Text("Dứa/Thơm", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text("48 kcal • 100 g", fontSize = 12.sp, color = Color.Gray)
+                        Text(
+                            "Dứa/Thơm",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B1B1B)
+                        )
+                        Text(
+                            "48 kcal    100 g",
+                            fontSize = 13.sp,
+                            color = Color.Gray
+                        )
                     }
+
                     Spacer(modifier = Modifier.weight(1f))
-                    Row {
-                        IconButton(onClick = { }) {
-                            Icon(Icons.Default.BookmarkBorder, contentDescription = "Bookmark")
-                        }
-                        IconButton(onClick = { }) {
-                            Icon(Icons.Default.Remove, contentDescription = "Remove")
-                        }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.bookmark),
+                            contentDescription = "Bookmark",
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clickable { /* TODO */ }
+                        )
+                        Image(
+                            painter = painterResource(id = R.drawable.minus_square),
+                            contentDescription = "Remove",
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clickable { /* TODO */ }
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.Percent, contentDescription = "Protein", tint = Color.Blue)
-                            Text("0.12g", fontSize = 10.sp)
-                        }
-                    }
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.Circle, contentDescription = "Carbs", tint = Color(0xFFFF8C00))
-                            Text("12.63g", fontSize = 10.sp)
-                        }
-                    }
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.Circle, contentDescription = "Fat", tint = Color(0xFF20B2AA))
-                            Text("0.12g", fontSize = 10.sp)
-                        }
-                    }
+                    NutritionStatCard(
+                        value = "0.12g",
+                        iconRes = R.drawable.protein,
+                        modifier = Modifier.weight(1f)
+                    )
+                    NutritionStatCard(
+                        value = "12.63g",
+                        iconRes = R.drawable.finger_cricle,
+                        modifier = Modifier.weight(1f)
+                    )
+                    NutritionStatCard(
+                        value = "0.12g",
+                        iconRes = R.drawable.fat,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.weight(1f))
+// 🔹 Component nhỏ cho từng ô dinh dưỡng
+@Composable
+fun NutritionStatCard(value: String, iconRes: Int, modifier: Modifier = Modifier) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FAFA)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .height(64.dp)
+            .padding(horizontal = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(id = iconRes),
+                contentDescription = "Nutrition Icon",
+                modifier = Modifier.size(28.dp),
+                contentScale = ContentScale.Fit
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(value, fontSize = 11.sp, color = Color(0xFF1B1B1B))
+        }
     }
 }

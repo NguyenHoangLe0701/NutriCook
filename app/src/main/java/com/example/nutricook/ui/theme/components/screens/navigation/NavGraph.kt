@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
+import com.example.nutricook.ui.theme.components.screens.home.NutritionDetailScreen
 import com.example.nutricook.ui.theme.components.screens.recipes.IngredientDetailScreen
 
 @Composable
@@ -81,6 +82,11 @@ fun NavGraph(navController: NavHostController) {
             val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
             IngredientDetailScreen(navController, ingredientName)
         }
+        
+        composable("nutrition_detail") {
+    NutritionDetailScreen(navController = navController)
+}
+
         composable("recipe_guidance") { 
             RecipeGuidanceScreen(navController)
         }
