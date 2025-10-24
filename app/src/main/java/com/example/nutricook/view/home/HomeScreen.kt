@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocalGroceryStore
@@ -22,6 +23,8 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -47,6 +50,7 @@ private val Bg = Color(0xFFF8F9FA)
 @Composable
 fun HomeScreen(
     onLogout: () -> Unit,
+    onOpenProfile: () -> Unit,
     vm: AuthViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsState()
@@ -73,8 +77,16 @@ fun HomeScreen(
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
+                            text = { Text("Hồ sơ của tôi") },
+                            leadingIcon = { Icon(Icons.Outlined.AccountCircle, null) },
+                            onClick = {
+                                showMenu = false
+                                onOpenProfile()
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Đăng xuất") },
-                            leadingIcon = { Icon(Icons.Outlined.Logout, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Outlined.Logout, null) },
                             onClick = {
                                 showMenu = false
                                 confirmLogout = true
@@ -83,6 +95,22 @@ fun HomeScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            NavigationBar(containerColor = Color.White) {
+                NavigationBarItem(
+                    selected = true,
+                    onClick = { /* đang ở Home */ },
+                    icon = { Icon(Icons.Outlined.Restaurant, null) },
+                    label = { Text("Home") }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onOpenProfile,
+                    icon = { Icon(Icons.Outlined.AccountCircle, null) },
+                    label = { Text("Profile") }
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -92,7 +120,7 @@ fun HomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header chào người dùng
+            // Header
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -100,8 +128,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier
-                        .padding(16.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Avatar chữ cái
@@ -197,7 +224,7 @@ fun HomeScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Nút Đăng xuất nổi bật
+            // Nút Đăng xuất
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { confirmLogout = true },
@@ -220,9 +247,7 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    TextButton(onClick = { confirmLogout = true }) {
-                        Text("Thoát")
-                    }
+                    TextButton(onClick = { confirmLogout = true }) { Text("Thoát") }
                 }
             }
         }
@@ -237,7 +262,6 @@ fun HomeScreen(
                 TextButton(onClick = {
                     confirmLogout = false
                     vm.onEvent(AuthEvent.Logout)
-                    // AppNav quan sát currentUser=null để gọi onLogout() ở ngoài
                 }) { Text("Đăng xuất", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
@@ -247,6 +271,8 @@ fun HomeScreen(
     }
 }
 
+/* ===================== Helpers ===================== */
+
 @Composable
 private fun QuickAction(
     icon: @Composable () -> Unit,
@@ -254,7 +280,7 @@ private fun QuickAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
+    androidx.compose.material3.ElevatedCard(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White),

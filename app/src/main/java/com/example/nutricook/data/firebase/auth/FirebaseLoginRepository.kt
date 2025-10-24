@@ -1,6 +1,6 @@
 package com.example.nutricook.data.firebase.auth
 
-import com.example.nutricook.model.entity.IUser
+import com.example.nutricook.model.user.IUser
 import com.example.nutricook.model.repository.auth.LoginRepository
 import javax.inject.Inject
 import javax.inject.Singleton

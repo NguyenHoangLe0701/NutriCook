@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
 import com.example.nutricook.view.home.HomeScreen
+import com.example.nutricook.view.profile.ProfileScreen     // <- thêm import
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import com.example.nutricook.viewmodel.auth.AuthEvent
 
@@ -20,6 +21,7 @@ private object Routes {
     const val LOGIN = "login"
     const val REGISTER = "register"
     const val HOME = "home"
+    const val PROFILE = "profile"               // <- thêm
 }
 
 @Composable
@@ -28,11 +30,9 @@ fun AppNav() {
     val vm: AuthViewModel = hiltViewModel()
     val authState by vm.uiState.collectAsState()
 
-    // Điều khiển điều hướng tập trung tại đây
     LaunchedEffect(authState.currentUser) {
         val user = authState.currentUser
         if (user != null) {
-            // Đã đăng nhập - điều hướng đến Home
             if (nav.currentDestination?.route != Routes.HOME) {
                 nav.navigate(Routes.HOME) {
                     popUpTo(Routes.AUTH) { inclusive = true }
@@ -40,7 +40,6 @@ fun AppNav() {
                 }
             }
         } else {
-            // Chưa đăng nhập - điều hướng đến Auth
             if (nav.currentDestination?.route != Routes.LOGIN &&
                 nav.currentDestination?.route != Routes.REGISTER) {
                 nav.navigate(Routes.AUTH) {
@@ -52,33 +51,27 @@ fun AppNav() {
     }
 
     NavHost(navController = nav, startDestination = Routes.AUTH) {
-
-        // Nhóm Auth
+        // Auth group
         navigation(startDestination = Routes.LOGIN, route = Routes.AUTH) {
             composable(Routes.LOGIN) {
-                LoginScreen(
-                    onGoRegister = {
-                        nav.navigate(Routes.REGISTER)
-                    }
-                )
+                LoginScreen(onGoRegister = { nav.navigate(Routes.REGISTER) })
             }
             composable(Routes.REGISTER) {
-                RegisterScreen(
-                    onGoLogin = {
-                        nav.popBackStack()
-                    }
-                )
+                RegisterScreen(onGoLogin = { nav.popBackStack() })
             }
         }
 
         // Home
         composable(Routes.HOME) {
             HomeScreen(
-                onLogout = {
-                    // Logout sẽ được xử lý bởi LaunchedEffect ở trên
-                    vm.onEvent(AuthEvent.Logout)
-                }
+                onLogout = { vm.onEvent(AuthEvent.Logout) },
+                onOpenProfile = { nav.navigate(Routes.PROFILE) }   // <- thêm callback
             )
+        }
+
+        // Profile
+        composable(Routes.PROFILE) {
+            ProfileScreen()   // dùng VM & repo như bạn đã cấu hình Firebase
         }
     }
 }

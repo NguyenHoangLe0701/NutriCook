@@ -1,6 +1,6 @@
 package com.example.nutricook.data.firebase.auth
 
-import com.example.nutricook.model.entity.IUser
+import com.example.nutricook.model.user.IUser
 import com.example.nutricook.model.repository.auth.SessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

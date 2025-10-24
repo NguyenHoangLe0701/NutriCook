@@ -38,7 +38,7 @@ android {
 
     buildFeatures { compose = true }
 
-    // ❌ BỎ khối composeOptions cũ (không dùng với Kotlin 2.0)
+    // ❌ Không cần composeOptions khi dùng Kotlin 2.0+
     // composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 
     lint { abortOnError = false }
@@ -69,13 +69,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
-    // --- Firebase Auth (via BoM) ---
+    // --- Firebase (via BoM) ---
     implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
 
-    // --- (tùy chọn) Firestore/Storage ---
-    // implementation("com.google.firebase:firebase-firestore-ktx")
-    // implementation("com.google.firebase:firebase-storage-ktx")
+    // ✅ BẮT BUỘC khi bạn import FirebaseFirestore/FirebaseStorage
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     // --- Material (View) ---
     implementation("com.google.android.material:material:1.12.0")

@@ -1,4 +1,4 @@
-package com.example.nutricook.model.entity
+package com.example.nutricook.model.user
 
 interface IUser {
     val id: String

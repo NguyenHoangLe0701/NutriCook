@@ -1,6 +1,6 @@
 package com.example.nutricook.viewmodel.auth
 
-import com.example.nutricook.model.entity.IUser
+import com.example.nutricook.model.user.IUser
 
 data class AuthState(
     val email: String = "",

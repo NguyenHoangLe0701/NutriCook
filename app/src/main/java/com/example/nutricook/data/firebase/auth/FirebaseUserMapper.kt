@@ -1,6 +1,6 @@
 package com.example.nutricook.data.firebase.auth
 
-import com.example.nutricook.model.entity.User
+import com.example.nutricook.model.user.User
 import com.google.firebase.auth.FirebaseUser
 
 internal fun FirebaseUser.toDomain(): User = User(
