@@ -35,7 +35,8 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
         Exercise("Leo núi", "15 phút", 200, R.drawable.mountain, "Cao"),
         Exercise("Đạp xe", "15 phút", 100, R.drawable.cycling, "Trung bình"),
         Exercise("Đá banh", "45 phút", 400, R.drawable.football, "Thấp"),
-        Exercise("Chạy bộ", "15 phút", 180, R.drawable.run, "Cao")
+        Exercise("Chạy bộ", "15 phút", 180, R.drawable.run, "Cao"),
+        Exercise("Quần vợt", "15 phút", 180, R.drawable.tenis, "Cao")
     )
 
     var selectedCalories by remember { mutableStateOf(150) }
@@ -45,6 +46,7 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
             .fillMaxSize()
             .background(Color.White)
     ) {
+        // --- Header ---
         item {
             Row(
                 modifier = Modifier
@@ -65,6 +67,7 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
             }
         }
 
+        // --- Bộ chọn calo ---
         item {
             Card(
                 modifier = Modifier
@@ -74,23 +77,21 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1))
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.padding(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.feed), // tạo tạm 1 ảnh trong drawable
+                        painter = painterResource(id = R.drawable.logo),
                         contentDescription = "Exercise",
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(200.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Bạn muốn đốt cháy bao nhiêu calo?",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(100, 150, 200, 300).forEach { calories ->
                             FilterChip(
@@ -108,9 +109,7 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
             }
         }
 
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
+        item { Spacer(modifier = Modifier.height(24.dp)) }
 
         item {
             Text(
@@ -122,10 +121,9 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
             )
         }
 
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-        }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
 
+        // --- Danh sách bài tập ---
         items(exercises.chunked(2)) { rowExercises ->
             Row(
                 modifier = Modifier
@@ -137,7 +135,7 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
                     ExerciseCard(
                         exercise = exercise,
                         modifier = Modifier.weight(1f),
-                        onClick = { /* TODO: Start exercise */ }
+                        onClick = { }
                     )
                 }
                 if (rowExercises.size == 1) {
@@ -155,45 +153,72 @@ fun ExerciseCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Card(
+    Box(
         modifier = modifier
-            .aspectRatio(1f)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .background(Color(0xFFF2F2F2), RoundedCornerShape(16.dp))
+            .padding(3.dp)
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(id = exercise.imageRes),
-                contentDescription = exercise.name,
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            // Box trắng chứa hình
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .padding(22.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = exercise.imageRes),
+                    contentDescription = exercise.name,
+                    modifier = Modifier.size(100.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Tên bài tập
             Text(
                 text = exercise.name,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = exercise.duration,
-                fontSize = 12.sp,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${exercise.caloriesBurned} kcal",
-                fontSize = 10.sp,
-                color = Color(0xFF20B2AA)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 🔹 Thời gian + kcal nằm sát nhau
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp) // chỉnh khoảng cách nhỏ
+            ) {
+                Text(
+                    text = exercise.duration,
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
+
+                Text(
+                    text = "•", // Dấu chấm nhỏ ngăn cách
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
+
+                Text(
+                    text = "${exercise.caloriesBurned} kcal",
+                    fontSize = 13.sp,
+                    color = Color(0xFF20B2AA)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Mức độ
             Box(
                 modifier = Modifier
                     .background(
@@ -205,11 +230,11 @@ fun ExerciseCard(
                         },
                         RoundedCornerShape(8.dp)
                     )
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = exercise.difficulty,
-                    fontSize = 8.sp,
+                    fontSize = 16.sp,
                     color = Color.White
                 )
             }

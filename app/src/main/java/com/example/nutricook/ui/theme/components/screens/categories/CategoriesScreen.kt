@@ -44,7 +44,7 @@ fun CategoriesScreen(navController: NavController) {
         CategoryTab("Rau củ", R.drawable.salad, Color(0xFF20B2AA)),
         CategoryTab("Trái cây", R.drawable.fruit, Color(0xFFFF8C00)),
         CategoryTab("Hải sản", R.drawable.seafood, Color(0xFFDC143C)),
-        CategoryTab("Seafood", R.drawable.seafood, Color(0xFF4169E1))
+        CategoryTab("Thịt", R.drawable.meat, Color(0xFF4169E1))
     )
     
     val vegetables = listOf(
@@ -70,30 +70,29 @@ fun CategoriesScreen(navController: NavController) {
         FoodItem("Thơm", "48 kcal", R.drawable.pineapple),
         FoodItem("Cam", "47 kcal", R.drawable.orange)
     )
-    
-    val seafood = listOf(
-        FoodItem("Tôm", "99 kcal", R.drawable.pizza),
-        FoodItem("Cá hồi", "208 kcal", R.drawable.pizza),
-        FoodItem("Cua", "97 kcal", R.drawable.pizza),
-        FoodItem("Mực", "92 kcal", R.drawable.pizza)
-    )
-    
+
     val fishAndSeafood = listOf(
-        FoodItem("Cá ngừ", "132 kcal", R.drawable.pizza),
-        FoodItem("Cá thu", "205 kcal", R.drawable.pizza),
-        FoodItem("Tôm hùm", "89 kcal", R.drawable.pizza),
-        FoodItem("Sò điệp", "88 kcal", R.drawable.pizza),
-        FoodItem("Cá tuyết", "82 kcal", R.drawable.pizza),
-        FoodItem("Hàu", "68 kcal", R.drawable.pizza)
+        FoodItem("Tôm", "99 kcal", R.drawable.tom),
+        FoodItem("Cá hồi", "208 kcal", R.drawable.cahoi),
+        FoodItem("Cua", "97 kcal", R.drawable.cua),
+        FoodItem("Mực", "92 kcal", R.drawable.muc),
+        FoodItem("Cá ngừ", "132 kcal", R.drawable.cangu),
+        FoodItem("Cá thu", "205 kcal", R.drawable.cathu),
+        FoodItem("Tôm hùm", "89 kcal", R.drawable.tomhum),
+        FoodItem("Sò điệp", "88 kcal", R.drawable.sodiep),
+        FoodItem("Cá tuyết", "82 kcal", R.drawable.catuyet),
+        FoodItem("Hàu", "68 kcal", R.drawable.hau)
     )
-    
+    val meat = listOf(
+        FoodItem("Hàu", "68 kcal", R.drawable.hau)
+    )
     var selectedCategory by remember { mutableStateOf(0) }
     
     val currentFoodList = when (selectedCategory) {
         0 -> vegetables
         1 -> fruits
-        2 -> seafood
-        3 -> fishAndSeafood
+        2 -> fishAndSeafood
+        3 -> meat
         else -> vegetables
     }
 
