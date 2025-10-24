@@ -25,7 +25,6 @@ class AuthViewModel @Inject constructor(
     val uiState: StateFlow<AuthState> = _uiState.asStateFlow()
 
     init {
-        // Tránh emit lặp gây gọi điều hướng nhiều lần
         viewModelScope.launch {
             sessionRepo.currentUser
                 .distinctUntilChanged()
@@ -81,6 +80,11 @@ class AuthViewModel @Inject constructor(
     private fun signOut() = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true) }
         sessionRepo.signOut()
-        _uiState.update { AuthState(message = "Đã đăng xuất") }
+        _uiState.update {
+            AuthState(
+                message = "Đã đăng xuất",
+                currentUser = null // Đảm bảo currentUser là null
+            )
+        }
     }
 }

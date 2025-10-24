@@ -7,12 +7,6 @@ sealed class AuthEvent {
     data object SubmitLogin : AuthEvent()
     data object SubmitRegister : AuthEvent()
 
-    // Dùng để xoá/snackbar message sau khi hiển thị
     data object ConsumeMessage : AuthEvent()
-
-    // Đăng xuất
     data object Logout : AuthEvent()
-
-    // (Tuỳ chọn) Nếu có Google Sign-In:
-    // data class GoogleIdToken(val token: String) : AuthEvent()
 }
