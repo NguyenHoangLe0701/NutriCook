@@ -35,7 +35,7 @@ fun NutritionDetailScreen(
         ) {
             IconButton(onClick = onBackClick) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_back), // bạn tự thêm icon mũi tên vào drawable
+                    painter = painterResource(id = R.drawable.ic_back),
                     contentDescription = "Back",
                     tint = Color(0xFF1B1B1B)
                 )

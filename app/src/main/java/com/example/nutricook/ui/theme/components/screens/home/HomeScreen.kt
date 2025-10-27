@@ -24,6 +24,10 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nutricook.R
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 data class Category(val name: String, val icon: Int)
 data class NutritionItem(val name: String, val calories: String, val weight: String, val icon: Int)
@@ -101,25 +105,48 @@ fun HomeScreen(navController: NavController) {
                 .clickable { navController.navigate("recipe_discovery") },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Card(
+            // HorizontalPager cho carousel
+            val pagerState = rememberPagerState(pageCount = { 3 }) // 3 slides
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 0.dp),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.banner_strawberry),
-                    contentDescription = "Recipe Banner",
+                    .height(200.dp)
+            ) { page ->
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp),
-                    contentScale = ContentScale.Crop
-                )
+                        .padding(horizontal = 0.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Image(
+                        painter = when (page) {
+                            0 -> painterResource(id = R.drawable.banner_strawberry) // Slide 1
+                            1 -> painterResource(id = R.drawable.banner_chicken)     // Slide 2
+                            2 -> painterResource(id = R.drawable.banner_fish)    // Slide 3
+                            else -> painterResource(id = R.drawable.banner_strawberry) // Default
+                        },
+                        contentDescription = "Recipe Banner",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            // Hiệu ứng tự động trượt (tùy chọn)
+            LaunchedEffect(Unit) {
+                while (true) {
+                    delay(3000) // 3 giây mỗi slide
+                    pagerState.animateScrollToPage((pagerState.currentPage + 1) % 3) // Chuyển tiếp
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Indicator động dựa trên trang hiện tại
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -127,9 +154,11 @@ fun HomeScreen(navController: NavController) {
                 repeat(3) { index ->
                     Box(
                         modifier = Modifier
-                            .size(if (index == 0) 10.dp else 6.dp)
+                            .size(if (index == pagerState.currentPage) 10.dp else 6.dp)
                             .clip(CircleShape)
-                            .background(if (index == 0) Color(0xFF20B2AA) else Color(0xFFE0E0E0))
+                            .background(
+                                if (index == pagerState.currentPage) Color(0xFF20B2AA) else Color(0xFFE0E0E0)
+                            )
                     )
                     if (index < 2) Spacer(modifier = Modifier.width(6.dp))
                 }
@@ -210,9 +239,8 @@ fun HomeScreen(navController: NavController) {
                 "Xem tất cả",
                 color = Color(0xFF20B2AA),
                 modifier = Modifier.clickable {
-                // Navigate đến màn hình NutritionDetailScreen
-                navController.navigate("nutrition_detail")
-             }
+                    navController.navigate("nutrition_detail")
+                }
             )
         }
 
