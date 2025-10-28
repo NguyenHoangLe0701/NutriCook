@@ -43,6 +43,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
+        
         composable("categories") { 
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
