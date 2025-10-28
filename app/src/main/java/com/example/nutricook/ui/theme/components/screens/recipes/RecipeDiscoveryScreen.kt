@@ -83,9 +83,9 @@ fun RecipeDiscoveryScreen(navController: NavController) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = { /* TODO: Grid/List toggle */ }) {
-                Icon(Icons.Default.GridView, contentDescription = "Grid View")
-            }
+            IconButton(onClick = { navController.navigate("ingredient_browser") }) {
+    Icon(Icons.Default.GridView, contentDescription = "Ingredient Browser")
+}
         }
 
         // Recipe Cards

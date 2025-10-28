@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
 import com.example.nutricook.ui.theme.components.screens.home.NutritionDetailScreen
 import com.example.nutricook.ui.theme.components.screens.recipes.IngredientDetailScreen
+import com.example.nutricook.ui.screens.recipes.IngredientBrowserScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -84,6 +85,9 @@ fun NavGraph(navController: NavHostController) {
             IngredientDetailScreen(navController, ingredientName)
         }
         
+         composable("ingredient_browser") {
+    IngredientBrowserScreen(navController = navController)
+}
         composable("nutrition_detail") {
     NutritionDetailScreen(navController = navController)
 }
