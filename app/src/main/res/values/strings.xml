@@ -1,3 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App -->
     <string name="app_name">NutriCook</string>
+    <!-- Google: tạm thời để placeholder để build qua (sau khi thêm google-services.json thì xóa dòng này) -->
+    <string name="default_web_client_id">697610921161-qde8j2ifbvt3v88crk44ausdopqte7jh.apps.googleusercontent.com</string>
+
+    <!-- Auth chung -->
+    <string name="dang_nhap">Đăng nhập</string>
+    <string name="dang_ky">Đăng ký</string>
+    <string name="email">Email</string>
+    <string name="mat_khau">Mật khẩu</string>
+    <string name="nhap_lai_mat_khau">Nhập lại mật khẩu</string>
+    <string name="ho_ten">Họ và tên</string>
+    <string name="quen_mat_khau">Quên mật khẩu?</string>
+    <string name="chua_co_tai_khoan">Chưa có tài khoản?</string>
+    <string name="da_co_tai_khoan">Đã có tài khoản?</string>
+
+    <!-- Login -->
+    <string name="chao_mung_tro_lai">Chào mừng trở lại!</string>
+    <string name="dang_nhap_de_tiep_tuc">Đăng nhập để tiếp tục</string>
+    <string name="dang_nhap_tai_khoan">Đăng nhập tài khoản</string>
+    <string name="mo_ta_login">Chúng mình gặp lại nhé, đăng nhập để xem bài viết mới!</string>
+
+    <!-- Register -->
+    <string name="tao_tai_khoan_moi">Tạo tài khoản mới</string>
+    <string name="mo_ta_register">Hoàn tất đăng ký để bắt đầu hành trình ăn lành mạnh!</string>
+    <string name="toi_dong_y_dieu_khoan">Tôi đồng ý với Điều khoản &amp; Chính sách quyền riêng tư.</string>
+    <string name="dang_ky_ngay">Đăng ký ngay</string>
+
+    <!-- Home -->
+    <string name="xin_chao">Xin chào</string>
+    <string name="goi_y_hom_nay">Gợi ý hôm nay</string>
+    <string name="cong_thuc">Công thức</string>
+    <string name="ua_thich">Ưa thích</string>
+    <string name="mua_sam">Mua sắm</string>
+    <string name="lich_an">Lịch ăn</string>
+    <string name="dang_xuat">Đăng xuất</string>
+    <string name="xac_nhan_dang_xuat">Xác nhận đăng xuất</string>
+    <string name="ban_co_chac_dang_xuat">Bạn có chắc muốn đăng xuất khỏi NutriCook?</string>
+    <string name="huy">Huỷ</string>
+    <string name="thoat">Thoát</string>
+
+    <!-- Profile -->
+    <string name="ho_so">Hồ sơ</string>
+    <string name="cai_dat">Cài đặt</string>
+    <string name="bai_dang">Bài đăng</string>
+    <string name="dang_theo_doi">Đang theo dõi</string>
+    <string name="nguoi_theo_doi">Người theo dõi</string>
+    <string name="hoat_dong_gan_day">Hoạt động gần đây</string>
+    <string name="da_luu">Đã lưu</string>
+    <string name="bieu_do_cho_o_day">Biểu đồ sẽ đặt ở đây</string>
 </resources>
