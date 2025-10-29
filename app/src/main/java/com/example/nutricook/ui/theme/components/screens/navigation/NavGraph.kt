@@ -27,6 +27,9 @@ import androidx.compose.ui.Modifier
 import com.example.nutricook.ui.theme.components.screens.home.NutritionDetailScreen
 import com.example.nutricook.ui.theme.components.screens.recipes.IngredientDetailScreen
 import com.example.nutricook.ui.screens.recipes.IngredientBrowserScreen
+import com.example.nutricook.ui.screens.recipes.CreateRecipeScreen
+import com.example.nutricook.ui.screens.recipes.RecipeDirectionsScreen
+import com.example.nutricook.ui.screens.recipes.RecipeUploadSuccessScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -91,6 +94,13 @@ fun NavGraph(navController: NavHostController) {
         composable("nutrition_detail") {
     NutritionDetailScreen(navController = navController)
 }
+composable("create_recipe") {
+    CreateRecipeScreen(navController = navController)
+}
+composable("upload_success") {
+    RecipeUploadSuccessScreen(navController)
+}
+       composable("recipe_direction") {  RecipeDirectionsScreen(navController) }
 
         composable("recipe_guidance") { 
             RecipeGuidanceScreen(navController)

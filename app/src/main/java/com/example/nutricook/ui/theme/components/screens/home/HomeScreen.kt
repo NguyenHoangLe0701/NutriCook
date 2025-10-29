@@ -92,7 +92,7 @@ fun HomeScreen(navController: NavController) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { /* TODO */ }, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = { navController.navigate("create_recipe") }, modifier = Modifier.size(40.dp)) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_notification_status),
                         contentDescription = "Chỉnh sửa",
