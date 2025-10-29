@@ -39,8 +39,8 @@ fun RecipeDirectionsScreen(navController: NavController) {
     val danhSachBuoc = listOf(
         BuocNauAn("Đặt khay nướng ở giữa lò và làm nóng ở 190°C (375°F)."),
         BuocNauAn("Khuấy đều bột bánh, trứng và bơ trong tô lớn cho đến khi tạo thành hỗn hợp mềm.", true, R.drawable.mix_egg),
-        BuocNauAn("Nặn bột thành từng viên tròn 2.5cm, lăn qua đường bột. Đặt các viên cách nhau khoảng 5cm trên khay nướng.", true, R.drawable.mix_egg),
-        BuocNauAn("Nướng trong lò đã làm nóng sẵn, mỗi lần 1 khay, đến khi rìa bánh cứng và mặt bánh hơi nứt (khoảng 9–11 phút). Để nguội 3 phút trên khay, sau đó chuyển ra giá để nguội hoàn toàn.", true, R.drawable.mix_egg)
+        BuocNauAn("Nặn bột thành từng viên tròn 2.5cm, lăn qua đường bột. Đặt các viên cách nhau khoảng 5cm trên khay nướng.", true, R.drawable.img_dough),
+        BuocNauAn("Nướng trong lò đã làm nóng sẵn, mỗi lần 1 khay, đến khi rìa bánh cứng và mặt bánh hơi nứt (khoảng 9–11 phút). Để nguội 3 phút trên khay, sau đó chuyển ra giá để nguội hoàn toàn.", true, R.drawable.img_bake)
     )
 
     LazyColumn(
@@ -110,7 +110,7 @@ fun RecipeDirectionsScreen(navController: NavController) {
                             painter = painterResource(id = R.drawable.icon_upload),
                             contentDescription = "Thêm ảnh minh họa",
                             modifier = Modifier
-                                .size(28.dp) 
+                                .size(36.dp) 
                                 .padding(start = 10.dp),
                             tint = Color(0xFFB0B0B0)
                         )
@@ -123,9 +123,9 @@ fun RecipeDirectionsScreen(navController: NavController) {
                         contentDescription = "Ảnh bước ${index + 1}",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(210.dp)
+                            .height(260.dp)
                             .clip(RoundedCornerShape(18.dp)),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.FillWidth
                     )
                 }
             }
