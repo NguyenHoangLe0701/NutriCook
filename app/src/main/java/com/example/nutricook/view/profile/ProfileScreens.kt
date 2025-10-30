@@ -1,81 +1,60 @@
 package com.example.nutricook.view.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.ArrowForwardIos
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.nutricook.model.user.bestName
 import com.example.nutricook.model.user.initial
 import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
 
-private val Teal = Color(0xFF20B2AA)
-private val Bg   = Color(0xFFF8F9FA)
+// ------------------------------------------------------
+private val HeaderStart = Color(0xFFFFE0C6)
+private val HeaderEnd = Color(0xFFCCE7FF)
+private val ScreenBg = Color.White
+private val CardBg = Color.White
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onOpenSettings: () -> Unit = {},
     onEditAvatar: () -> Unit = {},
-    onLogout: () -> Unit = {},
-    bottomBar: @Composable () -> Unit = {},      // 👈 để NavGraph truyền bottom nav xuống
+    bottomBar: @Composable () -> Unit = {},
     vm: ProfileViewModel = hiltViewModel()
 ) {
     val ui by vm.uiState.collectAsState()
 
     Scaffold(
-        containerColor = Bg,
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Hồ sơ") },
-                navigationIcon = {
-                    Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
-                        IconButton(onClick = { /* nếu có drawer thì mở ở đây */ }) {
-                            Icon(Icons.Outlined.Menu, contentDescription = "Menu")
-                        }
-                    }
-                },
-                actions = {
-                    // settings
-                    Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
-                        IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "Cài đặt")
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    // optional
-                    Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
-                        IconButton(onClick = { /* TODO: action khác */ }) {
-                            Icon(Icons.Outlined.Add, contentDescription = "Thêm")
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    // logout
-                    Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
-                        IconButton(onClick = onLogout) {
-                            Icon(Icons.Outlined.Logout, contentDescription = "Đăng xuất")
-                        }
-                    }
-                }
-            )
-        },
+        containerColor = ScreenBg,
+        topBar = {},
         bottomBar = bottomBar
     ) { padding ->
         when {
             ui.loading -> Box(
-                modifier = Modifier
+                Modifier
                     .padding(padding)
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -86,11 +65,12 @@ fun ProfileScreen(
             ui.profile != null -> ProfileContent(
                 modifier = Modifier.padding(padding),
                 state = ui,
-                onEditAvatar = onEditAvatar
+                onEditAvatar = onEditAvatar,
+                onOpenSettings = onOpenSettings
             )
 
             else -> Box(
-                modifier = Modifier
+                Modifier
                     .padding(padding)
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -105,142 +85,220 @@ fun ProfileScreen(
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     state: ProfileUiState,
-    onEditAvatar: () -> Unit
+    onEditAvatar: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val p = state.profile!!
+    val scroll = rememberScrollState()
 
-    Box(modifier = modifier.fillMaxSize()) {
-
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(ScreenBg)
+    ) {
+        // gradient trên cùng
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .height(230.dp)
                 .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFFF2FFFD), Color(0xFFFFF1FB))
+                    Brush.horizontalGradient(
+                        listOf(HeaderStart, HeaderEnd)
                     )
                 )
         )
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            Spacer(Modifier.height(36.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+        ) {
+            // thanh top
+            TopBar(onOpenSettings = onOpenSettings)
 
+            // avatar
             Box(
                 modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.TopCenter
+                contentAlignment = Alignment.Center
             ) {
-                AvatarWithEditBadge(text = p.user.initial(), onEdit = onEditAvatar)
+                AvatarBox(
+                    avatarUrl = p.user.avatarUrl,
+                    text = p.user.initial(),
+                    onEdit = onEditAvatar
+                )
             }
 
             Spacer(Modifier.height(8.dp))
+
+            // tên
             Text(
                 text = p.user.bestName(),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = Color(0xFF0F172A),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            Spacer(Modifier.height(14.dp))
-            StatsRowCard(
-                posts = p.posts,
-                following = p.following,
-                followers = p.followers,
-                modifier = Modifier.padding(horizontal = 16.dp)
             )
 
             Spacer(Modifier.height(16.dp))
 
+            // stats
+            StatsCard(
+                posts = p.posts,
+                following = p.following,
+                followers = p.followers,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            // danh sách
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                ChevronItem(
-                    title = "Hoạt động gần đây (10)",
-                    icon = Icons.Outlined.Inbox,
-                    iconTint = Color(0xFF6B7A99),
+                ProfileMenuRow(
+                    title = "Recent Activity",
                     onClick = { /* TODO */ }
                 )
-                ChevronItem(
-                    title = "Bài đăng (${p.posts})",
-                    icon = Icons.Outlined.Description,
-                    iconTint = Color(0xFF4C9AFF),
+                ProfileMenuRow(
+                    title = "Post (${p.posts})",
                     onClick = { /* TODO */ }
                 )
-                ChevronItem(
-                    title = "Đã lưu (10)",
-                    icon = Icons.Outlined.BookmarkBorder,
-                    iconTint = Color(0xFFFF8A65),
+                ProfileMenuRow(
+                    title = "Save",
                     onClick = { /* TODO */ }
                 )
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
+
             Text(
-                "Fatscore của tôi",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                text = "My Fatscret",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = Color(0xFF0F172A),
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            ChartPlaceholderCard(
+            ChartPlaceholder(
                 modifier = Modifier
                     .padding(16.dp)
                     .fillMaxWidth()
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(80.dp))
         }
     }
 }
 
 @Composable
-private fun AvatarWithEditBadge(text: String, onEdit: () -> Unit) {
-    Box(modifier = Modifier.size(96.dp), contentAlignment = Alignment.BottomEnd) {
+private fun TopBar(
+    onOpenSettings: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
         Surface(
-            modifier = Modifier
-                .size(96.dp)
-                .clip(CircleShape),
+            shape = CircleShape,
             color = Color.White,
-            shadowElevation = 2.dp
+            shadowElevation = 0.dp
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Teal.copy(alpha = .16f)),
-                contentAlignment = Alignment.Center
-            ) {
+            IconButton(onClick = { /* TODO */ }) {
+                Icon(
+                    imageVector = Icons.Outlined.Menu,
+                    contentDescription = "Menu",
+                    tint = Color(0xFF1F2937)
+                )
+            }
+        }
+
+        Text(
+            text = "Profile",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = Color(0xFF0F172A)
+        )
+
+        Surface(
+            shape = CircleShape,
+            color = Color.White,
+            shadowElevation = 0.dp
+        ) {
+            IconButton(onClick = onOpenSettings) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Settings",
+                    tint = Color(0xFF1F2937)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarBox(
+    avatarUrl: String?,
+    text: String,
+    onEdit: () -> Unit
+) {
+    Box(
+        modifier = Modifier.size(100.dp),
+        contentAlignment = Alignment.BottomEnd
+    ) {
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(Color(0xFFFFC980)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!avatarUrl.isNullOrBlank()) {
+                // ✅ dùng AsyncImage đơn giản, không cần LocalContext, không cần ImageRequest
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
                 Text(
                     text = text,
                     style = MaterialTheme.typography.headlineMedium,
-                    color = Teal,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
             }
         }
-        Surface(
-            onClick = onEdit,
-            shape = CircleShape,
-            color = Teal,
-            shadowElevation = 2.dp,
+
+        Box(
             modifier = Modifier
-                .offset(x = 6.dp, y = 6.dp)
-                .size(24.dp)
+                .offset(x = 4.dp, y = 4.dp)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF29C2E5))
+                .clickable { onEdit() },
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Outlined.Edit,
-                    contentDescription = "Sửa ảnh đại diện",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Outlined.Edit,
+                contentDescription = "Edit avatar",
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun StatsRowCard(
+private fun StatsCard(
     posts: Int,
     following: Int,
     followers: Int,
@@ -248,9 +306,9 @@ private fun StatsRowCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Row(
             modifier = Modifier
@@ -259,91 +317,117 @@ private fun StatsRowCard(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            StatMini(number = posts, label = "Bài đăng")
+            StatCell(number = posts, label = "Post")
             Divider(
                 modifier = Modifier
-                    .height(28.dp)
+                    .height(30.dp)
                     .width(1.dp),
-                color = Bg
+                color = Color(0xFFE4E6EB)
             )
-            StatMini(number = following, label = "Đang theo dõi")
+            StatCell(number = following, label = "Following")
             Divider(
                 modifier = Modifier
-                    .height(28.dp)
+                    .height(30.dp)
                     .width(1.dp),
-                color = Bg
+                color = Color(0xFFE4E6EB)
             )
-            StatMini(number = followers, label = "Người theo dõi")
+            StatCell(number = followers, label = "Follower")
         }
     }
 }
 
 @Composable
-private fun StatMini(number: Int, label: String) {
+private fun StatCell(
+    number: Int,
+    label: String
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("$number", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = number.toString(),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            color = Color(0xFF0F172A)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF9AA3B5)
         )
     }
 }
 
 @Composable
-private fun ChevronItem(
+private fun ProfileMenuRow(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    iconTint: Color,
     onClick: () -> Unit
 ) {
     Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier
+                .clickable { onClick() }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(iconTint.copy(alpha = .12f)),
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFD9E7FF)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = iconTint)
+                Icon(
+                    imageVector = Icons.Outlined.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = Color(0xFF334155),
+                    modifier = Modifier.size(14.dp)
+                )
             }
-            Spacer(Modifier.width(12.dp))
-            Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+
+            Spacer(Modifier.width(14.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = Color(0xFF0F172A),
+                modifier = Modifier.weight(1f)
+            )
+
             Icon(
-                Icons.Outlined.ChevronRight,
-                contentDescription = "Mở",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                imageVector = Icons.Outlined.ArrowForwardIos,
+                contentDescription = null,
+                tint = Color(0xFFB8C0CC),
+                modifier = Modifier.size(16.dp)
             )
         }
     }
 }
 
 @Composable
-private fun ChartPlaceholderCard(modifier: Modifier = Modifier) {
+private fun ChartPlaceholder(
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
-                .height(120.dp)
+                .height(110.dp)
                 .fillMaxWidth()
-                .padding(12.dp),
+                .background(Color.White),
             contentAlignment = Alignment.Center
         ) {
-            Text("Biểu đồ sẽ đặt ở đây")
+            // Text("Chưa có dữ liệu")
         }
     }
 }
