@@ -16,10 +16,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.nutricook.viewmodel.profile.ProfileUiState
-import com.example.nutricook.viewmodel.profile.ProfileViewModel
 import com.example.nutricook.model.user.bestName
 import com.example.nutricook.model.user.initial
+import com.example.nutricook.viewmodel.profile.ProfileUiState
+import com.example.nutricook.viewmodel.profile.ProfileViewModel
 
 private val Teal = Color(0xFF20B2AA)
 private val Bg   = Color(0xFFF8F9FA)
@@ -29,7 +29,8 @@ private val Bg   = Color(0xFFF8F9FA)
 fun ProfileScreen(
     onOpenSettings: () -> Unit = {},
     onEditAvatar: () -> Unit = {},
-    onLogout: () -> Unit = {},                 // <- callback đăng xuất
+    onLogout: () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},      // 👈 để NavGraph truyền bottom nav xuống
     vm: ProfileViewModel = hiltViewModel()
 ) {
     val ui by vm.uiState.collectAsState()
@@ -41,27 +42,27 @@ fun ProfileScreen(
                 title = { Text("Hồ sơ") },
                 navigationIcon = {
                     Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
-                        IconButton(onClick = { /* TODO: mở menu trái */ }) {
+                        IconButton(onClick = { /* nếu có drawer thì mở ở đây */ }) {
                             Icon(Icons.Outlined.Menu, contentDescription = "Menu")
                         }
                     }
                 },
                 actions = {
-                    // Cài đặt
+                    // settings
                     Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
                         IconButton(onClick = onOpenSettings) {
                             Icon(Icons.Outlined.Settings, contentDescription = "Cài đặt")
                         }
                     }
                     Spacer(Modifier.width(8.dp))
-                    // (tuỳ chọn) nút thêm
+                    // optional
                     Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
                         IconButton(onClick = { /* TODO: action khác */ }) {
                             Icon(Icons.Outlined.Add, contentDescription = "Thêm")
                         }
                     }
                     Spacer(Modifier.width(8.dp))
-                    // Đăng xuất
+                    // logout
                     Surface(shape = CircleShape, color = Color.White.copy(.7f)) {
                         IconButton(onClick = onLogout) {
                             Icon(Icons.Outlined.Logout, contentDescription = "Đăng xuất")
@@ -69,8 +70,8 @@ fun ProfileScreen(
                     }
                 }
             )
-        }
-        // ❌ KHÔNG có bottomBar ở Profile
+        },
+        bottomBar = bottomBar
     ) { padding ->
         when {
             ui.loading -> Box(
@@ -78,7 +79,9 @@ fun ProfileScreen(
                     .padding(padding)
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
+            ) {
+                CircularProgressIndicator()
+            }
 
             ui.profile != null -> ProfileContent(
                 modifier = Modifier.padding(padding),
@@ -91,7 +94,9 @@ fun ProfileScreen(
                     .padding(padding)
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
-            ) { Text(ui.message ?: "Không có dữ liệu") }
+            ) {
+                Text(ui.message ?: "Không có dữ liệu")
+            }
         }
     }
 }
@@ -105,6 +110,7 @@ private fun ProfileContent(
     val p = state.profile!!
 
     Box(modifier = modifier.fillMaxSize()) {
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,9 +126,13 @@ private fun ProfileContent(
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(Modifier.height(36.dp))
 
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 AvatarWithEditBadge(text = p.user.initial(), onEdit = onEditAvatar)
             }
+
             Spacer(Modifier.height(8.dp))
             Text(
                 text = p.user.bestName(),
@@ -140,6 +150,7 @@ private fun ProfileContent(
             )
 
             Spacer(Modifier.height(16.dp))
+
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -229,7 +240,12 @@ private fun AvatarWithEditBadge(text: String, onEdit: () -> Unit) {
 }
 
 @Composable
-private fun StatsRowCard(posts: Int, following: Int, followers: Int, modifier: Modifier = Modifier) {
+private fun StatsRowCard(
+    posts: Int,
+    following: Int,
+    followers: Int,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(18.dp),
@@ -244,9 +260,19 @@ private fun StatsRowCard(posts: Int, following: Int, followers: Int, modifier: M
             verticalAlignment = Alignment.CenterVertically
         ) {
             StatMini(number = posts, label = "Bài đăng")
-            Divider(modifier = Modifier.height(28.dp).width(1.dp), color = Bg)
+            Divider(
+                modifier = Modifier
+                    .height(28.dp)
+                    .width(1.dp),
+                color = Bg
+            )
             StatMini(number = following, label = "Đang theo dõi")
-            Divider(modifier = Modifier.height(28.dp).width(1.dp), color = Bg)
+            Divider(
+                modifier = Modifier
+                    .height(28.dp)
+                    .width(1.dp),
+                color = Bg
+            )
             StatMini(number = followers, label = "Người theo dõi")
         }
     }
@@ -256,7 +282,11 @@ private fun StatsRowCard(posts: Int, following: Int, followers: Int, modifier: M
 private fun StatMini(number: Int, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("$number", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -284,10 +314,16 @@ private fun ChevronItem(
                     .clip(CircleShape)
                     .background(iconTint.copy(alpha = .12f)),
                 contentAlignment = Alignment.Center
-            ) { Icon(icon, contentDescription = null, tint = iconTint) }
+            ) {
+                Icon(icon, contentDescription = null, tint = iconTint)
+            }
             Spacer(Modifier.width(12.dp))
             Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Icon(Icons.Outlined.ChevronRight, contentDescription = "Mở", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = "Mở",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

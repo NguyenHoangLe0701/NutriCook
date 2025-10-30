@@ -28,7 +28,12 @@ object AuthManager {
         }
     }
 
-    suspend fun register(email: String, password: String): AuthResult {
+    suspend fun register(
+        email: String,
+        password: String,
+        password1: String,
+        confirmPassword: String
+    ): AuthResult {
         return try {
             auth.createUserWithEmailAndPassword(email.trim(), password).await()
             // Có thể gửi email verify nếu muốn:
