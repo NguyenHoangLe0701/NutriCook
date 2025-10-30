@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,25 +36,22 @@ import com.example.nutricook.view.recipes.RecipeDetailScreen
 import com.example.nutricook.view.recipes.RecipeDirectionsScreen
 import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
-import com.example.nutricook.viewmodel.auth.AuthEvent
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
-    // lấy AuthViewModel 1 lần ở ngoài
+    // lấy auth ngoài cùng để quyết định start
     val authVm: AuthViewModel = hiltViewModel()
     val authState by authVm.uiState.collectAsState()
 
-    // nếu đã có currentUser -> start từ home, còn không -> intro
-    val startDestination = remember(authState.currentUser) {
-        if (authState.currentUser != null) "home" else "intro"
-    }
+    // nếu đã đăng nhập thì bỏ intro/login
+    val startDestination = if (authState.currentUser != null) "home" else "intro"
 
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // INTRO ---------------------------------------------------
+        // ========== INTRO ==========
         composable("intro") {
             if (authState.currentUser != null) {
                 LaunchedEffect(Unit) {
@@ -64,7 +64,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // ONBOARDING ----------------------------------------------
+        // ========== ONBOARDING ==========
         composable("onboarding") {
             if (authState.currentUser != null) {
                 LaunchedEffect(Unit) {
@@ -77,11 +77,12 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // LOGIN ---------------------------------------------------
+        // ========== LOGIN ==========
         composable("login") {
-            // nếu đã login thì push sang home
-            LaunchedEffect(authState.currentUser) {
-                if (authState.currentUser != null) {
+            val state = authState
+
+            LaunchedEffect(state.currentUser) {
+                if (state.currentUser != null) {
                     navController.navigate("home") {
                         popUpTo("login") { inclusive = true }
                         launchSingleTop = true
@@ -97,7 +98,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // REGISTER ------------------------------------------------
+        // ========== REGISTER ==========
         composable("register") {
             RegisterScreen(
                 onGoLogin = {
@@ -109,7 +110,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // HOME (có bottom bar) ------------------------------------
+        // ========== HOME (BOTTOM) ==========
         composable("home") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -120,7 +121,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // CATEGORIES ----------------------------------------------
+        // ========== CATEGORIES (BOTTOM) ==========
         composable("categories") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -131,7 +132,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // RECIPES -------------------------------------------------
+        // ========== RECIPES (BOTTOM) ==========
         composable("recipes") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -141,12 +142,13 @@ fun NavGraph(navController: NavHostController) {
                         .padding(paddingValues)
                         .fillMaxSize()
                 ) {
-                    RecipeDiscoveryScreen(navController)
+                    // màn này load list món ăn
+                    RecipeDiscoveryScreen(navController)  // :contentReference[oaicite:1]{index=1}
                 }
             }
         }
 
-        // PROFILE -------------------------------------------------
+        // ========== PROFILE (BOTTOM) ==========
         composable("profile") {
             ProfileScreen(
                 onOpenSettings = { navController.navigate("settings") },
@@ -154,13 +156,12 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // SETTINGS (có logout) ------------------------------------
+        // ========== SETTINGS (BOTTOM) ==========
         composable("settings") {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onLogout = {
-                    // ✅ dùng event thay vì gọi hàm private
-                    authVm.onEvent(AuthEvent.Logout)
+                    authVm.signOut()
                     navController.navigate("login") {
                         popUpTo("home") { inclusive = true }
                         launchSingleTop = true
@@ -170,7 +171,115 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // RECIPE DETAIL -------------------------------------------
+        // ========== INGREDIENTS (BOTTOM) ==========
+        composable("ingredients") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize()
+                ) {
+                    IngredientsFilterScreen(navController = navController)
+                }
+            }
+        }
+
+        // ========== INGREDIENT BROWSER (BOTTOM) ==========
+        composable("ingredient_browser") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize()
+                ) {
+                    IngredientBrowserScreen(navController = navController)
+                }
+            }
+        }
+
+        // ========== NUTRITION DETAIL (BOTTOM) ==========
+        composable("nutrition_detail") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize()
+                ) {
+                    NutritionDetailScreen(navController = navController)
+                }
+            }
+        }
+
+        // ========== CREATE RECIPE (BOTTOM) ==========
+        composable("create_recipe") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize()
+                ) {
+                    CreateRecipeScreen(navController = navController)
+                }
+            }
+        }
+
+        // ========== NOTIFICATIONS (BOTTOM) ==========
+        composable("notifications") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize()
+                ) {
+                    NotificationsScreen(navController)
+                }
+            }
+        }
+
+        // ========== RECENT ACTIVITY (BOTTOM) ==========
+        composable("recent_activity") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues)) {
+                    Text("Recent Activity Screen", modifier = Modifier.padding(16.dp))
+                }
+            }
+        }
+
+        // ========== POSTS (BOTTOM) ==========
+        composable("posts") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues)) {
+                    Text("Posts Screen", modifier = Modifier.padding(16.dp))
+                }
+            }
+        }
+
+        // ========== EDIT PROFILE (BOTTOM) ==========
+        composable("edit_profile") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues)) {
+                    Text("Edit Profile Screen", modifier = Modifier.padding(16.dp))
+                }
+            }
+        }
+
+        // ========== DETAIL MÀN – KHÔNG BOTTOM ==========
         composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
             val imageRes =
@@ -178,30 +287,14 @@ fun NavGraph(navController: NavHostController) {
             RecipeDetailScreen(navController, recipeTitle, imageRes)
         }
 
-        // INGREDIENTS ---------------------------------------------
-        composable("ingredients") {
-            IngredientsFilterScreen(navController = navController)
-        }
-
         composable("ingredient_detail/{ingredientName}") { backStackEntry ->
             val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
             IngredientDetailScreen(navController, ingredientName)
         }
 
-        composable("ingredient_browser") {
-            IngredientBrowserScreen(navController = navController)
-        }
-
-        composable("nutrition_detail") {
-            NutritionDetailScreen(navController = navController)
-        }
-
-        composable("create_recipe") {
-            CreateRecipeScreen(navController = navController)
-        }
-
         composable("upload_success") {
-            RecipeUploadSuccessScreen(navController)
+            // màn này tự điều hướng về home bằng nút, không cần bottom
+            RecipeUploadSuccessScreen(navController)  // :contentReference[oaicite:2]{index=2}
         }
 
         composable("recipe_direction") {
@@ -214,41 +307,6 @@ fun NavGraph(navController: NavHostController) {
 
         composable("exercise_suggestions") {
             ExerciseSuggestionsScreen(navController)
-        }
-
-        // MÀN PHỤ -------------------------------------------------
-        composable("recent_activity") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    Text("Recent Activity Screen", modifier = Modifier.padding(16.dp))
-                }
-            }
-        }
-
-        composable("posts") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    Text("Posts Screen", modifier = Modifier.padding(16.dp))
-                }
-            }
-        }
-
-        composable("edit_profile") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    Text("Edit Profile Screen", modifier = Modifier.padding(16.dp))
-                }
-            }
-        }
-
-        composable("notifications") {
-            NotificationsScreen(navController)
         }
     }
 }

@@ -106,7 +106,7 @@ class AuthViewModel @Inject constructor(
     }
 
     // -------- Sign out --------
-    private fun signOut() = viewModelScope.launch {
+    fun signOut() = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true) }
         sessionRepo.signOut()
         _uiState.update {
