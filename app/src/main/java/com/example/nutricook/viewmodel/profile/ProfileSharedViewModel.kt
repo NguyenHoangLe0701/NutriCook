@@ -14,21 +14,31 @@ data class ProfileSharedUiState(
     val loading: Boolean = true,
     val message: String? = null,
     val myProfile: Profile? = null,
+
+    // các field để binding lên SettingsScreen
     val fullName: String = "",
     val email: String = "",
     val dayOfBirth: String = "",
     val gender: String = "Male",
+
     val saving: Boolean = false
 )
 
 sealed interface ProfileSharedEvent {
     data object Refresh : ProfileSharedEvent
     data object SaveSettings : ProfileSharedEvent
-    data class FullNameChanged(val v: String): ProfileSharedEvent
-    data class EmailChanged(val v: String): ProfileSharedEvent
-    data class DobChanged(val v: String): ProfileSharedEvent
-    data class GenderChanged(val v: String): ProfileSharedEvent
-    data class ChangePassword(val old: String, val new: String): ProfileSharedEvent
+
+    data class FullNameChanged(val v: String) : ProfileSharedEvent
+    data class EmailChanged(val v: String) : ProfileSharedEvent
+    data class DobChanged(val v: String) : ProfileSharedEvent
+    data class GenderChanged(val v: String) : ProfileSharedEvent
+
+    // đổi mật khẩu
+    data class ChangePassword(val old: String, val new: String) : ProfileSharedEvent
+
+    // đổi avatar từ Settings (vẫn để event cho tương lai)
+    data class ChangeAvatar(val localUri: String) : ProfileSharedEvent
+
     data object Consume : ProfileSharedEvent
 }
 
@@ -40,7 +50,9 @@ class ProfileSharedViewModel @Inject constructor(
     private val _ui = MutableStateFlow(ProfileSharedUiState())
     val uiState = _ui.asStateFlow()
 
-    init { onEvent(ProfileSharedEvent.Refresh) }
+    init {
+        onEvent(ProfileSharedEvent.Refresh)
+    }
 
     fun onEvent(e: ProfileSharedEvent) {
         when (e) {
@@ -51,14 +63,18 @@ class ProfileSharedViewModel @Inject constructor(
                     _ui.value = _ui.value.copy(
                         loading = false,
                         myProfile = p,
-                        fullName = p.user.displayName?.ifBlank { p.user.email.substringBefore("@") }
-                            ?: p.user.email.substringBefore("@"),
+                        fullName = p.user.displayName?.ifBlank {
+                            p.user.email.substringBefore("@")
+                        } ?: p.user.email.substringBefore("@"),
                         email = p.user.email,
                         dayOfBirth = p.dayOfBirth.orEmpty(),
                         gender = p.gender ?: "Male"
                     )
                 } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(loading = false, message = ex.message ?: "Lỗi tải hồ sơ")
+                    _ui.value = _ui.value.copy(
+                        loading = false,
+                        message = ex.message ?: "Lỗi tải hồ sơ"
+                    )
                 }
             }
 
@@ -71,31 +87,70 @@ class ProfileSharedViewModel @Inject constructor(
                         email = s.email,
                         dayOfBirth = s.dayOfBirth.ifBlank { null },
                         gender = s.gender.ifBlank { null },
-                        bio = s.myProfile?.bio // giữ bio hiện tại (hoặc UI cho phép sửa thì truyền từ state)
+                        bio = s.myProfile?.bio
                     )
-                    _ui.value = _ui.value.copy(saving = false, message = "Đã lưu thay đổi")
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        message = "Đã lưu thay đổi"
+                    )
+                    // load lại để đồng bộ
                     onEvent(ProfileSharedEvent.Refresh)
                 } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(saving = false, message = ex.message ?: "Không thể lưu")
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        message = ex.message ?: "Không thể lưu"
+                    )
                 }
             }
 
-            is ProfileSharedEvent.FullNameChanged -> _ui.value = _ui.value.copy(fullName = e.v)
-            is ProfileSharedEvent.EmailChanged    -> _ui.value = _ui.value.copy(email = e.v)
-            is ProfileSharedEvent.DobChanged      -> _ui.value = _ui.value.copy(dayOfBirth = e.v)
-            is ProfileSharedEvent.GenderChanged   -> _ui.value = _ui.value.copy(gender = e.v)
+            is ProfileSharedEvent.FullNameChanged ->
+                _ui.value = _ui.value.copy(fullName = e.v)
+
+            is ProfileSharedEvent.EmailChanged ->
+                _ui.value = _ui.value.copy(email = e.v)
+
+            is ProfileSharedEvent.DobChanged ->
+                _ui.value = _ui.value.copy(dayOfBirth = e.v)
+
+            is ProfileSharedEvent.GenderChanged ->
+                _ui.value = _ui.value.copy(gender = e.v)
 
             is ProfileSharedEvent.ChangePassword -> viewModelScope.launch {
                 _ui.value = _ui.value.copy(saving = true, message = null)
                 try {
                     repo.changePassword(e.old, e.new)
-                    _ui.value = _ui.value.copy(saving = false, message = "Đổi mật khẩu thành công")
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        message = "Đổi mật khẩu thành công"
+                    )
                 } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(saving = false, message = ex.message ?: "Đổi mật khẩu thất bại")
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        message = ex.message ?: "Đổi mật khẩu thất bại"
+                    )
                 }
             }
 
-            ProfileSharedEvent.Consume -> _ui.value = _ui.value.copy(message = null)
+            // event này vẫn để – nếu repo chưa hỗ trợ thì bạn tạm không gọi trong UI
+            is ProfileSharedEvent.ChangeAvatar -> viewModelScope.launch {
+                _ui.value = _ui.value.copy(saving = true, message = null)
+                try {
+                    repo.updateAvatar(e.localUri)
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        message = "Đã đổi ảnh đại diện"
+                    )
+                    onEvent(ProfileSharedEvent.Refresh)
+                } catch (ex: Exception) {
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        message = ex.message ?: "Không thể đổi ảnh"
+                    )
+                }
+            }
+
+            ProfileSharedEvent.Consume ->
+                _ui.value = _ui.value.copy(message = null)
         }
     }
 }

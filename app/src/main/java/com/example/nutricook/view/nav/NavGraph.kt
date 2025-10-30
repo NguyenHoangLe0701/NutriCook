@@ -1,7 +1,10 @@
 package com.example.nutricook.view.nav
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -10,44 +13,77 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.nutricook.R
-import com.example.nutricook.ui.screens.profile.ProfileScreen
-import com.example.nutricook.view.intro.IntroScreen
-import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
-import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.categories.CategoriesScreen
-import com.example.nutricook.view.recipes.*
+import com.example.nutricook.view.home.HomeScreen
+import com.example.nutricook.view.home.NutritionDetailScreen
+import com.example.nutricook.view.intro.IntroScreen
+import com.example.nutricook.view.intro.OnboardingScreen
+import com.example.nutricook.view.notifications.NotificationsScreen
+import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
 import com.example.nutricook.view.profile.ProfileScreen
 import com.example.nutricook.view.profile.RecipeGuidanceScreen
-import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
-import com.example.nutricook.view.recipes.IngredientsFilterScreen
-import com.example.nutricook.view.notifications.NotificationsScreen
-import com.example.nutricook.view.home.NutritionDetailScreen
+import com.example.nutricook.view.profile.SettingsScreen
+import com.example.nutricook.view.recipes.CreateRecipeScreen
+import com.example.nutricook.view.recipes.IngredientBrowserScreen
 import com.example.nutricook.view.recipes.IngredientDetailScreen
+import com.example.nutricook.view.recipes.IngredientsFilterScreen
+import com.example.nutricook.view.recipes.RecipeDetailScreen
+import com.example.nutricook.view.recipes.RecipeDirectionsScreen
+import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
+import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
+import com.example.nutricook.viewmodel.auth.AuthEvent
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = "intro") {
+    // lấy AuthViewModel 1 lần ở ngoài
+    val authVm: AuthViewModel = hiltViewModel()
+    val authState by authVm.uiState.collectAsState()
 
-        // INTRO
-        composable("intro") { IntroScreen(navController) }
-        composable("onboarding") { OnboardingScreen(navController) }
+    // nếu đã có currentUser -> start từ home, còn không -> intro
+    val startDestination = remember(authState.currentUser) {
+        if (authState.currentUser != null) "home" else "intro"
+    }
 
-        // LOGIN (khớp LoginScreen: onGoRegister, onBack, onForgotPassword, vm) :contentReference[oaicite:0]{index=0}
-        composable("login") {
-            val authVm: AuthViewModel = hiltViewModel()
-            val state by authVm.uiState.collectAsState()
-
-            // nếu đã login ok -> đi home và clear intro/login
-            LaunchedEffect(state.currentUser) {
-                if (state.currentUser != null) {
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        // INTRO ---------------------------------------------------
+        composable("intro") {
+            if (authState.currentUser != null) {
+                LaunchedEffect(Unit) {
                     navController.navigate("home") {
-                        // clear về start để back không quay lại login
-                        popUpTo(navController.graph.startDestinationId) {
-                            inclusive = true
-                        }
+                        popUpTo("intro") { inclusive = true }
+                    }
+                }
+            } else {
+                IntroScreen(navController)
+            }
+        }
+
+        // ONBOARDING ----------------------------------------------
+        composable("onboarding") {
+            if (authState.currentUser != null) {
+                LaunchedEffect(Unit) {
+                    navController.navigate("home") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                }
+            } else {
+                OnboardingScreen(navController)
+            }
+        }
+
+        // LOGIN ---------------------------------------------------
+        composable("login") {
+            // nếu đã login thì push sang home
+            LaunchedEffect(authState.currentUser) {
+                if (authState.currentUser != null) {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
                         launchSingleTop = true
                     }
                 }
@@ -56,29 +92,24 @@ fun NavGraph(navController: NavHostController) {
             LoginScreen(
                 onGoRegister = { navController.navigate("register") },
                 onBack = { navController.popBackStack() },
-                onForgotPassword = {
-                    // TODO: điều hướng tới màn quên mật khẩu nếu có
-                },
+                onForgotPassword = { /* TODO */ },
                 vm = authVm
             )
         }
 
-        // REGISTER (khớp RegisterScreen: onGoLogin, onBack, vm) :contentReference[oaicite:1]{index=1}
+        // REGISTER ------------------------------------------------
         composable("register") {
-            val authVm: AuthViewModel = hiltViewModel()
-
             RegisterScreen(
                 onGoLogin = {
                     navController.navigate("login") {
                         launchSingleTop = true
                     }
                 },
-                onBack = { navController.popBackStack() },
-                vm = authVm
+                onBack = { navController.popBackStack() }
             )
         }
 
-        // HOME (có bottom bar)
+        // HOME (có bottom bar) ------------------------------------
         composable("home") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -89,7 +120,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // CATEGORIES (có bottom bar)
+        // CATEGORIES ----------------------------------------------
         composable("categories") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -100,7 +131,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // RECIPES (có bottom bar)
+        // RECIPES -------------------------------------------------
         composable("recipes") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -115,23 +146,31 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // PROFILE (giữ cách gọi cũ của ông — nếu ProfileScreen chuyển sang callback thì sửa tại đây)
+        // PROFILE -------------------------------------------------
         composable("profile") {
-            Scaffold(
+            ProfileScreen(
+                onOpenSettings = { navController.navigate("settings") },
                 bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    ProfileScreen(navController)
-                }
-            }
+            )
         }
 
-        // alias cũ
-        composable("recipe_discovery") {
-            RecipeDiscoveryScreen(navController)
+        // SETTINGS (có logout) ------------------------------------
+        composable("settings") {
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onLogout = {
+                    // ✅ dùng event thay vì gọi hàm private
+                    authVm.onEvent(AuthEvent.Logout)
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                bottomBar = { BottomNavigationBar(navController) }
+            )
         }
 
-        // Recipe Detail
+        // RECIPE DETAIL -------------------------------------------
         composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
             val imageRes =
@@ -139,12 +178,11 @@ fun NavGraph(navController: NavHostController) {
             RecipeDetailScreen(navController, recipeTitle, imageRes)
         }
 
-        // Ingredients Filter
+        // INGREDIENTS ---------------------------------------------
         composable("ingredients") {
             IngredientsFilterScreen(navController = navController)
         }
 
-        // Ingredient Detail
         composable("ingredient_detail/{ingredientName}") { backStackEntry ->
             val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
             IngredientDetailScreen(navController, ingredientName)
@@ -178,6 +216,7 @@ fun NavGraph(navController: NavHostController) {
             ExerciseSuggestionsScreen(navController)
         }
 
+        // MÀN PHỤ -------------------------------------------------
         composable("recent_activity") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -204,16 +243,6 @@ fun NavGraph(navController: NavHostController) {
             ) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
                     Text("Edit Profile Screen", modifier = Modifier.padding(16.dp))
-                }
-            }
-        }
-
-        composable("settings") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    Text("Settings Screen", modifier = Modifier.padding(16.dp))
                 }
             }
         }
