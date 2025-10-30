@@ -23,21 +23,33 @@ class FirebaseProfileRepository @Inject constructor(
     private val storage: FirebaseStorage
 ) : ProfileRepository {
 
+    companion object {
+        private const val USERS = "users"
+    }
+
     private fun requireUid(): String =
         auth.currentUser?.uid ?: error("Chưa đăng nhập")
 
-    private fun users() = db.collection("users")
+    private fun users() = db.collection(USERS)
     private fun userDoc(uid: String) = users().document(uid)
 
+    // ===================== FLOW =====================
     override fun myProfileFlow(): Flow<Profile?> = callbackFlow {
         val uid = auth.currentUser?.uid
-        if (uid == null) { trySend(null); close(); return@callbackFlow }
+        if (uid == null) {
+            trySend(null)
+            close()
+            return@callbackFlow
+        }
+
         val reg = userDoc(uid).addSnapshotListener { snap, _ ->
             trySend(snap?.toDomain())
         }
+
         awaitClose { reg.remove() }
     }
 
+    // ===================== GET =====================
     override suspend fun getMyProfile(): Profile =
         getProfileByUid(requireUid())
 
@@ -45,7 +57,7 @@ class FirebaseProfileRepository @Inject constructor(
         val doc = userDoc(uid)
         var snap = doc.get().await()
 
-        // Nếu chưa có hồ sơ -> tạo mặc định
+        // nếu chưa có -> tạo 1 bản default từ user đăng nhập
         if (!snap.exists()) {
             val u = auth.currentUser ?: error("Chưa đăng nhập")
             val data = mapOf(
@@ -65,6 +77,7 @@ class FirebaseProfileRepository @Inject constructor(
         return snap.toDomain() ?: error("Không tạo được hồ sơ")
     }
 
+    // ===================== UPDATE PROFILE =====================
     override suspend fun updateProfile(
         fullName: String?,
         email: String?,
@@ -75,18 +88,20 @@ class FirebaseProfileRepository @Inject constructor(
         val uid = requireUid()
         val current = auth.currentUser ?: error("Chưa đăng nhập")
 
-        // Đổi email nếu khác
+        // Đổi email trong FirebaseAuth nếu thay đổi
         if (!email.isNullOrBlank() && email != current.email) {
             try {
                 current.updateEmail(email).await()
             } catch (e: Exception) {
                 if (e is FirebaseAuthRecentLoginRequiredException) {
                     throw IllegalStateException("Phiên đăng nhập đã cũ, vui lòng đăng nhập lại trước khi đổi email.")
-                } else throw e
+                } else {
+                    throw e
+                }
             }
         }
 
-        // Update Firestore
+        // Map dữ liệu để lưu Firestore
         val data = buildMap<String, Any> {
             fullName?.let { put("displayName", it) }
             email?.let { put("email", it) }
@@ -95,43 +110,59 @@ class FirebaseProfileRepository @Inject constructor(
             bio?.let { put("bio", it) }
             put("updatedAt", FieldValue.serverTimestamp())
         }
-        if (data.isNotEmpty()) userDoc(uid).update(data).await()
+
+        // ❗ Dùng set(..., merge) để nếu doc chưa tồn tại thì sẽ tạo mới
+        if (data.isNotEmpty()) {
+            userDoc(uid).set(data, SetOptions.merge()).await()
+        }
     }
 
+    // ===================== UPDATE AVATAR =====================
     override suspend fun updateAvatar(localUri: String): String {
         val uid = requireUid()
         val ref = storage.reference.child("avatars/$uid.jpg")
+
+        // upload
         ref.putFile(Uri.parse(localUri)).await()
+
+        // lấy url
         val url = ref.downloadUrl.await().toString()
-        userDoc(uid).update(
+
+        // lưu vào firestore (merge để không lỗi nếu doc chưa có)
+        userDoc(uid).set(
             mapOf(
                 "avatarUrl" to url,
                 "updatedAt" to FieldValue.serverTimestamp()
-            )
+            ),
+            SetOptions.merge()
         ).await()
+
         return url
     }
 
+    // ===================== FOLLOW =====================
     override suspend fun setFollow(targetUid: String, follow: Boolean) {
         val me = requireUid()
         val meDoc = userDoc(me)
         val targetDoc = userDoc(targetUid)
         val followingRef = meDoc.collection("following").document(targetUid)
-        val followerRef  = targetDoc.collection("followers").document(me)
+        val followerRef = targetDoc.collection("followers").document(me)
 
         db.runTransaction { t ->
             val already = t.get(followingRef).exists()
+
             if (follow && !already) {
                 t.set(followingRef, mapOf("at" to FieldValue.serverTimestamp()))
-                t.set(followerRef,  mapOf("at" to FieldValue.serverTimestamp()))
-                t.update(meDoc,     "following", FieldValue.increment(1))
+                t.set(followerRef, mapOf("at" to FieldValue.serverTimestamp()))
+                t.update(meDoc, "following", FieldValue.increment(1))
                 t.update(targetDoc, "followers", FieldValue.increment(1))
             } else if (!follow && already) {
                 t.delete(followingRef)
                 t.delete(followerRef)
-                t.update(meDoc,     "following", FieldValue.increment(-1))
+                t.update(meDoc, "following", FieldValue.increment(-1))
                 t.update(targetDoc, "followers", FieldValue.increment(-1))
             }
+
             null
         }.await()
     }
@@ -142,17 +173,20 @@ class FirebaseProfileRepository @Inject constructor(
         return snap.exists()
     }
 
+    // ===================== CHANGE PASSWORD =====================
     override suspend fun changePassword(oldPassword: String, newPassword: String) {
         val user = auth.currentUser ?: error("Chưa đăng nhập")
         val email = user.email ?: error("Tài khoản không có email")
+
         val credential = EmailAuthProvider.getCredential(email, oldPassword)
         user.reauthenticate(credential).await()
         user.updatePassword(newPassword).await()
     }
 
-    /* ===== Mapping Firestore -> Domain ===== */
+    // ===================== MAPPING =====================
     private fun DocumentSnapshot.toDomain(): Profile? {
         if (!exists()) return null
+
         val uid = id
         val email = getString("email") ?: ""
         val displayName = getString("displayName")
@@ -170,6 +204,7 @@ class FirebaseProfileRepository @Inject constructor(
             displayName = displayName,
             avatarUrl = avatarUrl
         )
+
         return Profile(
             user = user,
             posts = posts,
