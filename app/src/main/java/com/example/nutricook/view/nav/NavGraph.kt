@@ -16,6 +16,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.nutricook.R
+import com.example.nutricook.view.recipes.RecipeStepFinalScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
 import com.example.nutricook.view.categories.CategoriesScreen
@@ -35,6 +36,9 @@ import com.example.nutricook.view.recipes.IngredientsFilterScreen
 import com.example.nutricook.view.recipes.RecipeDetailScreen
 import com.example.nutricook.view.recipes.RecipeDirectionsScreen
 import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
+import com.example.nutricook.view.recipes.RecipeStep2Screen
+import com.example.nutricook.view.recipes.RecipeInfoScreen
+import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 
@@ -308,8 +312,22 @@ fun NavGraph(navController: NavHostController) {
         composable("exercise_suggestions") {
             ExerciseSuggestionsScreen(navController)
         }
+        //  ========== RECIPE STEPS ==========
+        composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->
+            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown Recipe"
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
+            RecipeInfoScreen(navController, recipeTitle, imageRes)
+        }
 
-//
+        composable("recipe_step") {
+            RecipeStepScreen(navController)
+        }
+        composable("recipe_step2") {
+            RecipeStep2Screen(navController)
+        }
+        composable("recipe_step_final") {
+            RecipeStepFinalScreen(navController)
+        }
 
     }
 }

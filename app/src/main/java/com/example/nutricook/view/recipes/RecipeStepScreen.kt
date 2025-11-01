@@ -38,7 +38,6 @@ fun RecipeStepScreen(navController: NavController) {
                     }
                 },
                 actions = {
-                    // Avatar hoặc icon người dùng góc phải
                     IconButton(onClick = { /* Profile */ }) {
                         Image(
                             painter = painterResource(id = R.drawable.avatar_sample),
@@ -96,21 +95,23 @@ fun RecipeStepScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 items(ingredients.size) { index ->
                     val (title, imageRes) = ingredients[index]
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White)
-                            .padding(16.dp)
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(16.dp),
+                        tonalElevation = 2.dp, // tạo bóng nhẹ
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(
                                 text = title,
@@ -132,25 +133,31 @@ fun RecipeStepScreen(navController: NavController) {
             // 🟩 Nút Continue
             Button(
                 onClick = { navController.navigate("recipe_step2") },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2AD1C0)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp)
                     .height(52.dp)
             ) {
-                Text(
-                    text = "Continue",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_back),
-                    contentDescription = "Next",
-                    tint = Color.White
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Continue",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_next_arrow),
+                        contentDescription = "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }

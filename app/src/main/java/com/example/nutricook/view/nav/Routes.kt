@@ -27,4 +27,9 @@ internal object Routes {
     const val EDIT_PROFILE = "edit_profile"
     const val SETTINGS = "settings"
     const val NOTIFICATIONS = "notifications"
+
+    const val RECIPE_INFO = "recipe_info/{recipeTitle}/{imageRes}"
+    const val RECIPE_STEP = "recipe_step"
+    const val RECIPE_STEP_FINAL = "recipe_step_final"
+    const val RECIPE_STEP2 = "recipe_step2"
 }

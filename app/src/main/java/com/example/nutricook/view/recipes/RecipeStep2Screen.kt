@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,7 +32,8 @@ fun RecipeStep2Screen(navController: NavController) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = Color.Black
                         )
                     }
                 },
@@ -96,40 +98,45 @@ fun RecipeStep2Screen(navController: NavController) {
 
             // 🖼️ Image
             Image(
-                painter = painterResource(id = R.drawable.beefandcabbage), // Thay hình cho phù hợp
-                contentDescription = "Cooking Step 2",
+                painter = painterResource(id = R.drawable.beefandcabbage),
+                contentDescription = "Food Image",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .height(350.dp)
+                    .clip(RoundedCornerShape(20.dp))
             )
 
             Spacer(modifier = Modifier.height(30.dp))
 
             // 🔘 Continue button
             Button(
-                onClick = {
-                    navController.navigate("recipe_step_final")
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2AD1C0)),
+                onClick = { navController.navigate("recipe_step_final") },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp)
                     .height(52.dp)
             ) {
-                Text(
-                    text = "Continue",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(
-                    painter = painterResource(id = R.drawable.icon_arrow_right),
-                    contentDescription = "Next",
-                    tint = Color.White
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Continue",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_next_arrow),
+                        contentDescription = "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
