@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ⚠️ Bổ sung quyền gửi thông báo cho Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".NutriCookApp"
         android:allowBackup="true"
@@ -9,6 +12,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.NutriCook">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -17,6 +21,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 👇 Khai báo BroadcastReceiver để nhận lịch nhắc -->
+        <receiver
+            android:name=".view.notifications.ReminderReceiver"
+            android:exported="true" />
     </application>
 
 </manifest>

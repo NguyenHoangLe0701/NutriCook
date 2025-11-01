@@ -308,5 +308,8 @@ fun NavGraph(navController: NavHostController) {
         composable("exercise_suggestions") {
             ExerciseSuggestionsScreen(navController)
         }
+
+//
+
     }
 }
