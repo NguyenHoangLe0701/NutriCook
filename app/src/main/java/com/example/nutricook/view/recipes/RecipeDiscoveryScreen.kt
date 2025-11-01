@@ -49,7 +49,6 @@ data class TodayRecipe(
 
 @Composable
 fun RecipeDiscoveryScreen(navController: NavController) {
-    // ✅ Giữ dữ liệu ổn định, không tái tạo liên tục
     val categories = remember {
         listOf(
             RecipeCategory(
@@ -149,6 +148,7 @@ fun RecipeDiscoveryScreen(navController: NavController) {
         // 🍱 Category Cards
         items(categories) { recipe ->
             RecipeCategoryCard(recipe) {
+                // ✅ Khi bấm vào, chuyển sang RecipeDetailScreen
                 navController.navigate("recipe_detail/${recipe.title}/${recipe.imageRes}")
             }
         }
@@ -178,7 +178,10 @@ fun RecipeDiscoveryScreen(navController: NavController) {
 
         // 🍳 Today Recipes
         items(todayRecipes) { recipe ->
-            TodayRecipeItem(recipe)
+            TodayRecipeItem(recipe) {
+                // ✅ Khi bấm vào, mở RecipeInfoScreen
+                navController.navigate("recipe_info/${recipe.name}/${recipe.imageRes}")
+            }
         }
     }
 }
@@ -228,7 +231,7 @@ fun RecipeCategoryCard(recipe: RecipeCategory, onClick: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "+${recipe.additionalUsers}Khác",
+                        text = "+${recipe.additionalUsers} Khác",
                         fontSize = 12.sp,
                         color = Color.Gray
                     )
@@ -253,12 +256,12 @@ fun RecipeCategoryCard(recipe: RecipeCategory, onClick: () -> Unit) {
 }
 
 @Composable
-fun TodayRecipeItem(recipe: TodayRecipe) {
+fun TodayRecipeItem(recipe: TodayRecipe, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clickable { },
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
