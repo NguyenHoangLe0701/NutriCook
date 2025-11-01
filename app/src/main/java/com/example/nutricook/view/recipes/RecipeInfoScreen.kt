@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.example.nutricook.view.nav.Routes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,7 +53,7 @@ fun RecipeInfoScreen(navController: NavController, recipeTitle: String, imageRes
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -140,15 +142,32 @@ fun RecipeInfoScreen(navController: NavController, recipeTitle: String, imageRes
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
-                    onClick = { navController.navigate("recipe_step") },
+                    onClick = { navController.navigate(Routes.RECIPE_STEP) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF12B3AD)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(text = "Start Cooking", color = Color.White, fontSize = 16.sp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Start Cooking",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_next_arrow), // ← icon bạn thêm vào drawable
+                            contentDescription = "Next",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(40.dp))
             }
