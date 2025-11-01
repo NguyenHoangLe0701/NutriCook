@@ -22,6 +22,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
 import androidx.navigation.NavController
 import com.example.nutricook.R
 import androidx.compose.foundation.BorderStroke
@@ -137,46 +138,105 @@ fun HomeScreen(navController: NavController) {
                 }
             }
         }
-
-        // 🔹 Banner + Chỉ báo
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { navController.navigate("recipe_discovery") }
                     .padding(top = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 val pagerState = rememberPagerState(pageCount = { 3 })
+
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
                 ) { page ->
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 0.dp),
+                            .padding(horizontal = 16.dp)
+                            .clickable { navController.navigate("recipe_discovery") },
                         shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                     ) {
-                        Image(
-                            painter = when (page) {
-                                0 -> painterResource(id = R.drawable.banner_strawberry)
-                                1 -> painterResource(id = R.drawable.banner_chicken)
-                                2 -> painterResource(id = R.drawable.banner_fish)
-                                else -> painterResource(id = R.drawable.banner_strawberry)
-                            },
-                            contentDescription = "Banner công thức",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentScale = ContentScale.Crop
-                        )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // 🔹 Background màu
+                            Image(
+                                painter = when (page) {
+                                    0 -> painterResource(id = R.drawable.bg_banner_blue)
+                                    1 -> painterResource(id = R.drawable.bg_banner_orange)
+                                    2 -> painterResource(id = R.drawable.bg_banner_pink)
+                                    else -> painterResource(id = R.drawable.bg_banner_blue)
+                                },
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            // 🔹 Foreground xóa phông full size
+                            Image(
+                                painter = when (page) {
+                                    0 -> painterResource(id = R.drawable.food_salmon_nobg)
+                                    1 -> painterResource(id = R.drawable.food_chicken_nobg)
+                                    2 -> painterResource(id = R.drawable.food_strawberry_nobg)
+                                    else -> painterResource(id = R.drawable.food_salmon_nobg)
+                                },
+                                contentDescription = "Food Image",
+                                contentScale = ContentScale.Crop, // full size
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            // 🔹 Text + Button
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .padding(start = 20.dp)
+                            ) {
+                                Text(
+                                    text = when (page) {
+                                        0 -> "10 Top-Rated Salmon Recipes Inspired"
+                                        1 -> "Easy Chicken Meals for Busy Days"
+                                        2 -> "Fresh Strawberry Desserts to Try"
+                                        else -> ""
+                                    },
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                )
+
+                                Text(
+                                    text = when (page) {
+                                        0 -> "by the Mediterranean style..."
+                                        1 -> "Simple, healthy, and flavorful..."
+                                        2 -> "Sweet and refreshing ideas..."
+                                        else -> ""
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color.DarkGray
+                                    ),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+
+                                Button(
+                                    onClick = { navController.navigate("recipe_discovery") },
+                                    modifier = Modifier.padding(top = 8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF333333)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Read more", color = Color.White)
+                                }
+                            }
+                        }
                     }
                 }
 
+                // 🔁 Tự động chuyển banner
                 LaunchedEffect(Unit) {
                     while (isActive) {
                         delay(3000)
@@ -186,6 +246,7 @@ fun HomeScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // 🔹 Dot indicator
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
@@ -196,7 +257,10 @@ fun HomeScreen(navController: NavController) {
                                 .size(if (index == pagerState.currentPage) 10.dp else 6.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (index == pagerState.currentPage) Color(0xFF20B2AA) else Color(0xFFE0E0E0)
+                                    if (index == pagerState.currentPage)
+                                        Color(0xFF20B2AA)
+                                    else
+                                        Color(0xFFE0E0E0)
                                 )
                         )
                         if (index < 2) Spacer(modifier = Modifier.width(6.dp))
