@@ -139,9 +139,15 @@ fun RecipeDiscoveryScreen(navController: NavController) {
                     modifier = Modifier.weight(1f)
                 )
 
-                IconButton(onClick = { /* có thể mở bộ lọc */ }) {
-                    Icon(Icons.Default.GridView, contentDescription = "Switch View")
-                }
+                IconButton(onClick = { 
+    navController.navigate("ingredient_browser") 
+}) {
+    Icon(
+        Icons.Default.GridView,
+        contentDescription = "Ingredient Browser",
+        tint = Color(0xFF00BFA5) // tuỳ chọn: cho màu nhất quán
+    )
+}
             }
         }
 
