@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,8 +56,12 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { navController.popBackStack() }) {
-                    Text("← Quay lại")
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.Black
+                    )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(

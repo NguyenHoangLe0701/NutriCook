@@ -39,7 +39,9 @@ import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
 import com.example.nutricook.view.recipes.RecipeStep2Screen
 import com.example.nutricook.view.recipes.RecipeInfoScreen
 import com.example.nutricook.view.recipes.RecipeStepScreen
+import com.example.nutricook.view.recipes.NutritionFactsScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
+import com.example.nutricook.view.recipes.ReviewScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 
 @Composable
@@ -327,6 +329,14 @@ fun NavGraph(navController: NavHostController) {
         }
         composable("recipe_step_final") {
             RecipeStepFinalScreen(navController)
+        }
+
+        composable("nutrition_facts") {
+            NutritionFactsScreen(navController)
+        }
+
+        composable("review_screen") {
+            ReviewScreen(navController)
         }
 
     }
