@@ -16,6 +16,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.nutricook.R
+import com.example.nutricook.view.articles.ArticleDetailScreen
 import com.example.nutricook.view.recipes.RecipeStepFinalScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
@@ -338,6 +339,11 @@ fun NavGraph(navController: NavHostController) {
         composable("review_screen") {
             ReviewScreen(navController)
         }
+        //  ========== ARTICLE DETAIL ==========
+        composable("article_detail") {
+            ArticleDetailScreen(navController)
+        }
+
 
     }
 }
