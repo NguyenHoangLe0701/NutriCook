@@ -101,7 +101,7 @@ fun RecipeStepFinalScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = { navController.navigate("home") },
+                onClick = { navController.navigate("nutrition_facts") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
