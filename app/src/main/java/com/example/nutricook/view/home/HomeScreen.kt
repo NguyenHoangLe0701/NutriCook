@@ -557,7 +557,7 @@ fun HomeScreen(navController: NavController) {
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { navController.navigate("news_detail/${news.title}") }
+                            .clickable { navController.navigate("article_detail") }
                     ) {
                         Row(
                             modifier = Modifier
