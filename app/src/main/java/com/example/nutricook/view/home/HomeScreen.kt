@@ -1,5 +1,10 @@
 package com.example.nutricook.view.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -86,29 +91,54 @@ fun HomeScreen(navController: NavController) {
     ) {
         // 🔹 Thanh ứng dụng trên cùng
         item {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
-                IconButton(onClick = { navController.navigate("create_recipe") }, modifier = Modifier.size(40.dp)) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_notification_status),
-                        contentDescription = "Chỉnh sửa",
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                IconButton(onClick = { navController.navigate("notifications") }, modifier = Modifier.size(40.dp)) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_noti),
-                        contentDescription = "Thông báo",
-                        modifier = Modifier.size(28.dp)
-                    )
+                // Logo giữa — luôn nằm chính giữa tuyệt đối
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Logo ứng dụng",
+                    modifier = Modifier
+                        .width(120.dp) // 👈 giảm từ 150 xuống 120 cho cân
+                        .height(50.dp)
+                        .padding(vertical = 4.dp),
+                    contentScale = ContentScale.Fit
+                )
+
+                // Hai icon trái phải
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { navController.navigate("create_recipe") },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_notification_status),
+                            contentDescription = "Chỉnh sửa",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { navController.navigate("notifications") },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_noti),
+                            contentDescription = "Thông báo",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }
+
 
         // 🔹 Thanh tìm kiếm
         item {
@@ -345,91 +375,38 @@ fun HomeScreen(navController: NavController) {
                     }
                 )
             }
+
             Spacer(modifier = Modifier.height(12.dp))
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(2.dp, Color(0xFFB2EBF2))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.pineapple),
-                            contentDescription = "Dứa",
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFFF8E1)),
-                            contentScale = ContentScale.Crop
+
+            // ✅ Danh sách nhiều loại trái cây
+            val fruits = listOf(
+                FruitNutrition(
+                    name = "Dứa/Thơm",
+                    kcal = "48 kcal",
+                    weight = "100 g",
+                    image = R.drawable.pineapple,
+                    nutrition = listOf(
+                        NutritionData("0.12g", R.drawable.fat, "Fat"),
+                        NutritionData("12.63g", R.drawable.finger_cricle, "Carbs"),
+                        NutritionData("0.12g", R.drawable.protein, "Protein")
                         )
+                    ),
+                FruitNutrition(
+                    name = "Sầu riêng",
+                    kcal = "885 kcal",
+                    weight = "100 g",
+                    image = R.drawable.durian,
+                    nutrition = listOf(
+                        NutritionData("0.12g", R.drawable.fat, "Fat"),
+                        NutritionData("12.63g", R.drawable.finger_cricle, "Carbs"),
+                        NutritionData("0.12g", R.drawable.protein, "Protein")
+                    )
+                )
+            )
 
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column {
-                            Text(
-                                "Dứa/Thơm",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B1B1B)
-                            )
-                            Text(
-                                "48 kcal    100 g",
-                                fontSize = 13.sp,
-                                color = Color.Gray
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.bookmark),
-                                contentDescription = "Đánh dấu",
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clickable { /* TODO */ }
-                            )
-                            Image(
-                                painter = painterResource(id = R.drawable.minus_square),
-                                contentDescription = "Xóa",
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clickable { /* TODO */ }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        NutritionStatCard(
-                            value = "0.12g",
-                            iconRes = R.drawable.protein,
-                            modifier = Modifier.weight(1f)
-                        )
-                        NutritionStatCard(
-                            value = "12.63g",
-                            iconRes = R.drawable.finger_cricle,
-                            modifier = Modifier.weight(1f)
-                        )
-                        NutritionStatCard(
-                            value = "0.12g",
-                            iconRes = R.drawable.fat,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                fruits.forEach { fruit ->
+                    ExpandableFruitCard(fruit)
                 }
             }
         }
@@ -631,14 +608,7 @@ fun HomeScreen(navController: NavController) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Activity and Exercise", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Image(
-                        painter = painterResource(id = R.drawable.icon_ex), // Giả sử icon này tồn tại
-                        contentDescription = "Biểu tượng bài tập",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .padding(start = 8.dp)
-                    )
+                    Text("Activity and Exercise \uD83C\uDFCB", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(
                     "Xem tất cả",
@@ -699,18 +669,24 @@ fun HomeScreen(navController: NavController) {
 
 // 🔹 Component nhỏ cho từng ô dinh dưỡng
 @Composable
-fun NutritionStatCard(value: String, iconRes: Int, modifier: Modifier = Modifier) {
+fun NutritionStatCard(
+    value: String,
+    iconRes: Int,
+    label: String,
+    modifier: Modifier = Modifier
+) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FAFA)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFDCEFEF)),
         shape = RoundedCornerShape(12.dp),
         modifier = modifier
-            .height(64.dp)
+            .height(90.dp)
+            .width(100.dp)
             .padding(horizontal = 4.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(8.dp),
+                .padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -721,7 +697,115 @@ fun NutritionStatCard(value: String, iconRes: Int, modifier: Modifier = Modifier
                 contentScale = ContentScale.Fit
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(value, fontSize = 11.sp, color = Color(0xFF1B1B1B))
+            Text(
+                text = value,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1B1B1B)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                color = Color(0xFF6B6B6B)
+            )
+        }
+    }
+}
+
+data class NutritionData(
+    val value: String,
+    val iconRes: Int,
+    val label: String
+)
+
+data class FruitNutrition(
+    val name: String,
+    val kcal: String,
+    val weight: String,
+    val image: Int,
+    val nutrition: List<NutritionData>
+)
+
+@Composable
+fun ExpandableFruitCard(fruit: FruitNutrition) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(2.dp, Color(0xFFBDECEC))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = fruit.image),
+                    contentDescription = fruit.name,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFFFF8E1)),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        fruit.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1B1B1B)
+                    )
+                    Text(
+                        "${fruit.kcal}    ${fruit.weight}",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // ✅ Nút mở rộng / thu gọn
+                Image(
+                    painter = painterResource(
+                        id = if (isExpanded) R.drawable.minus_square else R.drawable.add_square
+                    ),
+                    contentDescription = if (isExpanded) "Thu gọn" else "Mở rộng",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { isExpanded = !isExpanded }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        fruit.nutrition.forEach { nut ->
+                            NutritionStatCard(
+                                value = nut.value,
+                                label = nut.label,
+                                iconRes = nut.iconRes,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
