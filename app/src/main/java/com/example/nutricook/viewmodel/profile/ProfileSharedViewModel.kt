@@ -36,7 +36,7 @@ sealed interface ProfileSharedEvent {
     // đổi mật khẩu
     data class ChangePassword(val old: String, val new: String) : ProfileSharedEvent
 
-    // đổi avatar từ Settings (vẫn để event cho tương lai)
+    // đổi avatar từ Settings
     data class ChangeAvatar(val localUri: String) : ProfileSharedEvent
 
     data object Consume : ProfileSharedEvent
@@ -50,38 +50,37 @@ class ProfileSharedViewModel @Inject constructor(
     private val _ui = MutableStateFlow(ProfileSharedUiState())
     val uiState = _ui.asStateFlow()
 
-    init {
-        onEvent(ProfileSharedEvent.Refresh)
-    }
+    init { onEvent(ProfileSharedEvent.Refresh) }
 
     fun onEvent(e: ProfileSharedEvent) {
         when (e) {
             ProfileSharedEvent.Refresh -> viewModelScope.launch {
                 _ui.value = _ui.value.copy(loading = true, message = null)
-                try {
-                    val p = repo.getMyProfile()
-                    _ui.value = _ui.value.copy(
-                        loading = false,
-                        myProfile = p,
-                        fullName = p.user.displayName?.ifBlank {
-                            p.user.email.substringBefore("@")
-                        } ?: p.user.email.substringBefore("@"),
-                        email = p.user.email,
-                        dayOfBirth = p.dayOfBirth.orEmpty(),
-                        gender = p.gender ?: "Male"
-                    )
-                } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(
-                        loading = false,
-                        message = ex.message ?: "Lỗi tải hồ sơ"
-                    )
-                }
+                runCatching { repo.getMyProfile() }
+                    .onSuccess { p ->
+                        _ui.value = _ui.value.copy(
+                            loading = false,
+                            myProfile = p,
+                            fullName = p.user.displayName?.ifBlank {
+                                p.user.email.substringBefore("@")
+                            } ?: p.user.email.substringBefore("@"),
+                            email = p.user.email,
+                            dayOfBirth = p.dayOfBirth.orEmpty(),
+                            gender = p.gender ?: "Male"
+                        )
+                    }
+                    .onFailure { ex ->
+                        _ui.value = _ui.value.copy(
+                            loading = false,
+                            message = ex.message ?: "Lỗi tải hồ sơ"
+                        )
+                    }
             }
 
             ProfileSharedEvent.SaveSettings -> viewModelScope.launch {
                 _ui.value = _ui.value.copy(saving = true, message = null)
                 val s = _ui.value
-                try {
+                runCatching {
                     repo.updateProfile(
                         fullName = s.fullName,
                         email = s.email,
@@ -89,18 +88,17 @@ class ProfileSharedViewModel @Inject constructor(
                         gender = s.gender.ifBlank { null },
                         bio = s.myProfile?.bio
                     )
-                    _ui.value = _ui.value.copy(
-                        saving = false,
-                        message = "Đã lưu thay đổi"
-                    )
-                    // load lại để đồng bộ
-                    onEvent(ProfileSharedEvent.Refresh)
-                } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(
-                        saving = false,
-                        message = ex.message ?: "Không thể lưu"
-                    )
                 }
+                    .onSuccess {
+                        _ui.value = _ui.value.copy(saving = false, message = "Đã lưu thay đổi")
+                        onEvent(ProfileSharedEvent.Refresh) // đồng bộ lại
+                    }
+                    .onFailure { ex ->
+                        _ui.value = _ui.value.copy(
+                            saving = false,
+                            message = ex.message ?: "Không thể lưu"
+                        )
+                    }
             }
 
             is ProfileSharedEvent.FullNameChanged ->
@@ -117,36 +115,39 @@ class ProfileSharedViewModel @Inject constructor(
 
             is ProfileSharedEvent.ChangePassword -> viewModelScope.launch {
                 _ui.value = _ui.value.copy(saving = true, message = null)
-                try {
-                    repo.changePassword(e.old, e.new)
-                    _ui.value = _ui.value.copy(
-                        saving = false,
-                        message = "Đổi mật khẩu thành công"
-                    )
-                } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(
-                        saving = false,
-                        message = ex.message ?: "Đổi mật khẩu thất bại"
-                    )
-                }
+                runCatching { repo.changePassword(e.old, e.new) }
+                    .onSuccess {
+                        _ui.value = _ui.value.copy(
+                            saving = false,
+                            message = "Đổi mật khẩu thành công"
+                        )
+                    }
+                    .onFailure { ex ->
+                        _ui.value = _ui.value.copy(
+                            saving = false,
+                            message = ex.message ?: "Đổi mật khẩu thất bại"
+                        )
+                    }
             }
 
-            // event này vẫn để – nếu repo chưa hỗ trợ thì bạn tạm không gọi trong UI
             is ProfileSharedEvent.ChangeAvatar -> viewModelScope.launch {
                 _ui.value = _ui.value.copy(saving = true, message = null)
-                try {
-                    repo.updateAvatar(e.localUri)
-                    _ui.value = _ui.value.copy(
-                        saving = false,
-                        message = "Đã đổi ảnh đại diện"
-                    )
-                    onEvent(ProfileSharedEvent.Refresh)
-                } catch (ex: Exception) {
-                    _ui.value = _ui.value.copy(
-                        saving = false,
-                        message = ex.message ?: "Không thể đổi ảnh"
-                    )
-                }
+                runCatching { repo.updateAvatar(e.localUri) }
+                    .onSuccess { url ->
+                        // cập nhật ngay vào state cho mượt
+                        _ui.value = _ui.value.let { st ->
+                            val p = st.myProfile
+                            val newP = p?.copy(user = p.user.copy(avatarUrl = url))
+                            st.copy(saving = false, myProfile = newP, message = "Đã đổi ảnh đại diện")
+                        }
+                        onEvent(ProfileSharedEvent.Refresh)
+                    }
+                    .onFailure { ex ->
+                        _ui.value = _ui.value.copy(
+                            saving = false,
+                            message = ex.message ?: "Không thể đổi ảnh"
+                        )
+                    }
             }
 
             ProfileSharedEvent.Consume ->

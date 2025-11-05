@@ -1,7 +1,7 @@
 package com.example.nutricook.di
 
-import com.example.nutricook.data.profile.ProfileRepository
 import com.example.nutricook.data.profile.FirebaseProfileRepository
+import com.example.nutricook.data.profile.ProfileRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage

@@ -5,7 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -16,17 +21,24 @@ class ProfileViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(ProfileUiState())
-    val uiState = _ui.asStateFlow()
+    val uiState: StateFlow<ProfileUiState> = _ui.asStateFlow()
 
     init {
-        // lắng nghe profile realtime (nếu repo có flow)
-        viewModelScope.launch {
-            repo.myProfileFlow().collect { p ->
+        // Lắng nghe realtime; distinctUntilChanged để tránh render lại khi data không đổi
+        repo.myProfileFlow()
+            .distinctUntilChanged()
+            .onEach { p ->
                 _ui.update { it.copy(loading = false, profile = p) }
             }
+            .catch { e ->
+                _ui.update { it.copy(message = e.message ?: "Lỗi luồng hồ sơ") }
+            }
+            .launchIn(viewModelScope)
+
+        // Kéo 1 lần để chắc chắn/tạo doc nếu chưa có
+        viewModelScope.launch {
+            if (_ui.value.profile == null) refreshOnce()
         }
-        // và kéo 1 lần để chắc chắn
-        refreshOnce()
     }
 
     fun refreshOnce() = viewModelScope.launch {
@@ -45,12 +57,9 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    /**
-     * Dùng ở các màn chỉnh profile đơn giản (không phải settings)
-     */
+    /** Dùng ở các màn chỉnh profile đơn giản (không phải settings) */
     fun updateProfile(fullName: String?, bio: String?) = viewModelScope.launch {
         _ui.update { it.copy(updating = true, message = null) }
-
         runCatching {
             repo.updateProfile(
                 fullName = fullName,
@@ -61,6 +70,8 @@ class ProfileViewModel @Inject constructor(
             )
         }
             .onSuccess {
+                // Nếu backend có stream, onEach sẽ bắn về; vẫn refresh để chắc đồng bộ
+                refreshOnce()
                 _ui.update { it.copy(updating = false, message = "Đã lưu hồ sơ") }
             }
             .onFailure { e ->
@@ -73,20 +84,24 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    /**
-     * Dùng khi chọn ảnh đại diện mới ở màn profile
-     */
+    /** Đổi ảnh đại diện */
     fun updateAvatar(localUri: String) = viewModelScope.launch {
         _ui.update { it.copy(updating = true, message = null) }
-
         runCatching { repo.updateAvatar(localUri) }
-            .onSuccess {
-                _ui.update {
-                    it.copy(
+            .onSuccess { url ->
+                // Cập nhật lạc quan để UI phản hồi tức thì
+                _ui.update { st ->
+                    val newProfile = st.profile?.copy(
+                        user = st.profile.user.copy(avatarUrl = url)
+                    )
+                    st.copy(
                         updating = false,
+                        profile = newProfile ?: st.profile,
                         message = "Đã cập nhật ảnh đại diện"
                     )
                 }
+                // Đồng bộ lại với server
+                refreshOnce()
             }
             .onFailure { e ->
                 _ui.update {
@@ -98,12 +113,32 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
+    /** Follow/Unfollow */
     fun setFollow(targetUid: String, follow: Boolean) = viewModelScope.launch {
         runCatching { repo.setFollow(targetUid, follow) }
             .onFailure { e ->
                 _ui.update {
+                    it.copy(message = e.message ?: "Lỗi thao tác theo dõi")
+                }
+            }
+    }
+
+    /** Kiểm tra trạng thái follow */
+    suspend fun isFollowing(targetUid: String): Boolean =
+        runCatching { repo.isFollowing(targetUid) }.getOrElse { false }
+
+    /** Đổi mật khẩu */
+    fun changePassword(oldPassword: String, newPassword: String) = viewModelScope.launch {
+        _ui.update { it.copy(updating = true, message = null) }
+        runCatching { repo.changePassword(oldPassword, newPassword) }
+            .onSuccess {
+                _ui.update { it.copy(updating = false, message = "Đã đổi mật khẩu") }
+            }
+            .onFailure { e ->
+                _ui.update {
                     it.copy(
-                        message = e.message ?: "Lỗi thao tác theo dõi"
+                        updating = false,
+                        message = e.message ?: "Đổi mật khẩu thất bại"
                     )
                 }
             }
