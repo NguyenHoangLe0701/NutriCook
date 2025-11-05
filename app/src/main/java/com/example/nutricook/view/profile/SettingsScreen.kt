@@ -46,7 +46,7 @@ fun SettingsScreen(
 
     // Dialog flags
     var showName by remember { mutableStateOf(false) }
-    var showEmail by remember { mutableStateOf(false) }
+    // var showEmail by remember { mutableStateOf(false) } // ⛔ Loại bỏ: không cho đổi email
     var showDob by remember { mutableStateOf(false) }
     var showGender by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
@@ -208,11 +208,12 @@ fun SettingsScreen(
                         onClick = { showName = true }
                     )
 
-                    SettingsItemCard(
+                    // ⛔ EMAIL: chỉ hiển thị, không cho bấm/đổi
+                    SettingsItemStatic(
                         icon = Icons.Outlined.Email,
-                        label = "Email",
+                        label = "Email (không thể thay đổi)",
                         value = ui.email,
-                        onClick = { showEmail = true }
+                        hint = "Liên hệ hỗ trợ nếu cần cập nhật email đăng ký"
                     )
 
                     SettingsItemCard(
@@ -232,7 +233,7 @@ fun SettingsScreen(
                     SettingsItemCard(
                         icon = Icons.Outlined.Person,
                         label = "Giới tính",
-                        value = when(ui.gender.ifBlank { "Male" }) {
+                        value = when (ui.gender.ifBlank { "Male" }) {
                             "Male" -> "Nam"
                             "Female" -> "Nữ"
                             "Other" -> "Khác"
@@ -308,20 +309,7 @@ fun SettingsScreen(
         )
     }
 
-    if (showEmail) {
-        var text by remember(ui.email) { mutableStateOf(ui.email) }
-        BaseEditDialog(
-            title = "Email",
-            value = text,
-            onValueChange = { text = it },
-            onDismiss = { showEmail = false },
-            onSave = {
-                vm.onEvent(ProfileSharedEvent.EmailChanged(text))
-                vm.onEvent(ProfileSharedEvent.SaveSettings)
-                showEmail = false
-            }
-        )
-    }
+    // ⛔ GỠ dialog Email
 
     if (showDob) {
         var text by remember(ui.dayOfBirth) { mutableStateOf(ui.dayOfBirth) }
@@ -467,9 +455,9 @@ fun SettingsScreen(
                             unfocusedContainerColor = Color(0xFFF9FAFB)
                         ),
                         visualTransformation = if (showOldPassword)
-                            androidx.compose.ui.text.input.VisualTransformation.None
+                            VisualTransformation.None
                         else
-                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { showOldPassword = !showOldPassword }) {
                                 Icon(
@@ -498,9 +486,9 @@ fun SettingsScreen(
                             unfocusedContainerColor = Color(0xFFF9FAFB)
                         ),
                         visualTransformation = if (showNewPassword)
-                            androidx.compose.ui.text.input.VisualTransformation.None
+                            VisualTransformation.None
                         else
-                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { showNewPassword = !showNewPassword }) {
                                 Icon(
@@ -644,8 +632,7 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 showAvatarOptions = false
-                                // TODO: Mở camera
-                                // vm.onEvent(ProfileSharedEvent.OpenCamera)
+                                // TODO: vm.onEvent(ProfileSharedEvent.OpenCamera)
                             },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
@@ -681,8 +668,7 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 showAvatarOptions = false
-                                // TODO: Mở gallery
-                                // vm.onEvent(ProfileSharedEvent.OpenGallery)
+                                // TODO: vm.onEvent(ProfileSharedEvent.OpenGallery)
                             },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
@@ -719,8 +705,7 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     showAvatarOptions = false
-                                    // TODO: Xóa avatar
-                                    // vm.onEvent(ProfileSharedEvent.RemoveAvatar)
+                                    // TODO: vm.onEvent(ProfileSharedEvent.RemoveAvatar)
                                 },
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
@@ -791,7 +776,6 @@ private fun SettingsItemCard(
                 .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon lớn hơn
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -801,7 +785,6 @@ private fun SettingsItemCard(
 
             Spacer(Modifier.width(16.dp))
 
-            // Label and value
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -822,12 +805,81 @@ private fun SettingsItemCard(
                 }
             }
 
-            // Arrow lớn hơn
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
                 tint = Color(0xFFD1D5DB),
                 modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Bản “tĩnh” cho các trường không cho chỉnh (vd: Email).
+ * Không clickable, hiển thị thêm hint nhỏ phía dưới nếu cần.
+ */
+@Composable
+private fun SettingsItemStatic(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    hint: String? = null
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF9CA3AF),
+                modifier = Modifier.size(26.dp)
+            )
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
+                )
+                if (value.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = value,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+                if (!hint.isNullOrBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = hint,
+                        fontSize = 12.sp,
+                        color = Color(0xFF9CA3AF)
+                    )
+                }
+            }
+
+            // Khóa hiển thị ở bên phải cho rõ là không chỉnh sửa
+            Icon(
+                imageVector = Icons.Outlined.Lock,
+                contentDescription = null,
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(20.dp)
             )
         }
     }

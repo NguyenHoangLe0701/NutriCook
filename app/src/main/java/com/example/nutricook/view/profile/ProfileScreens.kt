@@ -4,10 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -29,8 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.example.nutricook.viewmodel.common.ListState
-import com.example.nutricook.model.profile.Post
 import com.example.nutricook.model.user.bestName
 import com.example.nutricook.model.user.initial
 import com.example.nutricook.viewmodel.profile.PostViewModel
@@ -69,7 +67,7 @@ fun ProfileScreen(
 
             ui.profile != null -> {
                 val me = ui.profile!!.user.id
-                LaunchedEffect(me) { postVm.loadInitial(me) }
+                LaunchedEffect(me) { postVm.loadInitial(me) } // 1 trang ~ 3 bài (tùy backend)
 
                 ProfileContent(
                     modifier = Modifier.padding(padding),
@@ -103,7 +101,6 @@ private fun ProfileContent(
     postVm: PostViewModel
 ) {
     val p = state.profile!!
-    val scroll = rememberScrollState()
     val postsSt by postVm.state.collectAsState()
 
     Box(modifier = modifier.fillMaxSize().background(ScreenBg)) {
@@ -115,162 +112,180 @@ private fun ProfileContent(
                 .background(Brush.horizontalGradient(listOf(HeaderStart, HeaderEnd)))
         )
 
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(scroll)) {
-            TopBar(onOpenSettings = onOpenSettings)
-
-            Spacer(Modifier.height(4.dp))
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 100.dp)
+        ) {
+            item { TopBar(onOpenSettings = onOpenSettings) }
+            item { Spacer(Modifier.height(4.dp)) }
 
             // Avatar
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                AvatarBox(
-                    avatarUrl = p.user.avatarUrl,
-                    text = p.user.initial(),
-                    onEdit = onEditAvatar
-                )
+            item {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    AvatarBox(
+                        avatarUrl = p.user.avatarUrl,
+                        text = p.user.initial(),
+                        onEdit = onEditAvatar
+                    )
+                }
             }
-
-            Spacer(Modifier.height(12.dp))
 
             // Name
-            Text(
-                text = p.user.bestName(),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp
-                ),
-                color = Color(0xFF1F2937),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            Spacer(Modifier.height(16.dp))
+            item {
+                Spacer(Modifier.height(12.dp))
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = p.user.bestName(),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        ),
+                        color = Color(0xFF1F2937)
+                    )
+                }
+            }
 
             // Stats
-            StatsCard(
-                posts = p.posts,
-                following = p.following,
-                followers = p.followers,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            // Menu
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(horizontal = 20.dp)
-            ) {
-                ProfileMenuRow(
-                    title = "Recent Activity",
-                    iconBg = Color(0xFFD5D9E8),
-                    icon = Icons.Outlined.History,
-                    iconTint = Color(0xFF5B6B9A),
-                    onClick = onOpenRecent
-                )
-                ProfileMenuRow(
-                    title = "Post (${p.posts})",
-                    iconBg = Color(0xFFBEF0E8),
-                    icon = Icons.Outlined.Description,
-                    iconTint = Color(0xFF1D9B87),
-                    onClick = onOpenPosts
-                )
-                ProfileMenuRow(
-                    title = "Save",
-                    iconBg = Color(0xFFFFDDB8),
-                    icon = Icons.Outlined.BookmarkBorder,
-                    iconTint = Color(0xFFE07C00),
-                    onClick = onOpenSaves
+            item {
+                Spacer(Modifier.height(16.dp))
+                StatsCard(
+                    posts = p.posts,
+                    following = p.following,
+                    followers = p.followers,
+                    modifier = Modifier.padding(horizontal = 20.dp)
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
+            // Menu
+            item {
+                Spacer(Modifier.height(16.dp))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                ) {
+                    ProfileMenuRow(
+                        title = "Recent Activity",
+                        iconBg = Color(0xFFD5D9E8),
+                        icon = Icons.Outlined.History,
+                        iconTint = Color(0xFF5B6B9A),
+                        onClick = onOpenRecent
+                    )
+                    ProfileMenuRow(
+                        title = "Post (${p.posts})",
+                        iconBg = Color(0xFFBEF0E8),
+                        icon = Icons.Outlined.Description,
+                        iconTint = Color(0xFF1D9B87),
+                        onClick = onOpenPosts
+                    )
+                    ProfileMenuRow(
+                        title = "Save",
+                        iconBg = Color(0xFFFFDDB8),
+                        icon = Icons.Outlined.BookmarkBorder,
+                        iconTint = Color(0xFFE07C00),
+                        onClick = onOpenSaves
+                    )
+                }
+            }
 
-            // Chart title
-            Text(
-                text = "My Fatscret",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                ),
-                color = Color(0xFF1F2937),
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // Chart
-            ChartCard(modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth())
-
-            // ===== Preview My Posts ngay dưới chart =====
-            Spacer(Modifier.height(18.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Chart title + chart
+            item {
+                Spacer(Modifier.height(20.dp))
                 Text(
-                    text = "My Posts",
+                    text = "My Fatscret",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     ),
-                    color = Color(0xFF1F2937)
-                )
-                TextButton(onClick = onOpenPosts) {
-                    Text("See all")
-                }
-            }
-
-            PostsPreviewSection(
-                st = postsSt,
-                modifier = Modifier.padding(horizontal = 20.dp),
-                onLoadMore = { postVm.loadMore() }
-            )
-
-            Spacer(Modifier.height(100.dp))
-        }
-    }
-}
-
-@Composable
-private fun PostsPreviewSection(
-    st: ListState<Post>,
-    modifier: Modifier = Modifier,
-    onLoadMore: () -> Unit
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        when {
-            st.loading && st.items.isEmpty() -> {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-                }
-            }
-            st.items.isEmpty() -> {
-                Text(
-                    "Chưa có bài viết",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7280)
+                    color = Color(0xFF1F2937),
+                    modifier = Modifier.padding(horizontal = 20.dp)
                 )
             }
-            else -> {
-                // hiển thị tối đa 3 bài
-                st.items.take(3).forEach { post ->
-                    PostItem(post = post)
+            item {
+                Spacer(Modifier.height(12.dp))
+                ChartCard(modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth())
+            }
+
+            // Header My Posts
+            item {
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "My Posts",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        ),
+                        color = Color(0xFF1F2937)
+                    )
+                    TextButton(onClick = onOpenPosts) { Text("See all") }
                 }
-                if (st.hasMore && !st.loadingMore) {
-                    TextButton(
-                        onClick = onLoadMore,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) { Text("Tải thêm…") }
+            }
+
+            // Danh sách bài viết (Lazy, auto loadMore)
+            when {
+                postsSt.loading && postsSt.items.isEmpty() -> {
+                    item {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
                 }
-                if (st.loadingMore) {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+
+                postsSt.items.isEmpty() -> {
+                    item {
+                        Text(
+                            "Chưa có bài viết",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF6B7280),
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
+                else -> {
+                    itemsIndexed(postsSt.items) { index, post ->
+                        Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                            PostItem(post = post)
+                        }
+
+                        // Khi chạm cuối list -> loadMore nếu còn trang và chưa bận
+                        val canLoadMore = postsSt.hasMore && !postsSt.loadingMore
+                        if (index == postsSt.items.lastIndex && canLoadMore) {
+                            LaunchedEffect(postsSt.items.size) {
+                                postVm.loadMore()
+                            }
+                        }
+                    }
+
+                    // Hiển thị loading khi đang tải trang kế tiếp
+                    if (postsSt.loadingMore && postsSt.items.isNotEmpty()) {
+                        item {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -355,7 +370,12 @@ private fun AvatarBox(avatarUrl: String?, text: String, onEdit: () -> Unit) {
                 .clickable { onEdit() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Outlined.Edit, contentDescription = "Edit avatar", tint = Color.White, modifier = Modifier.size(16.dp))
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = "Edit avatar",
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -394,7 +414,10 @@ private fun StatCell(number: Int, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 12.dp)) {
         Text(
             text = number.toString(),
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, fontSize = 24.sp),
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp
+            ),
             color = Color(0xFF1F2937)
         )
         Spacer(Modifier.height(2.dp))
@@ -421,11 +444,16 @@ private fun ProfileMenuRow(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier.clickable { onClick() }.padding(horizontal = 18.dp, vertical = 16.dp),
+            modifier = Modifier
+                .clickable { onClick() }
+                .padding(horizontal = 18.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(iconBg),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(iconBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(26.dp))
@@ -433,11 +461,19 @@ private fun ProfileMenuRow(
             Spacer(Modifier.width(16.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp
+                ),
                 color = Color(0xFF1F2937),
                 modifier = Modifier.weight(1f)
             )
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(20.dp))
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFFD1D5DB),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

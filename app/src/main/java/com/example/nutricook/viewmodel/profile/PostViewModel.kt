@@ -16,68 +16,70 @@ class PostViewModel @Inject constructor(
     private val repo: ProfileRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ListState<Post>())
+    private val _state = MutableStateFlow(ListState<Post>(loading = true))
     val state: StateFlow<ListState<Post>> = _state
 
-    private var currentUid: String? = null
+    private var userId: String? = null
     private var nextCursor: String? = null
-    private var pagingInFlight = false
+    private var initialLoaded = false
 
-    /** Gọi ở ProfileScreen: LaunchedEffect(uid) { postVm.loadInitial(uid) } */
     fun loadInitial(uid: String) {
-        // tránh nạp lại khi đã có dữ liệu đúng uid
-        if (currentUid == uid && _state.value.items.isNotEmpty()) return
+        // Tránh reload nếu đã có dữ liệu cho cùng uid
+        if (uid == userId && initialLoaded) return
 
-        currentUid = uid
+        userId = uid
         nextCursor = null
-        _state.value = ListState(loading = true)
+        initialLoaded = false
 
         viewModelScope.launch {
-            runCatching { repo.getUserPosts(uid, cursor = null) }
-                .onSuccess { page ->
-                    nextCursor = page.nextCursor
-                    _state.value = ListState(
-                        loading = false,
-                        items = page.items,
-                        hasMore = page.nextCursor != null
-                    )
-                }
-                .onFailure { e ->
-                    _state.value = ListState(
-                        loading = false,
-                        items = emptyList(),
-                        error = e.message
-                    )
-                }
+            _state.value = ListState(loading = true)
+            runCatching {
+                // Nếu API hỗ trợ, truyền limit = 3 ở đây
+                // repo.getUserPosts(uid, cursor = null, limit = 3)
+                repo.getUserPosts(uid, cursor = null)
+            }.onSuccess { page ->
+                nextCursor = page.nextCursor
+                initialLoaded = true
+                _state.value = ListState(
+                    loading = false,
+                    items = page.items,
+                    hasMore = nextCursor != null,
+                    loadingMore = false
+                )
+            }.onFailure { e ->
+                _state.value = ListState(
+                    loading = false,
+                    items = emptyList(),
+                    error = e.message
+                )
+            }
         }
     }
 
-    /** Gọi từ UI khi nhấn “Tải thêm…” */
     fun loadMore() {
-        val uid = currentUid ?: return
+        val uid = userId ?: return
         val cursor = nextCursor ?: return
-        if (pagingInFlight) return
-
-        pagingInFlight = true
-        _state.value = _state.value.copy(loadingMore = true)
+        if (_state.value.loadingMore) return
 
         viewModelScope.launch {
-            runCatching { repo.getUserPosts(uid, cursor) }
-                .onSuccess { page ->
-                    nextCursor = page.nextCursor
-                    _state.value = _state.value.copy(
-                        items = _state.value.items + page.items,
-                        hasMore = page.nextCursor != null,
-                        loadingMore = false
-                    )
-                }
-                .onFailure { e ->
-                    _state.value = _state.value.copy(
-                        loadingMore = false,
-                        error = e.message
-                    )
-                }
-            pagingInFlight = false
+            _state.value = _state.value.copy(loadingMore = true)
+            runCatching {
+                // Nếu API hỗ trợ, truyền limit = 3 ở đây
+                // repo.getUserPosts(uid, cursor, limit = 3)
+                repo.getUserPosts(uid, cursor)
+            }.onSuccess { page ->
+                nextCursor = page.nextCursor
+                _state.value = _state.value.copy(
+                    items = _state.value.items + page.items,
+                    hasMore = nextCursor != null,
+                    loadingMore = false
+                )
+            }.onFailure { e ->
+                _state.value = _state.value.copy(
+                    loadingMore = false,
+                    error = e.message
+                )
+            }
         }
     }
 }
