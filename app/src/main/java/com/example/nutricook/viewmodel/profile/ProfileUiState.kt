@@ -1,6 +1,8 @@
 package com.example.nutricook.viewmodel.profile
 
+
 import com.example.nutricook.model.profile.Profile
+
 
 data class ProfileUiState(
     val loading: Boolean = true,
