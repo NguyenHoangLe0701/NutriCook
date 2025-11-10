@@ -5,16 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +32,7 @@ import com.example.nutricook.model.user.initial
 import com.example.nutricook.viewmodel.profile.PostViewModel
 import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
+import com.example.nutricook.viewmodel.profile.ProfileSearchViewModel   // <-- thêm
 
 private val HeaderStart = Color(0xFFFFE0C6)
 private val HeaderEnd = Color(0xFFCCE7FF)
@@ -48,6 +47,8 @@ fun ProfileScreen(
     onOpenPosts: () -> Unit = {},
     onOpenSaves: () -> Unit = {},
     onEditAvatar: () -> Unit = {},
+    // callback để mở hồ sơ người khác qua NavController: navController.navigate("user_profile/$uid")
+    onOpenOtherProfile: (String) -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     vm: ProfileViewModel = hiltViewModel(),
     postVm: PostViewModel = hiltViewModel()
@@ -77,6 +78,7 @@ fun ProfileScreen(
                     onOpenRecent = onOpenRecent,
                     onOpenPosts = onOpenPosts,
                     onOpenSaves = onOpenSaves,
+                    onOpenOtherProfile = onOpenOtherProfile,
                     postVm = postVm
                 )
             }
@@ -98,10 +100,12 @@ private fun ProfileContent(
     onOpenRecent: () -> Unit,
     onOpenPosts: () -> Unit,
     onOpenSaves: () -> Unit,
+    onOpenOtherProfile: (String) -> Unit,
     postVm: PostViewModel
 ) {
     val p = state.profile!!
     val postsSt by postVm.state.collectAsState()
+    var showSearch by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize().background(ScreenBg)) {
         // header gradient
@@ -116,7 +120,7 @@ private fun ProfileContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            item { TopBar(onOpenSettings = onOpenSettings) }
+            item { TopBar(onOpenSettings = onOpenSettings, onOpenSearch = { showSearch = true }) }
             item { Spacer(Modifier.height(4.dp)) }
 
             // Avatar
@@ -291,10 +295,21 @@ private fun ProfileContent(
             }
         }
     }
+
+    // Search overlay
+    if (showSearch) {
+        SearchProfileDialog(
+            onDismiss = { showSearch = false },
+            onPick = { uid ->
+                showSearch = false
+                onOpenOtherProfile(uid)
+            }
+        )
+    }
 }
 
 @Composable
-private fun TopBar(onOpenSettings: () -> Unit) {
+private fun TopBar(onOpenSettings: () -> Unit, onOpenSearch: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -302,11 +317,12 @@ private fun TopBar(onOpenSettings: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        // Đổi từ menu -> search
         Surface(shape = CircleShape, color = Color.White, shadowElevation = 2.dp) {
-            IconButton(onClick = {}) {
+            IconButton(onClick = onOpenSearch) {
                 Icon(
-                    Icons.Outlined.Menu,
-                    contentDescription = "Menu",
+                    Icons.Outlined.Search,
+                    contentDescription = "Search profiles",
                     tint = Color(0xFF374151),
                     modifier = Modifier.size(22.dp)
                 )
@@ -333,6 +349,109 @@ private fun TopBar(onOpenSettings: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun SearchProfileDialog(
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit
+) {
+    val vm: ProfileSearchViewModel = hiltViewModel()
+    val ui by vm.ui.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+                tint = Color(0xFF0EA5E9),
+                modifier = Modifier.size(28.dp)
+            )
+        },
+        title = { Text("Tìm người dùng", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = ui.query,
+                    onValueChange = { vm.updateQuery(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Nhập tên hoặc email…") },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (ui.query.isNotBlank()) {
+                            IconButton(onClick = { vm.updateQuery("") }) {
+                                Icon(Icons.Outlined.Clear, contentDescription = "Clear")
+                            }
+                        }
+                    }
+                )
+                Spacer(Modifier.height(12.dp))
+
+                when {
+                    ui.loading -> {
+                        Box(
+                            Modifier.fillMaxWidth().height(80.dp),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator(strokeWidth = 2.dp) }
+                    }
+                    ui.error != null -> {
+                        Text(ui.error ?: "Lỗi", color = Color(0xFFDC2626))
+                    }
+                    ui.results.isEmpty() -> {
+                        Text(
+                            text = if (ui.query.isBlank()) "Nhập từ khóa để tìm…" else "Không có kết quả",
+                            color = Color(0xFF6B7280)
+                        )
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 0.dp, max = 300.dp)
+                        ) {
+                            items(ui.results) { user ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onPick(user.id) }
+                                        .padding(vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(shape = CircleShape, color = Color(0xFFF1F5F9)) {
+                                        Box(
+                                            Modifier.size(40.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                (user.displayName ?: user.email)
+                                                    .firstOrNull()
+                                                    ?.uppercase() ?: "U",
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(user.displayName ?: user.email, fontWeight = FontWeight.SemiBold)
+                                        Text(user.email, color = Color(0xFF6B7280), fontSize = 12.sp)
+                                    }
+                                    Icon(
+                                        Icons.Outlined.ChevronRight,
+                                        contentDescription = null,
+                                        tint = Color(0xFFD1D5DB)
+                                    )
+                                }
+                                Divider(color = Color(0xFFE5E7EB))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Đóng") } }
+    )
 }
 
 @Composable

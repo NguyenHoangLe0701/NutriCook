@@ -56,7 +56,6 @@ class FirebaseProfileRepository @Inject constructor(
             close()
             return@callbackFlow
         }
-
         val reg = userDoc(uid).addSnapshotListener { snap, _ ->
             trySend(snap?.toProfileDomain())
         }
@@ -71,22 +70,41 @@ class FirebaseProfileRepository @Inject constructor(
         val doc = userDoc(uid)
         var snap = doc.get().await()
 
-        // nếu chưa có -> tạo 1 bản default từ user đăng nhập
         if (!snap.exists()) {
             val u = auth.currentUser ?: error("Chưa đăng nhập")
+            val display = u.displayName ?: u.email?.substringBefore("@") ?: ""
+            val email = u.email ?: ""
             val data = mapOf(
-                "email" to (u.email ?: ""),
-                "displayName" to (u.displayName ?: u.email?.substringBefore("@")),
+                "email" to email,
+                "email_lower" to email.lowercase(),
+                "displayName" to display,
+                "name_lower" to display.lowercase(),
                 "avatarUrl" to (u.photoUrl?.toString()),
-                "posts" to 0,
-                "following" to 0,
-                "followers" to 0,
+                "posts" to 0, "following" to 0, "followers" to 0,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
             doc.set(data, SetOptions.merge()).await()
             snap = doc.get().await()
+        } else {
+            // >>> BỔ SUNG: backfill nếu thiếu field lower-case
+            val curName  = snap.getString("displayName") ?: ""
+            val curEmail = snap.getString("email") ?: ""
+            val needFix = (snap.getString("name_lower") == null) ||
+                    (snap.getString("email_lower") == null)
+            if (needFix) {
+                doc.set(
+                    mapOf(
+                        "name_lower" to curName.lowercase(),
+                        "email_lower" to curEmail.lowercase(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                ).await()
+                snap = doc.get().await()
+            }
         }
+
         return snap.toProfileDomain() ?: error("Không tạo được hồ sơ")
     }
 
@@ -107,24 +125,28 @@ class FirebaseProfileRepository @Inject constructor(
                 current.updateEmail(email).await()
             } catch (e: Exception) {
                 if (e is FirebaseAuthRecentLoginRequiredException) {
-                    throw IllegalStateException("Phiên đăng nhập đã cũ, vui lòng đăng nhập lại trước khi đổi email.")
-                } else {
-                    throw e
-                }
+                    throw IllegalStateException(
+                        "Phiên đăng nhập đã cũ, vui lòng đăng nhập lại trước khi đổi email."
+                    )
+                } else throw e
             }
         }
 
         val data = buildMap<String, Any> {
-            fullName?.let { put("displayName", it) }
-            email?.let { put("email", it) }
+            fullName?.let {
+                put("displayName", it)
+                put("name_lower", it.lowercase())
+            }
+            email?.let {
+                put("email", it)
+                put("email_lower", it.lowercase())
+            }
             dayOfBirth?.let { put("dayOfBirth", it) }
             gender?.let { put("gender", it) }
             bio?.let { put("bio", it) }
             put("updatedAt", FieldValue.serverTimestamp())
         }
-        if (data.isNotEmpty()) {
-            userDoc(uid).set(data, SetOptions.merge()).await()
-        }
+        if (data.isNotEmpty()) userDoc(uid).set(data, SetOptions.merge()).await()
     }
 
     // ===================== UPDATE AVATAR =====================
@@ -154,7 +176,6 @@ class FirebaseProfileRepository @Inject constructor(
 
         db.runTransaction { t ->
             val already = t.get(followingRef).exists()
-
             if (follow && !already) {
                 t.set(followingRef, mapOf("at" to FieldValue.serverTimestamp()))
                 t.set(followerRef, mapOf("at" to FieldValue.serverTimestamp()))
@@ -180,7 +201,9 @@ class FirebaseProfileRepository @Inject constructor(
     override suspend fun changePassword(oldPassword: String, newPassword: String) {
         val user = auth.currentUser ?: error("Chưa đăng nhập")
         val email = user.email ?: error("Tài khoản không có email")
+
         val credential = EmailAuthProvider.getCredential(email, oldPassword)
+        // Re-auth trước khi đổi mật khẩu
         user.reauthenticate(credential).await()
         user.updatePassword(newPassword).await()
     }
@@ -198,9 +221,7 @@ class FirebaseProfileRepository @Inject constructor(
         val snaps = q.get().await().documents
         if (snaps.isEmpty()) return Paged(emptyList(), null)
 
-        // lấy thông tin tác giả một lần
         val author = fetchUser(uid)
-
         val items = snaps.mapNotNull { it.toPostDomain(author = author) }
         val next = nextCursorFrom(snaps.last())
         return Paged(items = items, nextCursor = next)
@@ -218,19 +239,20 @@ class FirebaseProfileRepository @Inject constructor(
         val saveDocs = q.get().await().documents
         if (saveDocs.isEmpty()) return Paged(emptyList(), null)
 
-        // gom postId
         val postIds = saveDocs.mapNotNull { it.getString("postId") }
-        // tải lần lượt (có thể tối ưu bằng batch/whereIn ≤ 10)
         val postsSnap = postIds.map { pid -> posts().document(pid).get().await() }
 
         // cache user theo uid để tránh gọi trùng
         val authorCache = HashMap<String, User>()
-        fun getAuthor(authorUid: String): User = authorCache.getOrPut(authorUid) { runBlockingFetchUser(authorUid) }
+        suspend fun getAuthor(authorUid: String): User =
+            authorCache.getOrPut(authorUid) { fetchUser(authorUid) }
 
-        val items = postsSnap.mapNotNull { pSnap ->
-            val authorUid = pSnap.getString("uid") ?: return@mapNotNull null
-            val author = getAuthor(authorUid)
-            pSnap.toPostDomain(author = author, forceSaved = true)
+        val items = buildList {
+            for (pSnap in postsSnap) {
+                val authorUid = pSnap.getString("uid") ?: continue
+                val author = getAuthor(authorUid)
+                pSnap.toPostDomain(author = author, forceSaved = true)?.let(::add)
+            }
         }
 
         val next = saveDocs.last().getTimestamp("at")?.toDate()?.time?.toString()
@@ -251,7 +273,8 @@ class FirebaseProfileRepository @Inject constructor(
 
         // cache user theo uid
         val userCache = HashMap<String, User>()
-        fun getUserCached(u: String): User = userCache.getOrPut(u) { runBlockingFetchUser(u) }
+        suspend fun getUserCached(u: String): User =
+            userCache.getOrPut(u) { fetchUser(u) }
 
         val items = docs.mapNotNull { d ->
             val actorUid = d.getString("actorUid") ?: return@mapNotNull null
@@ -273,6 +296,31 @@ class FirebaseProfileRepository @Inject constructor(
         return Paged(items = items, nextCursor = next)
     }
 
+    // ===================== SEARCH USERS (FIRESTORE) =====================
+    override suspend fun searchUsers(query: String, limit: Long): List<User> {
+        val key = query.trim().lowercase()
+        if (key.isBlank()) return emptyList()
+
+        // Yêu cầu tạo các trường name_lower và email_lower trong collection "users"
+        val byName = users()
+            .orderBy("name_lower")
+            .startAt(key)
+            .endAt(key + "\uf8ff")
+            .limit(limit)
+            .get().await().documents
+
+        val byEmail = users()
+            .orderBy("email_lower")
+            .startAt(key)
+            .endAt(key + "\uf8ff")
+            .limit(limit)
+            .get().await().documents
+
+        return (byName + byEmail)
+            .distinctBy { it.id }
+            .map { it.toUserDomain(it.id) }
+    }
+
     // ===================== HELPERS & MAPPERS =====================
 
     private fun tsFromCursor(cursor: String?): Timestamp? =
@@ -286,18 +334,10 @@ class FirebaseProfileRepository @Inject constructor(
         return snap.toUserDomain(uid)
     }
 
-    // Khi cần dùng trong map sync (cache), tránh suspend trong lambda
-    private fun runBlockingFetchUser(uid: String): User {
-        // dùng Tasks.await thay vì runBlocking để không chặn main thread — nhưng ở đây repo đang gọi trong IO context
-        val snap = userDoc(uid).get().result ?: throw IllegalStateException("Không tải được user $uid")
-        return snap.toUserDomain(uid)
-    }
-
     private fun DocumentSnapshot.toUserDomain(uid: String): User {
         val email = getString("email") ?: ""
         val displayName = getString("displayName")
         val avatarUrl = getString("avatarUrl")
-        // Model User(id=String, email, displayName, avatarUrl)
         return User(
             id = uid,
             email = email,
@@ -362,11 +402,11 @@ class FirebaseProfileRepository @Inject constructor(
 
     private fun parseActivityType(s: String?): ActivityType =
         when (s?.uppercase()) {
-            "FOLLOWED_YOU" -> ActivityType.FOLLOWED_YOU
-            "LIKED_POST" -> ActivityType.LIKED_POST
+            "FOLLOWED_YOU"   -> ActivityType.FOLLOWED_YOU
+            "LIKED_POST"     -> ActivityType.LIKED_POST
             "COMMENTED_POST" -> ActivityType.COMMENTED_POST
-            "NEW_POST" -> ActivityType.NEW_POST
-            else -> ActivityType.NEW_POST
+            "NEW_POST"       -> ActivityType.NEW_POST
+            else             -> ActivityType.NEW_POST
         }
 
     private fun hashToLong(s: String): Long = abs(s.hashCode().toLong())
