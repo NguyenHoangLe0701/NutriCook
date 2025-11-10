@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Người dùng', 'Quản lý tài khoản người dùng trong hệ thống', 'users')}">
+<div th:fragment="content">
+
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <!-- Can add title here if needed, but it's already in the header -->
+        </div>
+        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+            <button type="button" onclick="openModal('addUserModal')" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:w-auto">
+                <i class="fas fa-plus mr-2"></i> Thêm người dùng
+            </button>
+        </div>
+    </div>
+
+    <div class="mt-8 flex flex-col">
+        <div class="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Thông tin</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Vai trò</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ngày tham gia</th>
+                                <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                                    <span class="sr-only">Hành động</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            <tr th:each="user : ${users}">
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                                    <div class="flex items-center">
+                                        <div class="h-10 w-10 flex-shrink-0">
+                                            <div class="h-10 w-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold">
+                                                <span th:if="${user.fullName != null and user.fullName != ''}" th:text="${user.fullName.substring(0,1).toUpperCase()}"></span>
+                                                <span th:unless="${user.fullName != null and user.fullName != ''}">?</span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="font-medium text-gray-900" th:text="${user.fullName}">User Name</div>
+                                            <div class="text-gray-500" th:text="${user.email}">user.email@example.com</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    <span th:if="${user.role == T(com.nutricook.dashboard.entity.User.UserRole).ADMIN}" class="inline-flex rounded-full bg-red-100 px-2 text-xs font-semibold leading-5 text-red-800">Admin</span>
+                                    <span th:if="${user.role == T(com.nutricook.dashboard.entity.User.UserRole).USER}" class="inline-flex rounded-full bg-green-100 px-2 text-xs font-semibold leading-5 text-green-800">User</span>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500" th:text="${#temporals.format(user.createdAt, 'dd/MM/yyyy')}">2023-01-01</td>
+                                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                    <a href="#" class="text-primary-600 hover:text-primary-900">Sửa<span class="sr-only" th:text="${', ' + user.fullName}"></span></a>
+                                    <form th:action="@{/admin/users/{id}/delete(id=${user.id})}" method="post" class="inline ml-4" onsubmit="return confirm('Bạn có chắc chắn muốn xóa người dùng này?')">
+                                        <button th:if="${user.role != T(com.nutricook.dashboard.entity.User.UserRole).ADMIN}" type="submit" class="text-red-600 hover:text-red-900">Xóa<span class="sr-only" th:text="${', ' + user.fullName}"></span></button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(users)}">
+                                <td colspan="4" class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
+                                    <div class="py-10">
+                                        <i class="fa-solid fa-users-slash fa-2x text-gray-400"></i>
+                                        <p class="mt-4 text-base text-gray-500">Không tìm thấy người dùng nào.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="relative z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <div class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <form th:action="@{/admin/users}" th:object="${newUser}" method="post">
+                        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <div class="sm:flex sm:items-start">
+                                <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 sm:mx-0 sm:h-10 sm:w-10">
+                                    <i class="fa-solid fa-user-plus text-primary-600"></i>
+                                </div>
+                                <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                    <h3 class="text-lg font-medium leading-6 text-gray-900" id="modal-title">Thêm người dùng mới</h3>
+                                    <div class="mt-4 space-y-4">
+                                        <div>
+                                            <label for="fullName" class="block text-sm font-medium text-gray-700">Họ và tên *</label>
+                                            <input type="text" th:field="*{fullName}" id="fullName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                        </div>
+                                        <div>
+                                            <label for="username" class="block text-sm font-medium text-gray-700">Tên đăng nhập *</label>
+                                            <input type="text" th:field="*{username}" id="username" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                        </div>
+                                        <div>
+                                            <label for="email" class="block text-sm font-medium text-gray-700">Email *</label>
+                                            <input type="email" th:field="*{email}" id="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                        </div>
+                                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                            <div>
+                                                <label for="password" class="block text-sm font-medium text-gray-700">Mật khẩu *</label>
+                                                <input type="password" th:field="*{password}" id="password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                            </div>
+                                            <div>
+                                                <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Xác nhận mật khẩu *</label>
+                                                <input type="password" name="confirmPassword" id="confirmPassword" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="role" class="block text-sm font-medium text-gray-700">Vai trò *</label>
+                                            <select th:field="*{role}" id="role" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm" required>
+                                                <option th:value="${T(com.nutricook.dashboard.entity.User.UserRole).USER}">User</option>
+                                                <option th:value="${T(com.nutricook.dashboard.entity.User.UserRole).ADMIN}">Admin</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                            <button type="submit" class="inline-flex w-full justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm">Thêm</button>
+                            <button type="button" onclick="closeModal('addUserModal')" class="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm">Hủy</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+    </script>
+</div>
+</html>

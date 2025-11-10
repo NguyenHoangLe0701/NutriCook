@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content, title, subtitle, activeTab)" class="h-full bg-neutral-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - NutriCook Admin'">Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script th:src="@{/js/app.js}"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="h-full font-sans antialiased bg-neutral-100">
+<div class="min-h-full">
+    <div x-data="{ open: false }" @keydown.window.escape="open = false">
+        <!-- Off-canvas menu for mobile -->
+        <div x-show="open" class="relative z-50 lg:hidden" role="dialog" aria-modal="true">
+            <div x-show="open"
+                 x-transition:enter="transition-opacity ease-linear duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition-opacity ease-linear duration-300"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-neutral-900/80"></div>
+
+            <div class="fixed inset-0 flex">
+                <div x-show="open"
+                     x-transition:enter="transition ease-in-out duration-300 transform"
+                     x-transition:enter-start="-translate-x-full"
+                     x-transition:enter-end="translate-x-0"
+                     x-transition:leave="transition ease-in-out duration-300 transform"
+                     x-transition:leave-start="translate-x-0"
+                     x-transition:leave-end="-translate-x-full"
+                     @click.away="open = false"
+                     class="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-neutral-900">
+
+                    <div class="absolute top-0 left-full flex w-16 justify-center pt-5">
+                        <button @click="open = false" type="button" class="-m-2.5 p-2.5">
+                            <span class="sr-only">Close sidebar</span>
+                            <i class="fa-solid fa-xmark text-white h-6 w-6"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4 pt-4">
+                        <div class="flex h-16 shrink-0 items-center gap-x-3">
+                            <span class="bg-primary-500 text-white flex items-center justify-center w-10 h-10 rounded-lg">
+                                <i class="fa-solid fa-leaf text-xl"></i>
+                            </span>
+                            <h1 class="text-xl font-bold text-white">NutriCook</h1>
+                        </div>
+                        <nav class="flex flex-1 flex-col">
+                            <ul role="list" class="flex flex-1 flex-col gap-y-7">
+                                <li>
+                                    <ul role="list" class="-mx-2 space-y-3" th:include="~{admin/layout :: navLinks(${activeTab})}">
+                                    </ul>
+                                </li>
+                                <li class="mt-auto">
+                                    <form th:action="@{/logout}" method="post" class="w-full">
+                                        <button type="submit" class="group -mx-2 flex gap-x-3 rounded-md p-3 text-sm font-semibold leading-6 text-neutral-300 hover:bg-neutral-800 hover:text-white w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+                                            <i class="fa-solid fa-right-from-bracket h-6 w-6 shrink-0 text-neutral-400 group-hover:text-white"></i>
+                                            Đăng xuất
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Static sidebar for desktop -->
+        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
+            <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-neutral-900 px-6 pb-4 pt-4">
+                <div class="flex h-16 shrink-0 items-center gap-x-3">
+                     <span class="bg-primary-500 text-white flex items-center justify-center w-10 h-10 rounded-lg">
+                        <i class="fa-solid fa-leaf text-xl"></i>
+                    </span>
+                    <h1 class="text-xl font-bold text-white">NutriCook</h1>
+                </div>
+                <nav class="flex flex-1 flex-col">
+                    <ul role="list" class="flex flex-1 flex-col gap-y-7">
+                        <li>
+                            <ul role="list" class="-mx-2 space-y-3" th:include="~{admin/layout :: navLinks(${activeTab})}">
+                            </ul>
+                        </li>
+                        <li class="mt-auto">
+                             <form th:action="@{/logout}" method="post" class="w-full">
+                                <button type="submit" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-neutral-300 hover:bg-neutral-800 hover:text-white w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+                                    <i class="fa-solid fa-right-from-bracket h-6 w-6 shrink-0 text-neutral-400 group-hover:text-white"></i>
+                                    Đăng xuất
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <div class="lg:pl-64">
+            <div class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-neutral-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+                <button @click="open = !open" type="button" class="-m-2.5 p-2.5 text-gray-700 lg:hidden focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                    <span class="sr-only">Open sidebar</span>
+                    <i class="fa-solid fa-bars h-6 w-6"></i>
+                </button>
+
+                <div class="h-6 w-px bg-neutral-200 lg:hidden" aria-hidden="true"></div>
+
+                <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+                    <div class="relative flex flex-1">
+                        <!-- Search can go here if needed -->
+                    </div>
+                    <div class="flex items-center gap-x-4 lg:gap-x-6">
+                        <div x-data="{ userMenuOpen: false }" class="relative">
+                            <button @click="userMenuOpen = !userMenuOpen" type="button" class="-m-1.5 flex items-center p-1.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                                <span class="sr-only">Open user menu</span>
+                                <img class="h-8 w-8 rounded-full bg-neutral-200" src="/images/admin.jpg" alt="logo">
+                                <span class="hidden lg:flex lg:items-center">
+                                    <span class="ml-4 text-sm font-semibold leading-6 text-neutral-900" aria-hidden="true">Admin</span>
+                                    <i class="fa-solid fa-chevron-down ml-2 h-5 w-5 text-neutral-400"></i>
+                                </span>
+                            </button>
+                            <div x-show="userMenuOpen"
+                                 @click.away="userMenuOpen = false"
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="transform opacity-0 scale-95"
+                                 x-transition:enter-end="transform opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="transform opacity-100 scale-100"
+                                 x-transition:leave-end="transform opacity-0 scale-95"
+                                 class="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-neutral-900/5 focus:outline-none"
+                                 role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+                                <a href="#" class="block px-3 py-1 text-sm leading-6 text-neutral-900 hover:bg-gray-50" role="menuitem" tabindex="-1" id="user-menu-item-0">Your profile</a>
+                                <form th:action="@{/logout}" method="post">
+                                    <button type="submit" class="block w-full text-left px-3 py-1 text-sm leading-6 text-neutral-900 hover:bg-gray-50" role="menuitem" tabindex="-1" id="user-menu-item-1">Sign out</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <main class="py-10">
+                <div class="px-4 sm:px-6 lg:px-8">
+                    <div class="pb-5 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <h1 class="text-3xl font-bold leading-tight tracking-tight text-neutral-900" th:text="${title}">Page Title</h1>
+                            <p class="mt-2 text-sm text-neutral-500" th:text="${subtitle}">Page subtitle</p>
+                        </div>
+                    </div>
+
+                    <!-- Flash Messages -->
+                    <div th:if="${success}" class="mt-4 rounded-md bg-green-50 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa-solid fa-check-circle text-green-400 h-5 w-5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-green-800" th:text="${success}"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div th:if="${error}" class="mt-4 rounded-md bg-red-50 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa-solid fa-circle-xmark text-red-400 h-5 w-5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-red-800" th:text="${error}"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main content -->
+                    <div class="py-4">
+                        <div th:replace="${content}"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</div>
+
+<th:block th:fragment="navLinks(activeTab)">
+    <li>
+        <a th:href="@{/admin/dashboard}" th:class="${activeTab == 'dashboard'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+            <i class="h-6 w-6 shrink-0 fa-solid fa-chart-pie" th:classappend="${activeTab == 'dashboard'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
+            Tổng quan
+        </a>
+    </li>
+    <li>
+        <a th:href="@{/admin/foods}" th:class="${activeTab == 'foods'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+            <i class="h-6 w-6 shrink-0 fa-solid fa-utensils" th:classappend="${activeTab == 'foods'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
+            Món ăn
+        </a>
+    </li>
+    <li>
+        <a th:href="@{/admin/categories}" th:class="${activeTab == 'categories'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+            <i class="h-6 w-6 shrink-0 fa-solid fa-tags" th:classappend="${activeTab == 'categories'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
+            Danh mục
+        </a>
+    </li>
+    <li>
+        <a th:href="@{/admin/users}" th:class="${activeTab == 'users'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+            <i class="h-6 w-6 shrink-0 fa-solid fa-users" th:classappend="${activeTab == 'users'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
+            Người dùng
+        </a>
+    </li>
+    <li>
+        <a th:href="@{/admin/updates}" th:class="${activeTab == 'updates'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+            <i class="h-6 w-6 shrink-0 fa-solid fa-history" th:classappend="${activeTab == 'updates'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
+            Lịch sử
+        </a>
+    </li>
+</th:block>
+
+</body>
+</html>
