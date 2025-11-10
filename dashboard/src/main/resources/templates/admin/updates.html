@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Lịch sử cập nhật', 'Theo dõi các thay đổi về món ăn', 'updates')}">
+<div th:fragment="content">
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Lịch sử cập nhật món ăn</h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500">Theo dõi các thay đổi về món ăn trong hệ thống.</p>
+        </div>
+        <div class="border-t border-gray-200">
+            <div class="flow-root">
+                <ul role="list" class="divide-y divide-gray-200">
+                    <li th:each="update : ${updates}" class="p-4 sm:p-6">
+                        <div class="relative flex items-start space-x-4">
+                            <div class="flex-shrink-0">
+                                <span class="h-10 w-10 rounded-full flex items-center justify-center ring-8 ring-white"
+                                      th:classappend="${update.action == 'CREATE' ? 'bg-green-500' : update.action == 'UPDATE' ? 'bg-blue-500' : 'bg-red-500'}">
+                                    <i class="fa-solid text-white" th:classappend="${update.action == 'CREATE' ? 'fa-plus' : update.action == 'UPDATE' ? 'fa-pen' : 'fa-trash'}"></i>
+                                </span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div>
+                                    <div class="text-sm">
+                                        <a href="#" class="font-medium text-gray-900" th:text="${update.user.fullName}"></a>
+                                    </div>
+                                    <p class="mt-0.5 text-sm text-gray-500">
+                                        <span th:text="${#temporals.format(update.createdAt, 'dd/MM/yyyy HH:mm')}"></span>
+                                    </p>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-700">
+                                    <p>
+                                        <span th:text="${update.action == 'CREATE' ? 'Đã thêm món' : update.action == 'UPDATE' ? 'Đã cập nhật món' : 'Đã xóa món'}"></span>
+                                        <strong th:text="${update.foodItem.name}"></strong>.
+                                    </p>
+                                    <div th:if="${update.action == 'UPDATE'}" class="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                                        <p class="text-xs text-gray-500">Dữ liệu cũ:</p>
+                                        <p class="text-red-600 line-through" th:text="${update.oldData}"></p>
+                                        <p class="text-xs text-gray-500 mt-1">Dữ liệu mới:</p>
+                                        <p class="text-green-600" th:text="${update.newData}"></p>
+                                    </div>
+                                    <div th:if="${update.action == 'CREATE'}" class="mt-2 p-3 bg-green-50 rounded-md border border-green-200">
+                                        <p class="text-green-700" th:text="${update.newData}"></p>
+                                    </div>
+                                    <div th:if="${update.action == 'DELETE'}" class="mt-2 p-3 bg-red-50 rounded-md border border-red-200">
+                                        <p class="text-red-700" th:text="${update.oldData}"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+                 <div th:if="${#lists.isEmpty(updates)}" class="text-center py-12">
+                    <i class="fa-solid fa-history fa-2x text-gray-400"></i>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">Chưa có cập nhật nào</h3>
+                    <p class="mt-1 text-sm text-gray-500">Các thay đổi về món ăn sẽ được hiển thị ở đây.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</html>
