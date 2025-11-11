@@ -22,6 +22,7 @@ import com.example.nutricook.view.auth.RegisterScreen
 import com.example.nutricook.view.categories.CategoriesScreen
 import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.home.NutritionDetailScreen
+import com.example.nutricook.view.home.NutritionPickerScreen
 import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
@@ -205,38 +206,71 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // NUTRITION DETAIL (BOTTOM)
+        // ====== NUTRITION (PICKER + DETAIL) ======
+
+        // 1) Picker KHÔNG tham số: chọn thực phẩm rồi đẩy qua detail
         composable("nutrition_detail") {
-            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) { NutritionDetailScreen(navController = navController) }
-            }
+            // Nếu muốn hiện bottom bar, bọc bằng Scaffold như các màn BOTTOM khác
+            NutritionPickerScreen(
+                navController = navController,
+                defaultGrams = 100
+            )
         }
 
-        // CREATE RECIPE (BOTTOM)
-        composable("create_recipe") {
-            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) { CreateRecipeScreen(navController = navController) }
-            }
+        // 2) Detail CÓ tham số: foodId + grams (tuỳ chọn, mặc định 100)
+        composable(
+            route = "nutrition_detail/{foodId}?grams={grams}",
+            arguments = listOf(
+                navArgument("foodId") { type = NavType.StringType },
+                navArgument("grams") {
+                    type = NavType.IntType
+                    defaultValue = 100
+                }
+            )
+        ) { backStackEntry ->
+            val foodId = backStackEntry.arguments?.getString("foodId")!!
+            val grams = backStackEntry.arguments?.getInt("grams") ?: 100
+            NutritionDetailScreen(
+                navController = navController,
+                foodId = foodId,
+                defaultGrams = grams
+            )
         }
 
-        // NOTIFICATIONS (BOTTOM)
-        composable("notifications") {
-            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) { NotificationsScreen(navController) }
-            }
+        // ====== RECIPES DETAIL (NO BOTTOM) ======
+        composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
+            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
+            RecipeDetailScreen(navController, recipeTitle, imageRes)
         }
+
+        composable("ingredient_detail/{ingredientName}") { backStackEntry ->
+            val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
+            IngredientDetailScreen(navController, ingredientName)
+        }
+
+        composable("upload_success") { RecipeUploadSuccessScreen(navController) }
+        composable("recipe_direction") { RecipeDirectionsScreen(navController) }
+        composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
+        composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
+
+        // RECIPE STEPS
+        composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->
+            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown Recipe"
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
+            RecipeInfoScreen(navController, recipeTitle, imageRes)
+        }
+        composable("recipe_step") { RecipeStepScreen(navController) }
+        composable("recipe_step2") { RecipeStep2Screen(navController) }
+        composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
+
+        // NUTRITION FACTS (nếu vẫn muốn giữ trang tổng quan)
+        composable("nutrition_facts") { NutritionFactsScreen(navController) }
+
+        composable("review_screen") { ReviewScreen(navController) }
+
+        // ARTICLE DETAIL
+        composable("article_detail") { ArticleDetailScreen(navController) }
 
         // ====== USER-AWARE SCREENS ======
         // Recent Activity
@@ -296,38 +330,5 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
-
-        // ====== DETAIL (NO BOTTOM) ======
-        composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
-            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
-            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
-            RecipeDetailScreen(navController, recipeTitle, imageRes)
-        }
-
-        composable("ingredient_detail/{ingredientName}") { backStackEntry ->
-            val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
-            IngredientDetailScreen(navController, ingredientName)
-        }
-
-        composable("upload_success") { RecipeUploadSuccessScreen(navController) }
-        composable("recipe_direction") { RecipeDirectionsScreen(navController) }
-        composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
-        composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
-
-        // RECIPE STEPS
-        composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->
-            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown Recipe"
-            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
-            RecipeInfoScreen(navController, recipeTitle, imageRes)
-        }
-        composable("recipe_step") { RecipeStepScreen(navController) }
-        composable("recipe_step2") { RecipeStep2Screen(navController) }
-        composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
-
-        composable("nutrition_facts") { NutritionFactsScreen(navController) }
-        composable("review_screen") { ReviewScreen(navController) }
-
-        // ARTICLE DETAIL
-        composable("article_detail") { ArticleDetailScreen(navController) }
     }
 }

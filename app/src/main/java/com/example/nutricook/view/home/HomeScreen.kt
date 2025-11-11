@@ -15,7 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,13 +28,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Brush
 import androidx.navigation.NavController
 import com.example.nutricook.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import kotlinx.coroutines.delay
+import androidx.compose.material.icons.filled.FilterList
 
 data class Category(val name: String, val icon: Int)
 data class NutritionItem(val name: String, val calories: String, val weight: String, val icon: Int)
@@ -78,10 +79,10 @@ fun HomeScreen(navController: NavController) {
         )
     )
     val exercises = listOf(
-        Exercise("Cycling", R.drawable.cycling), // Giả sử các icon đã có
+        Exercise("Cycling", R.drawable.cycling),
         Exercise("Running", R.drawable.run),
         Exercise("Tennis", R.drawable.tenis),
-        Exercise("Baseball", R.drawable.baseball) // Thêm bài tập thứ tư để hỗ trợ vuốt
+        Exercise("Baseball", R.drawable.baseball)
     )
 
     LazyColumn(
@@ -89,7 +90,7 @@ fun HomeScreen(navController: NavController) {
             .fillMaxSize()
             .background(Color(0xFFF8F9FA))
     ) {
-        // 🔹 Thanh ứng dụng trên cùng
+        // Top app bar
         item {
             Box(
                 modifier = Modifier
@@ -97,18 +98,16 @@ fun HomeScreen(navController: NavController) {
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Logo giữa — luôn nằm chính giữa tuyệt đối
                 Image(
                     painter = painterResource(id = R.drawable.logo),
                     contentDescription = "Logo ứng dụng",
                     modifier = Modifier
-                        .width(120.dp) // 👈 giảm từ 150 xuống 120 cho cân
+                        .width(120.dp)
                         .height(50.dp)
                         .padding(vertical = 4.dp),
                     contentScale = ContentScale.Fit
                 )
 
-                // Hai icon trái phải
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -139,8 +138,7 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-
-        // 🔹 Thanh tìm kiếm
+        // Search
         item {
             Card(
                 modifier = Modifier
@@ -163,11 +161,17 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Lọc", tint = Color.Gray)
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Lọc",
+                            tint = Color.Gray
+                        )
                     }
                 }
             }
         }
+
+        // Banner pager
         item {
             Column(
                 modifier = Modifier
@@ -188,12 +192,11 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
-                            .clickable { navController.navigate("recipe_discovery") },
+                            .clickable { navController.navigate("recipes") },
                         shape = RoundedCornerShape(16.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            // 🔹 Background màu
                             Image(
                                 painter = when (page) {
                                     0 -> painterResource(id = R.drawable.bg_banner_blue)
@@ -206,7 +209,6 @@ fun HomeScreen(navController: NavController) {
                                 modifier = Modifier.fillMaxSize()
                             )
 
-                            // 🔹 Foreground xóa phông full size
                             Image(
                                 painter = when (page) {
                                     0 -> painterResource(id = R.drawable.food_salmon_nobg)
@@ -215,11 +217,10 @@ fun HomeScreen(navController: NavController) {
                                     else -> painterResource(id = R.drawable.food_salmon_nobg)
                                 },
                                 contentDescription = "Food Image",
-                                contentScale = ContentScale.Crop, // full size
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
 
-                            // 🔹 Text + Button
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.CenterStart)
@@ -252,7 +253,7 @@ fun HomeScreen(navController: NavController) {
                                 )
 
                                 Button(
-                                    onClick = { navController.navigate("recipe_discovery") },
+                                    onClick = { navController.navigate("recipes") },
                                     modifier = Modifier.padding(top = 8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF333333)
@@ -266,7 +267,6 @@ fun HomeScreen(navController: NavController) {
                     }
                 }
 
-                // 🔁 Tự động chuyển banner
                 LaunchedEffect(Unit) {
                     while (isActive) {
                         delay(3000)
@@ -276,7 +276,6 @@ fun HomeScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 🔹 Dot indicator
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
@@ -299,7 +298,7 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // 🔹 Phân loại
+        // Categories
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -313,7 +312,7 @@ fun HomeScreen(navController: NavController) {
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
-                    modifier = Modifier.clickable { /* TODO */ }
+                    modifier = Modifier.clickable { navController.navigate("categories") }
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -356,7 +355,7 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // 🔹 Giá trị dinh dưỡng
+        // Nutrition values
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -371,6 +370,7 @@ fun HomeScreen(navController: NavController) {
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
                     modifier = Modifier.clickable {
+                        // ĐI TỚI PICKER để chọn thực phẩm rồi nhảy qua NutritionDetail
                         navController.navigate("nutrition_detail")
                     }
                 )
@@ -378,7 +378,6 @@ fun HomeScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ✅ Danh sách nhiều loại trái cây
             val fruits = listOf(
                 FruitNutrition(
                     name = "Dứa/Thơm",
@@ -389,8 +388,8 @@ fun HomeScreen(navController: NavController) {
                         NutritionData("0.12g", R.drawable.fat, "Fat"),
                         NutritionData("12.63g", R.drawable.finger_cricle, "Carbs"),
                         NutritionData("0.12g", R.drawable.protein, "Protein")
-                        )
-                    ),
+                    )
+                ),
                 FruitNutrition(
                     name = "Sầu riêng",
                     kcal = "885 kcal",
@@ -411,7 +410,7 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // 🔹 Gợi ý món ăn
+        // Recipe suggestions
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -425,7 +424,7 @@ fun HomeScreen(navController: NavController) {
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
-                    modifier = Modifier.clickable { navController.navigate("recipe_suggestions") }
+                    modifier = Modifier.clickable { navController.navigate("recipes") }
                 )
             }
 
@@ -442,7 +441,9 @@ fun HomeScreen(navController: NavController) {
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                         modifier = Modifier
                             .width(180.dp)
-                            .clickable { navController.navigate("recipe_detail/${recipe.name}") }
+                            .clickable {
+                                navController.navigate("recipe_detail/${recipe.name}/${recipe.image}")
+                            }
                     ) {
                         Column(
                             modifier = Modifier
@@ -502,7 +503,7 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // 🔹 Tin mới (Hot News)
+        // Hot News
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -516,7 +517,7 @@ fun HomeScreen(navController: NavController) {
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
-                    modifier = Modifier.clickable { navController.navigate("news_feeds") }
+                    modifier = Modifier.clickable { navController.navigate("article_detail") }
                 )
             }
 
@@ -597,7 +598,7 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // 🔹 Activity and Exercise
+        // Activity and Exercise
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -634,7 +635,7 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier
                             .width(120.dp)
                             .height(140.dp)
-                            .clickable { /* TODO: Xử lý khi click vào bài tập */ }
+                            .clickable { /* TODO */ }
                     ) {
                         Column(
                             modifier = Modifier
@@ -667,7 +668,7 @@ fun HomeScreen(navController: NavController) {
     }
 }
 
-// 🔹 Component nhỏ cho từng ô dinh dưỡng
+// Reusable nutrition card
 @Composable
 fun NutritionStatCard(
     value: String,
@@ -772,7 +773,6 @@ fun ExpandableFruitCard(fruit: FruitNutrition) {
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // ✅ Nút mở rộng / thu gọn
                 Image(
                     painter = painterResource(
                         id = if (isExpanded) R.drawable.minus_square else R.drawable.add_square
