@@ -4,10 +4,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nutricook.R
@@ -33,6 +35,7 @@ fun NutritionPickerScreen(
     var foods by remember { mutableStateOf<List<Food>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
@@ -45,15 +48,24 @@ fun NutritionPickerScreen(
         }
     }
 
+    val filtered = remember(foods, query) {
+        if (query.isBlank()) foods
+        else foods.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(16.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp)
     ) {
         // Header
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { navController.popBackStack() }) {
@@ -71,35 +83,63 @@ fun NutritionPickerScreen(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        // Search (48dp touch target, tối ưu Pixel 8 Pro)
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            placeholder = { Text("Tìm tên thực phẩm…") },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 12.dp)
+                .heightIn(min = 56.dp)
+        )
 
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-
             error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(text = "Lỗi: $error", color = Color.Red)
             }
-
             else -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
+                // Dùng LazyColumn, mỗi item là 1 Row chứa tối đa 2 thẻ (2 cột)
+                val rows: List<List<Food>> = remember(filtered) { filtered.chunked(2) }
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
                 ) {
-                    items(foods, key = { it.id }) { food ->
-                        FoodCell(
-                            name = food.name,
-                            kcalPer100g = food.kcalPer100g,
-                            imageRes = food.imageRes,
-                            onClick = {
-                                navController.navigate(
-                                    "nutrition_detail/${food.id}?grams=$defaultGrams"
+                    items(rows) { pair ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            FoodCell(
+                                food = pair[0],
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    navController.navigate(
+                                        "nutrition_detail/${pair[0].id}?grams=$defaultGrams"
+                                    )
+                                }
+                            )
+                            if (pair.size > 1) {
+                                FoodCell(
+                                    food = pair[1],
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        navController.navigate(
+                                            "nutrition_detail/${pair[1].id}?grams=$defaultGrams"
+                                        )
+                                    }
                                 )
+                            } else {
+                                Spacer(Modifier.weight(1f))
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -109,44 +149,47 @@ fun NutritionPickerScreen(
 
 @Composable
 private fun FoodCell(
-    name: String,
-    kcalPer100g: Double,
-    imageRes: Int,
+    food: Food,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFDFD)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(0.82f)
-            .clickable { onClick() }
+        modifier = modifier
+            .height(148.dp)                 // cao hơn cho màn dài (Pixel 8 Pro)
+            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(8.dp),
+                .padding(horizontal = 10.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = name,
+                painter = painterResource(id = food.imageRes),
+                contentDescription = food.name,
                 modifier = Modifier
-                    .size(70.dp)
-                    .padding(top = 4.dp)
+                    .size(86.dp)              // icon lớn, rõ trên DPI cao
+                    .padding(top = 2.dp)
             )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(
-                    text = name,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2
+                    text = food.name,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "${kcalPer100g.toInt()} kcal / 100g",
-                    color = Color.Gray
+                    text = "${food.kcalPer100g.toInt()} kcal / 100g",
+                    color = Color(0xFF6B6B6B),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
