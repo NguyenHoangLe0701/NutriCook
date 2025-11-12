@@ -1,5 +1,8 @@
 package com.example.nutricook.model.nutrition
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class NutritionProfile(
     val metrics: BodyMetrics = BodyMetrics(),
     val goal: Goal = Goal.MAINTAIN,
@@ -26,11 +29,15 @@ fun NutritionProfile.recalculate(): NutritionProfile {
     val bmr = when (metrics.bmrFormula) {
         BmrFormula.MIFFLIN -> NutritionCalc.bmrMifflin(
             sex = metrics.sex.name.lowercase(),
-            weightKg = metrics.weightKg, heightCm = metrics.heightCm, age = metrics.age
+            weightKg = metrics.weightKg,
+            heightCm = metrics.heightCm,
+            age = metrics.age
         )
         BmrFormula.HARRIS -> NutritionCalc.bmrHarris(
             sex = metrics.sex.name.lowercase(),
-            weightKg = metrics.weightKg, heightCm = metrics.heightCm, age = metrics.age
+            weightKg = metrics.weightKg,
+            heightCm = metrics.heightCm,
+            age = metrics.age
         )
     }
 
@@ -48,7 +55,12 @@ fun NutritionProfile.recalculate(): NutritionProfile {
         fatGPerKg = prefs.fatGPerKg
     ).rounded()
 
-    return copy(targets = NutritionTargets(
-        caloriesTarget = m.calories, proteinG = m.proteinG, fatG = m.fatG, carbG = m.carbG
-    ))
+    return copy(
+        targets = NutritionTargets(
+            caloriesTarget = m.calories,
+            proteinG = m.proteinG,
+            fatG = m.fatG,
+            carbG = m.carbG
+        )
+    )
 }

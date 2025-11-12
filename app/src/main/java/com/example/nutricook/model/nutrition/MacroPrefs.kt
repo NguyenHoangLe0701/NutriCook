@@ -1,5 +1,8 @@
 package com.example.nutricook.model.nutrition
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class MacroPrefs(
     val proteinGPerKg: Double = 1.8,
     val fatMode: FatMode = FatMode.PERCENT,

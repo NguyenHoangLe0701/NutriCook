@@ -1,5 +1,8 @@
 package com.example.nutricook.model.nutrition
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class BodyMetrics(
     val sex: Sex = Sex.MALE,
     val age: Int = 20,

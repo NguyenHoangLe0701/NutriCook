@@ -2,12 +2,12 @@ package com.example.nutricook.view.profile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -21,12 +21,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.nutricook.model.nutrition.Goal
 import com.example.nutricook.viewmodel.profile.ProfileSharedEvent
 import com.example.nutricook.viewmodel.profile.ProfileSharedViewModel
 
@@ -39,6 +41,14 @@ private val HeaderEnd = Color(0xFFCCE7FF)
 fun SettingsScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    // ===== callbacks dinh dưỡng =====
+    onGoalPicked: (Goal, Int, Double, Double, Double) -> Unit = { _, _, _, _, _ -> },
+    onResetGoal: () -> Unit = {},
+    // Mục tiêu hiện tại từ VM dinh dưỡng
+    caloriesTarget: Int = 0,
+    proteinG: Double = 0.0,
+    fatG: Double = 0.0,
+    carbG: Double = 0.0,
     bottomBar: @Composable () -> Unit = {},
     vm: ProfileSharedViewModel = hiltViewModel()
 ) {
@@ -46,12 +56,14 @@ fun SettingsScreen(
 
     // Dialog flags
     var showName by remember { mutableStateOf(false) }
-    // var showEmail by remember { mutableStateOf(false) } // ⛔ Loại bỏ: không cho đổi email
     var showDob by remember { mutableStateOf(false) }
     var showGender by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showAvatarOptions by remember { mutableStateOf(false) }
+
+    // Dialog chọn & set Goal thủ công
+    var showGoal by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Color(0xFFFAFAFA),
@@ -183,9 +195,83 @@ fun SettingsScreen(
                     }
                 }
 
+                // =========================
+                // My Fat (mục tiêu hôm nay)
+                // =========================
                 Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Mục tiêu hôm nay (My Fat)",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = Color(0xFF9CA3AF),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                )
 
-                // Account section title
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "Mục tiêu hiện tại",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { showGoal = true }) {
+                                    Icon(Icons.Outlined.Flag, contentDescription = null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Đổi Goal")
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                OutlinedButton(onClick = onResetGoal, shape = RoundedCornerShape(10.dp)) {
+                                    Text("Reset mặc định")
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            MacroCell(
+                                modifier = Modifier.weight(1f),
+                                title = "KCAL",
+                                value = "$caloriesTarget"
+                            )
+                            MacroCell(
+                                modifier = Modifier.weight(1f),
+                                title = "PRO",
+                                value = "${"%.0f".format(proteinG)}g"
+                            )
+                            MacroCell(
+                                modifier = Modifier.weight(1f),
+                                title = "FAT",
+                                value = "${"%.0f".format(fatG)}g"
+                            )
+                            MacroCell(
+                                modifier = Modifier.weight(1f),
+                                title = "CARB",
+                                value = "${"%.0f".format(carbG)}g"
+                            )
+                        }
+                    }
+                }
+
+                // =================
+                // Tài khoản section
+                // =================
+                Spacer(Modifier.height(14.dp))
                 Text(
                     text = "Tài khoản",
                     style = MaterialTheme.typography.bodyLarge.copy(
@@ -196,7 +282,6 @@ fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
                 )
 
-                // Settings items
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -208,7 +293,7 @@ fun SettingsScreen(
                         onClick = { showName = true }
                     )
 
-                    // ⛔ EMAIL: chỉ hiển thị, không cho bấm/đổi
+                    // Email: tĩnh/không cho đổi
                     SettingsItemStatic(
                         icon = Icons.Outlined.Email,
                         label = "Email (không thể thay đổi)",
@@ -309,8 +394,6 @@ fun SettingsScreen(
         )
     }
 
-    // ⛔ GỠ dialog Email
-
     if (showDob) {
         var text by remember(ui.dayOfBirth) { mutableStateOf(ui.dayOfBirth) }
         BaseEditDialog(
@@ -355,13 +438,7 @@ fun SettingsScreen(
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "Vui lòng chọn giới tính của bạn",
-                        fontSize = 14.sp,
-                        color = Color(0xFF6B7280),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     GenderChoice("Nam", selected == "Male") { selected = "Male" }
                     GenderChoice("Nữ", selected == "Female") { selected = "Female" }
                     GenderChoice("Khác", selected == "Other") { selected = "Other" }
@@ -390,7 +467,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color(0xFF6B7280)
                     ),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     modifier = Modifier.height(44.dp)
                 ) {
                     Text("Hủy", fontSize = 15.sp)
@@ -528,7 +605,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color(0xFF6B7280)
                     ),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     modifier = Modifier.height(44.dp)
                 ) {
                     Text("Hủy", fontSize = 15.sp)
@@ -600,7 +677,7 @@ fun SettingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.CameraAlt,
+                        imageVector = Icons.Outlined.PhotoCamera, // icon sẵn có
                         contentDescription = null,
                         tint = Color(0xFF16A34A),
                         modifier = Modifier.size(28.dp)
@@ -638,7 +715,7 @@ fun SettingsScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = Color(0xFFF9FAFB)
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
                     ) {
                         Row(
                             modifier = Modifier
@@ -647,7 +724,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.CameraAlt,
+                                imageVector = Icons.Outlined.PhotoCamera,
                                 contentDescription = null,
                                 tint = Color(0xFF16A34A),
                                 modifier = Modifier.size(24.dp)
@@ -674,7 +751,7 @@ fun SettingsScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = Color(0xFFF9FAFB)
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
                     ) {
                         Row(
                             modifier = Modifier
@@ -711,7 +788,7 @@ fun SettingsScreen(
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFFFEF2F2)
                             ),
-                            border = BorderStroke(1.dp, Color(0xFFFECACA))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -745,7 +822,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color(0xFF6B7280)
                     ),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     modifier = Modifier.height(44.dp)
                 ) {
                     Text("Hủy", fontSize = 15.sp)
@@ -755,7 +832,121 @@ fun SettingsScreen(
             containerColor = Color.White
         )
     }
+
+    // ===== Dialog chọn Goal + set thủ công chỉ số =====
+    if (showGoal) {
+        val goals = remember { Goal.values().toList() }
+        var selected by remember { mutableStateOf(goals.first()) }
+
+        var kcalText by remember(caloriesTarget) { mutableStateOf(caloriesTarget.toString()) }
+        var proText by remember(proteinG) { mutableStateOf(proteinG.round0()) }
+        var fatText by remember(fatG) { mutableStateOf(fatG.round0()) }
+        var carbText by remember(carbG) { mutableStateOf(carbG.round0()) }
+
+        fun labelOf(g: Goal): String = when (g.name.uppercase()) {
+            "MAINTAIN" -> "Giữ cân"
+            "CUT", "CUTTING", "LOSS", "FAT_LOSS" -> "Giảm mỡ (cut)"
+            "BULK", "BULKING", "GAIN", "MASS_GAIN" -> "Tăng cơ (bulk)"
+            else -> g.name
+        }
+
+        AlertDialog(
+            onDismissRequest = { showGoal = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEFF6FF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.Flag, null, tint = Color(0xFF2563EB), modifier = Modifier.size(28.dp))
+                }
+            },
+            title = { Text("Chọn mục tiêu & đặt chỉ số", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Goal list
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        goals.forEach { g ->
+                            GoalChoice(
+                                text = labelOf(g),
+                                selected = selected == g,
+                                onClick = { selected = g }
+                            )
+                        }
+                    }
+
+                    // Manual targets
+                    Text(
+                        "Tùy chỉnh chỉ số mục tiêu",
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1F2937)
+                    )
+                    OutlinedTextField(
+                        value = kcalText,
+                        onValueChange = { if (it.length <= 5) kcalText = it.filterDigits() },
+                        label = { Text("KCAL (kcal/ngày)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = proText,
+                        onValueChange = { proText = it.filterDecimal() },
+                        label = { Text("PRO (g/ngày)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = fatText,
+                        onValueChange = { fatText = it.filterDecimal() },
+                        label = { Text("FAT (g/ngày)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = carbText,
+                        onValueChange = { carbText = it.filterDecimal() },
+                        label = { Text("CARB (g/ngày)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val kcal = kcalText.toIntOrNull() ?: caloriesTarget
+                        val pro = proText.toDoubleOrNull() ?: proteinG
+                        val fat = fatText.toDoubleOrNull() ?: fatG
+                        val carb = carbText.toDoubleOrNull() ?: carbG
+                        onGoalPicked(selected, kcal, pro, fat, carb)
+                        showGoal = false
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Xác nhận") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showGoal = false }, shape = RoundedCornerShape(12.dp)) {
+                    Text("Hủy")
+                }
+            },
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
 }
+
+/* =======================
+ * Composables phụ / Helpers
+ * ======================= */
 
 @Composable
 private fun SettingsItemCard(
@@ -817,7 +1008,6 @@ private fun SettingsItemCard(
 
 /**
  * Bản “tĩnh” cho các trường không cho chỉnh (vd: Email).
- * Không clickable, hiển thị thêm hint nhỏ phía dưới nếu cần.
  */
 @Composable
 private fun SettingsItemStatic(
@@ -874,7 +1064,6 @@ private fun SettingsItemStatic(
                 }
             }
 
-            // Khóa hiển thị ở bên phải cho rõ là không chỉnh sửa
             Icon(
                 imageVector = Icons.Outlined.Lock,
                 contentDescription = null,
@@ -966,7 +1155,7 @@ private fun BaseEditDialog(
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = Color(0xFF6B7280)
                 ),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
                 modifier = Modifier.height(44.dp)
             ) {
                 Text(
@@ -995,9 +1184,9 @@ private fun GenderChoice(
             containerColor = if (selected) Color(0xFFF3E8FF) else Color(0xFFF9FAFB)
         ),
         border = if (selected)
-            BorderStroke(2.dp, Color(0xFF9333EA))
+            androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF9333EA))
         else
-            BorderStroke(1.dp, Color(0xFFE5E7EB))
+            androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Row(
             modifier = Modifier
@@ -1034,5 +1223,99 @@ private fun GenderChoice(
                 color = if (selected) Color(0xFF9333EA) else Color(0xFF1F2937)
             )
         }
+    }
+}
+
+@Composable
+private fun MacroCell(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFF6F6F6))
+            .padding(vertical = 10.dp)
+    ) {
+        Text(title, color = Color.Gray, fontSize = 11.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(value, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF111827))
+    }
+}
+
+@Composable
+private fun GoalChoice(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) Color(0xFFEFF6FF) else Color(0xFFF9FAFB)
+        ),
+        border = if (selected)
+            androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF2563EB))
+        else
+            androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) Color(0xFF2563EB) else Color.Transparent)
+                    .border(
+                        width = 2.dp,
+                        color = if (selected) Color(0xFF2563EB) else Color(0xFFD1D5DB),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    )
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Text(
+                text = text,
+                fontSize = 15.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) Color(0xFF2563EB) else Color(0xFF1F2937)
+            )
+        }
+    }
+}
+
+/* =======================
+ * Helpers cho số/format
+ * ======================= */
+private fun Double.round0(): String = "%.0f".format(this)
+
+private fun String.filterDigits(): String = this.filter { it.isDigit() }
+
+private fun String.filterDecimal(): String {
+    // cho phép một dấu chấm
+    val cleaned = this.filter { it.isDigit() || it == '.' }
+    val firstDot = cleaned.indexOf('.')
+    return if (firstDot == -1) cleaned else {
+        val head = cleaned.substring(0, firstDot + 1)
+        val tail = cleaned.substring(firstDot + 1).replace(".", "")
+        head + tail
     }
 }

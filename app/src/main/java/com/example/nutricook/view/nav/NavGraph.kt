@@ -52,6 +52,7 @@ import com.example.nutricook.viewmodel.auth.AuthViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
 import com.example.nutricook.viewmodel.profile.PostViewModel
 import com.example.nutricook.viewmodel.profile.SavesViewModel
+import com.example.nutricook.viewmodel.profile.ProfileViewModel   // <— thêm
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -169,8 +170,11 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // SETTINGS (BOTTOM)
+        // SETTINGS (BOTTOM) ——— ĐÃ nối với ProfileViewModel để My Fat cập nhật realtime
         composable("settings") {
+            val pvm: ProfileViewModel = hiltViewModel()
+            val t by pvm.targets.collectAsState()
+
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onLogout = {
@@ -180,6 +184,16 @@ fun NavGraph(navController: NavHostController) {
                         launchSingleTop = true
                     }
                 },
+                // truyền chỉ số hiện tại xuống UI
+                caloriesTarget = t.calories,
+                proteinG = t.proteinG,
+                fatG = t.fatG,
+                carbG = t.carbG,
+                // callback khi xác nhận trong dialog
+                onGoalPicked = { goal, kcal, pro, fat, carb ->
+                    pvm.setGoalWithManualTargets(goal, kcal, pro, fat, carb)
+                },
+                onResetGoal = { pvm.resetMyFat() },
                 bottomBar = { BottomNavigationBar(navController) }
             )
         }
@@ -208,16 +222,15 @@ fun NavGraph(navController: NavHostController) {
 
         // ====== NUTRITION (PICKER + DETAIL) ======
 
-        // 1) Picker KHÔNG tham số: chọn thực phẩm rồi đẩy qua detail
+        // 1) Picker KHÔNG tham số
         composable("nutrition_detail") {
-            // Nếu muốn hiện bottom bar, bọc bằng Scaffold như các màn BOTTOM khác
             NutritionPickerScreen(
                 navController = navController,
                 defaultGrams = 100
             )
         }
 
-        // 2) Detail CÓ tham số: foodId + grams (tuỳ chọn, mặc định 100)
+        // 2) Detail CÓ tham số
         composable(
             route = "nutrition_detail/{foodId}?grams={grams}",
             arguments = listOf(
@@ -264,7 +277,7 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_step2") { RecipeStep2Screen(navController) }
         composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
 
-        // NUTRITION FACTS (nếu vẫn muốn giữ trang tổng quan)
+        // NUTRITION FACTS
         composable("nutrition_facts") { NutritionFactsScreen(navController) }
 
         composable("review_screen") { ReviewScreen(navController) }
@@ -321,7 +334,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // Xem hồ sơ người khác (NO bottom bar). ViewModel đọc userId từ SavedStateHandle("userId")
+        // Xem hồ sơ người khác (NO bottom bar)
         composable(
             route = "user_profile/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })

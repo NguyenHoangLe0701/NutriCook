@@ -32,7 +32,10 @@ import com.example.nutricook.model.user.initial
 import com.example.nutricook.viewmodel.profile.PostViewModel
 import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
-import com.example.nutricook.viewmodel.profile.ProfileSearchViewModel   // <-- thêm
+import com.example.nutricook.viewmodel.profile.ProfileSearchViewModel
+import com.example.nutricook.model.nutrition.DailyTotals
+import kotlin.math.max
+import kotlin.math.min
 
 private val HeaderStart = Color(0xFFFFE0C6)
 private val HeaderEnd = Color(0xFFCCE7FF)
@@ -47,13 +50,17 @@ fun ProfileScreen(
     onOpenPosts: () -> Unit = {},
     onOpenSaves: () -> Unit = {},
     onEditAvatar: () -> Unit = {},
-    // callback để mở hồ sơ người khác qua NavController: navController.navigate("user_profile/$uid")
     onOpenOtherProfile: (String) -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     vm: ProfileViewModel = hiltViewModel(),
     postVm: PostViewModel = hiltViewModel()
 ) {
     val ui by vm.uiState.collectAsState()
+    val tgt by vm.targets.collectAsState()          // mục tiêu “My Fat”
+
+    // ---- DỮ LIỆU THẬT ----
+    val today by vm.todayTotals.collectAsState()    // đã ăn hôm nay
+    val last7 by vm.last7Days.collectAsState()      // 7 ngày gần nhất
 
     Scaffold(
         containerColor = ScreenBg,
@@ -68,11 +75,22 @@ fun ProfileScreen(
 
             ui.profile != null -> {
                 val me = ui.profile!!.user.id
-                LaunchedEffect(me) { postVm.loadInitial(me) } // 1 trang ~ 3 bài (tùy backend)
+                LaunchedEffect(me) { postVm.loadInitial(me) }
 
                 ProfileContent(
                     modifier = Modifier.padding(padding),
                     state = ui,
+                    caloriesTarget = tgt.calories,
+                    proteinTarget = tgt.proteinG,
+                    fatTarget = tgt.fatG,
+                    carbTarget = tgt.carbG,
+                    // thực tế hôm nay
+                    caloriesIn = today.caloriesIn,
+                    proteinIn = today.proteinG,
+                    fatIn = today.fatG,
+                    carbIn = today.carbG,
+                    // chart 7 ngày
+                    last7Days = last7,
                     onEditAvatar = onEditAvatar,
                     onOpenSettings = onOpenSettings,
                     onOpenRecent = onOpenRecent,
@@ -95,6 +113,15 @@ fun ProfileScreen(
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     state: ProfileUiState,
+    caloriesTarget: Int,
+    proteinTarget: Double,
+    fatTarget: Double,
+    carbTarget: Double,
+    caloriesIn: Int,
+    proteinIn: Double,
+    fatIn: Double,
+    carbIn: Double,
+    last7Days: List<DailyTotals>,
     onEditAvatar: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRecent: () -> Unit,
@@ -108,7 +135,6 @@ private fun ProfileContent(
     var showSearch by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize().background(ScreenBg)) {
-        // header gradient
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -191,11 +217,28 @@ private fun ProfileContent(
                 }
             }
 
+            // --- My Fat card (mục tiêu hôm nay + đã ăn + còn lại) ---
+            item {
+                Spacer(Modifier.height(18.dp))
+                MyFatCard(
+                    caloriesTarget = caloriesTarget,
+                    proteinTarget = proteinTarget,
+                    fatTarget = fatTarget,
+                    carbTarget = carbTarget,
+                    caloriesIn = caloriesIn,
+                    proteinIn = proteinIn,
+                    fatIn = fatIn,
+                    carbIn = carbIn,
+                    onAdjust = onOpenSettings,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+            }
+
             // Chart title + chart
             item {
                 Spacer(Modifier.height(20.dp))
                 Text(
-                    text = "My Fatscret",
+                    text = "My Fatscret (7 ngày gần nhất)",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
@@ -206,7 +249,13 @@ private fun ProfileContent(
             }
             item {
                 Spacer(Modifier.height(12.dp))
-                ChartCard(modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth())
+                ChartCard(
+                    days = last7Days,
+                    kcalTarget = caloriesTarget,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .fillMaxWidth()
+                )
             }
 
             // Header My Posts
@@ -266,16 +315,12 @@ private fun ProfileContent(
                             PostItem(post = post)
                         }
 
-                        // Khi chạm cuối list -> loadMore nếu còn trang và chưa bận
                         val canLoadMore = postsSt.hasMore && !postsSt.loadingMore
                         if (index == postsSt.items.lastIndex && canLoadMore) {
-                            LaunchedEffect(postsSt.items.size) {
-                                postVm.loadMore()
-                            }
+                            LaunchedEffect(postsSt.items.size) { postVm.loadMore() }
                         }
                     }
 
-                    // Hiển thị loading khi đang tải trang kế tiếp
                     if (postsSt.loadingMore && postsSt.items.isNotEmpty()) {
                         item {
                             Box(
@@ -296,7 +341,6 @@ private fun ProfileContent(
         }
     }
 
-    // Search overlay
     if (showSearch) {
         SearchProfileDialog(
             onDismiss = { showSearch = false },
@@ -317,7 +361,6 @@ private fun TopBar(onOpenSettings: () -> Unit, onOpenSearch: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Đổi từ menu -> search
         Surface(shape = CircleShape, color = Color.White, shadowElevation = 2.dp) {
             IconButton(onClick = onOpenSearch) {
                 Icon(
@@ -548,6 +591,7 @@ private fun StatCell(number: Int, label: String) {
     }
 }
 
+/** Hàng menu đơn giản */
 @Composable
 private fun ProfileMenuRow(
     title: String,
@@ -597,71 +641,169 @@ private fun ProfileMenuRow(
     }
 }
 
+/** Card mục tiêu – đã ăn – còn lại (hôm nay) */
 @Composable
-private fun ChartCard(modifier: Modifier = Modifier) {
+private fun MyFatCard(
+    caloriesTarget: Int,
+    proteinTarget: Double,
+    fatTarget: Double,
+    carbTarget: Double,
+    caloriesIn: Int,
+    proteinIn: Double,
+    fatIn: Double,
+    carbIn: Double,
+    onAdjust: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val remainKcal = (caloriesTarget - caloriesIn).coerceAtLeast(0)
+    val remainPro  = (proteinTarget - proteinIn).coerceAtLeast(0.0)
+    val remainFat  = (fatTarget - fatIn).coerceAtLeast(0.0)
+    val remainCarb = (carbTarget - carbIn).coerceAtLeast(0.0)
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "My Fat (hôm nay)",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                TextButton(onClick = onAdjust) { Text("Điều chỉnh") }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            // Hàng mục tiêu
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MacroBox(title = "KCAL", value = "$caloriesTarget")
+                MacroBox(title = "PRO",  value = "${"%.0f".format(proteinTarget)}g")
+                MacroBox(title = "FAT",  value = "${"%.0f".format(fatTarget)}g")
+                MacroBox(title = "CARB", value = "${"%.0f".format(carbTarget)}g")
+            }
+            Spacer(Modifier.height(8.dp))
+            // Hàng đã ăn
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MacroBox(title = "ĐÃ ĂN", value = "$caloriesIn")
+                MacroBox(title = "PRO",  value = "${"%.0f".format(proteinIn)}g")
+                MacroBox(title = "FAT",  value = "${"%.0f".format(fatIn)}g")
+                MacroBox(title = "CARB", value = "${"%.0f".format(carbIn)}g")
+            }
+            Spacer(Modifier.height(8.dp))
+            // Hàng còn lại
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MacroBox(title = "CÒN", value = "$remainKcal")
+                MacroBox(title = "PRO",  value = "${"%.0f".format(remainPro)}g")
+                MacroBox(title = "FAT",  value = "${"%.0f".format(remainFat)}g")
+                MacroBox(title = "CARB", value = "${"%.0f".format(remainCarb)}g")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MacroBox(title: String, value: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(72.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFFF6F6F6))
+            .padding(vertical = 12.dp, horizontal = 8.dp)
+    ) {
+        Text(title, color = Color.Gray, fontSize = 11.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(value, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    }
+}
+
+/**
+ * Biểu đồ 7 ngày gần nhất:
+ * - Vẽ đường theo caloriesIn của mỗi ngày (chuẩn hoá theo max(target, max(caloriesIn)) để dễ nhìn).
+ * - Nếu rỗng -> vẽ placeholder nhẹ.
+ */
+@Composable
+private fun ChartCard(
+    days: List<DailyTotals>,
+    kcalTarget: Int,
+    modifier: Modifier = Modifier
+) {
+    val values = if (days.isEmpty()) {
+        listOf(0.55f, 0.50f, 0.52f, 0.48f, 0.45f, 0.42f, 0.40f).map { (it * (kcalTarget.coerceAtLeast(1))).toFloat() }
+    } else {
+        days.map { it.caloriesIn.toFloat() }
+    }
+    val maxValue = max(1f, max(values.maxOrNull() ?: 1f, kcalTarget.toFloat()))
+
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(130.dp).padding(16.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .padding(16.dp)
+        ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val width = size.width
-                val height = size.height
+                val w = size.width
+                val h = size.height
+                if (values.isEmpty()) return@Canvas
 
-                val points = listOf(
-                    0.0f to 0.55f,
-                    0.12f to 0.5f,
-                    0.24f to 0.52f,
-                    0.36f to 0.48f,
-                    0.48f to 0.45f,
-                    0.6f to 0.42f,
-                    0.72f to 0.38f,
-                    0.84f to 0.4f,
-                    1.0f to 0.38f
-                )
+                val pts = values.mapIndexed { i, v ->
+                    val x = if (values.size == 1) 0f else i.toFloat() / (values.lastIndex.toFloat())
+                    val y = (v / maxValue).coerceIn(0f, 1f) // 0..1
+                    x to y
+                }
 
-                val linePath = Path()
-                val fillPath = Path()
-
-                points.forEachIndexed { index, (x, y) ->
-                    val xPos = x * width
-                    val yPos = (1 - y) * height
-                    if (index == 0) {
-                        linePath.moveTo(xPos, yPos)
-                        fillPath.moveTo(xPos, height)
-                        fillPath.lineTo(xPos, yPos)
+                val line = Path()
+                val fill = Path()
+                pts.forEachIndexed { idx, (x, y) ->
+                    val xp = x * w
+                    val yp = (1f - y) * h
+                    if (idx == 0) {
+                        line.moveTo(xp, yp)
+                        fill.moveTo(xp, h)
+                        fill.lineTo(xp, yp)
                     } else {
-                        linePath.lineTo(xPos, yPos)
-                        fillPath.lineTo(xPos, yPos)
+                        line.lineTo(xp, yp)
+                        fill.lineTo(xp, yp)
                     }
                 }
-
-                fillPath.lineTo(width, height)
-                fillPath.close()
+                fill.lineTo(w, h); fill.close()
 
                 drawPath(
-                    path = fillPath,
+                    path = fill,
                     brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF06B6D4).copy(alpha = 0.25f),
-                            Color(0xFF06B6D4).copy(alpha = 0.05f)
-                        )
+                        listOf(Color(0xFF06B6D4).copy(alpha = 0.25f), Color(0xFF06B6D4).copy(alpha = 0.05f))
                     )
                 )
+                drawPath(path = line, color = Color(0xFF06B6D4), style = Stroke(width = 2.5.dp.toPx()))
 
-                drawPath(path = linePath, color = Color(0xFF06B6D4), style = Stroke(width = 2.5.dp.toPx()))
-
-                points.forEach { (x, y) ->
-                    val xPos = x * width
-                    val yPos = (1 - y) * height
-                    drawCircle(
-                        color = Color(0xFF06B6D4),
-                        radius = 3.dp.toPx(),
-                        center = androidx.compose.ui.geometry.Offset(xPos, yPos)
-                    )
+                // chấm
+                pts.forEach { (x, y) ->
+                    val xp = x * w; val yp = (1f - y) * h
+                    drawCircle(Color(0xFF06B6D4), radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(xp, yp))
                 }
+            }
+        }
+
+        // Nhãn trục X đơn giản (tùy chọn)
+        if (days.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(days.first().date.takeLast(5), fontSize = 11.sp, color = Color.Gray)
+                Text(days.last().date.takeLast(5), fontSize = 11.sp, color = Color.Gray)
             }
         }
     }
