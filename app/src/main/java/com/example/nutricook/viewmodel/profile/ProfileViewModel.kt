@@ -1,36 +1,21 @@
+// file: com/example/nutricook/viewmodel/profile/ProfileViewModel.kt
 package com.example.nutricook.viewmodel.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
-import com.example.nutricook.data.storage.NutritionProfileStore
 import com.example.nutricook.data.nutrition.IMealRepository
-import com.example.nutricook.model.nutrition.BodyMetrics
-import com.example.nutricook.model.nutrition.DailyTotals
-import com.example.nutricook.model.nutrition.Goal
-import com.example.nutricook.model.nutrition.MacroPrefs
-import com.example.nutricook.model.nutrition.NutritionProfile
-import com.example.nutricook.model.nutrition.NutritionTargets
-import com.example.nutricook.model.nutrition.recalculate
-import com.example.nutricook.model.nutrition.withInputs
+import com.example.nutricook.data.nutrition.INutritionProfileRepository
+import com.example.nutricook.model.nutrition.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val repo: ProfileRepository,
-    private val profileStore: NutritionProfileStore,
+    private val nutriRepo: INutritionProfileRepository, // DataStore + Firestore JSON (raw)
     private val mealRepo: IMealRepository
 ) : ViewModel() {
 
@@ -46,6 +31,10 @@ class ProfileViewModel @Inject constructor(
 
     private val _targets = MutableStateFlow(ProfileTargets())
     val targets: StateFlow<ProfileTargets> = _targets.asStateFlow()
+
+    // LƯU Ý: giữ RAW profile; chỉ recalc khi thực hiện các hành vi "auto"
+    private val _nutrition = MutableStateFlow(NutritionProfile())
+    val nutrition: StateFlow<NutritionProfile> = _nutrition.asStateFlow()
 
     val todayTotals: StateFlow<DailyTotals> =
         mealRepo.observeTodayTotals()
@@ -64,6 +53,7 @@ class ProfileViewModel @Inject constructor(
             )
 
     init {
+        // Hồ sơ (Firestore)
         repo.myProfileFlow()
             .distinctUntilChanged()
             .onEach { p -> _ui.update { it.copy(loading = false, profile = p) } }
@@ -74,10 +64,11 @@ class ProfileViewModel @Inject constructor(
             if (_ui.value.profile == null) refreshOnce()
         }
 
-        profileStore.flow()
-            .onEach { profile ->
-                val recalced = safeRecalc(profile)
-                _targets.value = recalced.targets.toVmTargets()
+        // NutritionProfile RAW (KHÔNG recalc trong collector)
+        nutriRepo.profileFlow()
+            .onEach { prof ->
+                _nutrition.value = prof // raw
+                _targets.value = prof.targets.toVmTargets()
             }
             .catch { e ->
                 _ui.update { it.copy(message = e.message ?: "Không đọc được dữ liệu My Fat") }
@@ -90,9 +81,7 @@ class ProfileViewModel @Inject constructor(
         runCatching { repo.getMyProfile() }
             .onSuccess { p -> _ui.update { it.copy(loading = false, profile = p) } }
             .onFailure { e ->
-                _ui.update {
-                    it.copy(loading = false, message = e.message ?: "Không tải được hồ sơ")
-                }
+                _ui.update { it.copy(loading = false, message = e.message ?: "Không tải được hồ sơ") }
             }
     }
 
@@ -112,9 +101,7 @@ class ProfileViewModel @Inject constructor(
                 _ui.update { it.copy(updating = false, message = "Đã lưu hồ sơ") }
             }
             .onFailure { e ->
-                _ui.update {
-                    it.copy(updating = false, message = e.message ?: "Không thể lưu hồ sơ")
-                }
+                _ui.update { it.copy(updating = false, message = e.message ?: "Không thể lưu hồ sơ") }
             }
     }
 
@@ -135,17 +122,13 @@ class ProfileViewModel @Inject constructor(
                 refreshOnce()
             }
             .onFailure { e ->
-                _ui.update {
-                    it.copy(updating = false, message = e.message ?: "Không thể cập nhật ảnh")
-                }
+                _ui.update { it.copy(updating = false, message = e.message ?: "Không thể cập nhật ảnh") }
             }
     }
 
     fun setFollow(targetUid: String, follow: Boolean) = viewModelScope.launch {
         runCatching { repo.setFollow(targetUid, follow) }
-            .onFailure { e ->
-                _ui.update { it.copy(message = e.message ?: "Lỗi thao tác theo dõi") }
-            }
+            .onFailure { e -> _ui.update { it.copy(message = e.message ?: "Lỗi thao tác theo dõi") } }
     }
 
     suspend fun isFollowing(targetUid: String): Boolean =
@@ -156,9 +139,7 @@ class ProfileViewModel @Inject constructor(
         runCatching { repo.changePassword(oldPassword, newPassword) }
             .onSuccess { _ui.update { it.copy(updating = false, message = "Đã đổi mật khẩu") } }
             .onFailure { e ->
-                _ui.update {
-                    it.copy(updating = false, message = e.message ?: "Đổi mật khẩu thất bại")
-                }
+                _ui.update { it.copy(updating = false, message = e.message ?: "Đổi mật khẩu thất bại") }
             }
     }
 
@@ -167,23 +148,28 @@ class ProfileViewModel @Inject constructor(
     }
 
     // ---------- My Fat ----------
+    // Các hành vi "auto" -> recalc rồi lưu
     fun updateMetrics(newMetrics: BodyMetrics) = viewModelScope.launch {
-        profileStore.update { old -> old.withInputs(metrics = newMetrics).recalculate() }
+        val next = _nutrition.value.withInputs(metrics = newMetrics).recalculate()
+        nutriRepo.save(next)
     }
 
     fun updateGoal(goal: Goal) = viewModelScope.launch {
-        profileStore.update { old -> old.withInputs(goal = goal).recalculate() }
+        val next = _nutrition.value.withInputs(goal = goal).recalculate()
+        nutriRepo.save(next)
     }
 
     fun updateCalorieDelta(deltaKcalPerDay: Int) = viewModelScope.launch {
-        profileStore.update { old -> old.withInputs(deltaKcalPerDay = deltaKcalPerDay).recalculate() }
+        val next = _nutrition.value.withInputs(deltaKcalPerDay = deltaKcalPerDay).recalculate()
+        nutriRepo.save(next)
     }
 
     fun updateMacroPrefs(prefs: MacroPrefs) = viewModelScope.launch {
-        profileStore.update { old -> old.withInputs(prefs = prefs).recalculate() }
+        val next = _nutrition.value.withInputs(prefs = prefs).recalculate()
+        nutriRepo.save(next)
     }
 
-    /** Đặt Goal mới và GHI ĐÈ chỉ số target thủ công (kcal/pro/fat/carb). */
+    /** Đặt Goal mới và GHI ĐÈ chỉ số target thủ công (kcal/pro/fat/carb) -> KHÔNG recalc sau override */
     fun setGoalWithManualTargets(
         goal: Goal,
         calories: Int,
@@ -191,30 +177,24 @@ class ProfileViewModel @Inject constructor(
         fatG: Double,
         carbG: Double
     ) = viewModelScope.launch {
-        profileStore.update { old ->
-            val rec = old.withInputs(goal = goal).recalculate()
-            rec.copy(
-                targets = NutritionTargets(
-                    caloriesTarget = calories,
-                    proteinG = proteinG,
-                    fatG = fatG,
-                    carbG = carbG
-                )
+        val base = _nutrition.value.withInputs(goal = goal).recalculate()
+        val overridden = base.copy(
+            targets = NutritionTargets(
+                caloriesTarget = calories.coerceAtLeast(0),
+                proteinG = proteinG.coerceAtLeast(0.0),
+                fatG = fatG.coerceAtLeast(0.0),
+                carbG = carbG.coerceAtLeast(0.0)
             )
-        }
+        )
+        // LƯU THẲNG, không recalc lần nữa để tránh đè số thủ công
+        nutriRepo.save(overridden)
     }
 
     fun resetMyFat() = viewModelScope.launch {
-        profileStore.set(NutritionProfile().recalculate())
+        nutriRepo.save(NutritionProfile().recalculate())
     }
 
     // ---------- Helpers ----------
-    private fun safeRecalc(p: NutritionProfile): NutritionProfile = try {
-        p.recalculate()
-    } catch (_: Throwable) {
-        NutritionProfile().recalculate()
-    }
-
     private fun NutritionTargets.toVmTargets(): ProfileTargets =
         ProfileTargets(
             calories = caloriesTarget,

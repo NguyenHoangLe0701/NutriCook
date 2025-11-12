@@ -49,6 +49,8 @@ fun SettingsScreen(
     proteinG: Double = 0.0,
     fatG: Double = 0.0,
     carbG: Double = 0.0,
+    // Goal hiện tại (mới thêm)
+    currentGoal: Goal = Goal.MAINTAIN,
     bottomBar: @Composable () -> Unit = {},
     vm: ProfileSharedViewModel = hiltViewModel()
 ) {
@@ -61,9 +63,7 @@ fun SettingsScreen(
     var showPassword by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showAvatarOptions by remember { mutableStateOf(false) }
-
-    // Dialog chọn & set Goal thủ công
-    var showGoal by remember { mutableStateOf(false) }
+    var showGoal by remember { mutableStateOf(false) } // Dialog chọn & set Goal thủ công
 
     Scaffold(
         containerColor = Color(0xFFFAFAFA),
@@ -179,9 +179,7 @@ fun SettingsScreen(
                                 shape = RoundedCornerShape(50),
                                 color = Color(0xFFB8E6DC),
                                 shadowElevation = 0.dp,
-                                modifier = Modifier.clickable {
-                                    showAvatarOptions = true
-                                }
+                                modifier = Modifier.clickable { showAvatarOptions = true }
                             ) {
                                 Text(
                                     text = "+ Change Profile Picture",
@@ -240,9 +238,12 @@ fun SettingsScreen(
                             }
                         }
                         Spacer(Modifier.height(8.dp))
+                        // 👉 Cho phép chạm nhanh để mở dialog chỉnh chỉ số
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showGoal = true }
                         ) {
                             MacroCell(
                                 modifier = Modifier.weight(1f),
@@ -836,7 +837,7 @@ fun SettingsScreen(
     // ===== Dialog chọn Goal + set thủ công chỉ số =====
     if (showGoal) {
         val goals = remember { Goal.values().toList() }
-        var selected by remember { mutableStateOf(goals.first()) }
+        var selected by remember(currentGoal) { mutableStateOf(currentGoal) } // lấy goal hiện tại
 
         var kcalText by remember(caloriesTarget) { mutableStateOf(caloriesTarget.toString()) }
         var proText by remember(proteinG) { mutableStateOf(proteinG.round0()) }
