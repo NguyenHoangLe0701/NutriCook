@@ -20,6 +20,7 @@ import com.example.nutricook.view.articles.ArticleDetailScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
 import com.example.nutricook.view.categories.CategoriesScreen
+import com.example.nutricook.view.debug.DataSeedScreen
 import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.home.NutritionDetailScreen
 import com.example.nutricook.view.intro.IntroScreen
@@ -191,7 +192,8 @@ fun NavGraph(navController: NavHostController) {
                         launchSingleTop = true
                     }
                 },
-                bottomBar = { BottomNavigationBar(navController) }
+                bottomBar = { BottomNavigationBar(navController) },
+                navController = navController
             )
         }
 
@@ -368,6 +370,9 @@ fun NavGraph(navController: NavHostController) {
 
         composable("nutrition_facts") { NutritionFactsScreen(navController) }
         composable("review_screen") { ReviewScreen(navController) }
+
+        // ========== DATA SEEDER (DEBUG) ==========
+        composable("seed_data") { DataSeedScreen(navController) }
 
         // ========== ARTICLE DETAIL ==========
         composable("article_detail") { ArticleDetailScreen(navController) }

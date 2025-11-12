@@ -23,11 +23,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import androidx.compose.ui.res.painterResource
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
 import com.example.nutricook.R
+import com.example.nutricook.viewmodel.QueryViewModel
 
 // 🧱 Data models
 data class RecipeCategory(
@@ -48,86 +50,83 @@ data class TodayRecipe(
 )
 
 @Composable
-fun RecipeDiscoveryScreen(navController: NavController) {
-    val categories = remember {
-        listOf(
-            RecipeCategory(
-                "Vietnamese Food",
-                Color(0xFFD6F4E0),
-                "Vegetarian Pho (Vietnamese Noodle Soup)",
-                R.drawable.pho,
-                3,
-                5
-            ),
-            RecipeCategory(
-                "Salmon Recipes",
-                Color(0xFFFFEBD2),
-                "7 Sheet Pan Salmon Recipes for Busy Weeknights",
-                R.drawable.supcahoi,
-                2,
-                3
-            ),
-            RecipeCategory(
-                "Chicken Recipes",
-                Color(0xFFE6F1FF),
-                "25 Pineapple Chicken Recipes for Sweet and Savory Dinners",
-                R.drawable.ga,
-                4,
-                21
-            )
-        )
+fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel = hiltViewModel()) {
+    // Load from Firestore
+    val firebaseCategories by queryVM.categories
+    val firebaseRecipes by queryVM.recipes
+    val isLoading by queryVM.isLoading
+    val error by queryVM.error
+
+    // Fetch on first load
+    LaunchedEffect(Unit) {
+        queryVM.loadCategories()
+        queryVM.loadRecipes()
     }
 
-    val todayRecipes = remember {
-        listOf(
-            TodayRecipe(
-                "Slow-Cooker Corned Beef and Cabbage",
-                "Cook this in your slow cooker all day and enjoy the tenderness!",
-                4.5,
-                R.drawable.beefandcabbage,
-                1250
-            ),
-            TodayRecipe(
-                "One-Pan White Cheddar Mac and Cheese",
-                "If you can make boxed macaroni and cheese, you can make this!",
-                4.5,
-                R.drawable.macandcheese,
-                980
-            ),
-            TodayRecipe(
-                "Simple Macaroni and Cheese",
-                "A super satisfying, quick and easy dinner.",
-                3.4,
-                R.drawable.macaroniandcheese,
-                850
-            ),
-            TodayRecipe(
-                "Marie's Easy Slow Cooker Pot Roast",
-                "Moist and juicy pot roast with carrots, onion and potatoes.",
-                4.6,
-                R.drawable.potroast,
-                2382
-            )
-        )
+    // Convert Map to typed data, fallback to SampleData if empty
+    val categories = if (firebaseCategories.isNotEmpty()) {
+        firebaseCategories.mapNotNull { map ->
+            try {
+                RecipeCategory(
+                    category = map["category"] as? String ?: "",
+                    color = Color(0xFF3AC7BF),
+                    title = map["title"] as? String ?: "",
+                    imageRes = R.drawable.pho,
+                    userCount = (map["userCount"] as? Number)?.toInt() ?: 0,
+                    additionalUsers = (map["additionalUsers"] as? Number)?.toInt() ?: 0
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    } else {
+        com.example.nutricook.data.SampleData.categories
+    }
+
+    val todayRecipes = if (firebaseRecipes.isNotEmpty()) {
+        firebaseRecipes.mapNotNull { map ->
+            try {
+                TodayRecipe(
+                    name = map["name"] as? String ?: "",
+                    description = map["description"] as? String ?: "",
+                    rating = (map["rating"] as? Number)?.toDouble() ?: 0.0,
+                    imageRes = R.drawable.beefandcabbage,
+                    reviews = (map["reviews"] as? Number)?.toInt() ?: 0
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    } else {
+        com.example.nutricook.data.SampleData.todayRecipes
     }
 
     val listState = rememberLazyListState()
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(bottom = 16.dp)
-    ) {
-        // 🧭 Header
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (error.isNotEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Error: $error", color = Color.Red)
+        }
+    } else {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(bottom = 16.dp)
+        ) {
+            // 🧭 Header
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 IconButton(onClick = { navController.popBackStack() }) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
@@ -188,6 +187,7 @@ fun RecipeDiscoveryScreen(navController: NavController) {
                 // ✅ Khi bấm vào, mở RecipeInfoScreen
                 navController.navigate("recipe_info/${recipe.name}/${recipe.imageRes}")
             }
+        }
         }
     }
 }

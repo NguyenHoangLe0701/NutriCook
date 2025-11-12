@@ -26,49 +26,53 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nutricook.R
+import com.example.nutricook.viewmodel.QueryViewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReviewScreen(navController: NavController) {
+fun ReviewScreen(navController: NavController, queryVM: QueryViewModel = hiltViewModel()) {
     var comment by remember { mutableStateOf(TextFieldValue("")) }
+    val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val scope = rememberCoroutineScope()
 
-    // Fake data
-    val reviews = remember {
-        listOf(
-            ReviewItem(
-                userName = "Allrecipes Member",
-                date = "07/09/2022",
-                text = "I would recommend adding the vegetables in until the last three hours of cooking time. That way they won’t turn to mush.",
-                liked = true,
-                rating = 4,
-                likes = 10
-            ),
-            ReviewItem(
-                userName = "seany42o1",
-                date = "06/12/2022",
-                text = "The corned beef needs to be on low and then 9 hours works. Great recipe, I made it without the beer.",
-                liked = false,
-                rating = 4,
-                likes = 5
-            ),
-            ReviewItem(
-                userName = "vicki936",
-                date = "03/22/2022",
-                text = "I bought a corned beef brisket at Costco and didn’t want to toil with stove top directions so I found this crock pot recipe.",
-                liked = false,
-                rating = 4,
-                likes = 5
-            ),
-            ReviewItem(
-                userName = "John Shifflett",
-                date = "04/02/2022",
-                text = "Perfect recipe, made this numerous times and it always comes out delicious.",
-                liked = false,
-                rating = 4,
-                likes = 5
-            )
-        )
+    // Load reviews from Firestore
+    val firebaseReviews by queryVM.reviews
+    val isLoading by queryVM.isLoading
+    val error by queryVM.error
+
+    // Fetch reviews on first load
+    LaunchedEffect(Unit) {
+        scope.launch {
+            queryVM.loadReviews()
+        }
+    }
+
+    // Convert Map to ReviewItem for display, fallback to sample data if empty
+    val displayReviews = if (firebaseReviews.isNotEmpty()) {
+        firebaseReviews.mapNotNull { map ->
+            try {
+                ReviewItem(
+                    userName = map["userName"] as? String ?: "Anonymous",
+                    date = map["date"] as? String ?: "",
+                    text = map["text"] as? String ?: "",
+                    liked = false,
+                    rating = (map["rating"] as? Number)?.toInt() ?: 0,
+                    likes = (map["likes"] as? Number)?.toInt() ?: 0
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    } else {
+        com.example.nutricook.data.SampleData.reviews
     }
 
     Scaffold(
@@ -126,7 +130,24 @@ fun ReviewScreen(navController: NavController) {
                     color = Color.Gray
                 )
                 Button(
-                    onClick = { /* handle send */ },
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val userName = auth.currentUser?.displayName ?: auth.currentUser?.email ?: "Anonymous"
+                                val data = mapOf(
+                                    "userName" to userName,
+                                    "text" to comment.text,
+                                    "createdAt" to FieldValue.serverTimestamp()
+                                )
+                                // write to collection 'reviews'
+                                db.collection("reviews").add(data).await()
+                                // clear text on success
+                                comment = TextFieldValue("")
+                            } catch (e: Exception) {
+                                // optionally handle error (log / show snackbar)
+                            }
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -137,26 +158,36 @@ fun ReviewScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // ======= Review list =======
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp)
-            ) {
-                items(reviews) { review ->
-                    ReviewCard(review)
-                    Spacer(modifier = Modifier.height(12.dp))
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
+            } else if (error.isNotEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Error: $error", color = Color.Red)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    items(displayReviews) { review ->
+                        ReviewCard(review)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
 
-                item {
-                    Button(
-                        onClick = { /* Load more */ },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Load more review", color = Color.White)
+                    item {
+                        Button(
+                            onClick = { /* Load more */ },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Load more review", color = Color.White)
+                        }
                     }
                 }
             }
