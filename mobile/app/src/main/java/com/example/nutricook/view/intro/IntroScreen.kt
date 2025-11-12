@@ -110,10 +110,10 @@ fun VitaminBubbles() {
     )
 
     // 🌈 Góc bay ra quanh khiên
-    val angles = listOf(20, 70, 110, 160, 200, 250, 300, 340)
+    val angles = listOf(20, 70, 110, 160, 225, 255, 300, 340)
 
     // 🔹 Tạo khoảng cách khác nhau (xa gần)
-    val radii = listOf(500f, 420f, 550f, 470f, 520f, 400f, 580f, 550f)
+    val radii = listOf(500f, 500f, 550f, 500f, 700f, 500f, 500f, 550f)
 
     Box(
         modifier = Modifier
@@ -153,7 +153,7 @@ fun VitaminBubbles() {
                 painter = painterResource(id = img),
                 contentDescription = null,
                 modifier = Modifier
-                    .size(65.dp)
+                    .size(80.dp)
                     .graphicsLayer {
                         translationX = offsetX.value
                         translationY = offsetY.value

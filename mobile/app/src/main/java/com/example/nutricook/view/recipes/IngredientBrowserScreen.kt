@@ -23,61 +23,86 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.nutricook.viewmodel.QueryViewModel
 
 @Composable
-fun IngredientBrowserScreen(navController: NavController) {
+fun IngredientBrowserScreen(navController: NavController, queryVM: QueryViewModel = hiltViewModel()) {
     val alphabet = ('A'..'Z').toList()
     var selectedLetter by remember { mutableStateOf('A') }
 
-    val allIngredients = mapOf(
-        'A' to listOf("Apple (Táo)", "Avocado (Bơ)", "Artichoke (Atiso)"),
-        'B' to listOf("Bánh mì", "Bánh bao", "Bánh quy", "Bánh ngọt", "Bắp", "Bí đỏ"),
-        'C' to listOf("Cà chua", "Cà rốt", "Cá hồi", "Cải bó xôi", "Cơm", "Chanh"),
-        'D' to listOf("Dưa leo", "Dưa hấu", "Dâu tây")
-    )
+    // Load from Firestore
+    val firebaseIngredients by queryVM.ingredients
+    val firebaseMealTypes by queryVM.mealTypes
+    val firebaseDietTypes by queryVM.dietTypes
+    val isLoading by queryVM.isLoading
+
+    LaunchedEffect(Unit) {
+        queryVM.loadIngredients()
+        queryVM.loadMealTypes()
+        queryVM.loadDietTypes()
+    }
+
+    val allIngredients = if (firebaseIngredients.isNotEmpty()) {
+        // Group ingredients by first letter
+        firebaseIngredients.groupBy { 
+            (it["letter"] as? String)?.get(0) ?: 'A'
+        }.mapValues { (_, items) ->
+            items.mapNotNull { it["name"] as? String }
+        }
+    } else {
+        com.example.nutricook.data.SampleData.allIngredients
+    }
     val ingredientList = allIngredients[selectedLetter] ?: emptyList()
 
-    val mealTypes = listOf(
-        "Khai vị", "Bữa sáng", "Món tráng miệng", "Bữa trưa",
-        "Món chính", "Salad", "Món phụ", "Ăn nhẹ",
-        "Súp", "Đồ uống", "Bánh ngọt", "Nước sốt & gia vị"
-    )
-    val dietTypes = listOf(
-        "Không sữa", "Giàu đạm thực vật", "Không gluten",
-        "Giàu chất xơ", "Ít calo", "Ít tinh bột"
-    )
+    val mealTypes = if (firebaseMealTypes.isNotEmpty()) {
+        firebaseMealTypes
+    } else {
+        com.example.nutricook.data.SampleData.mealTypes
+    }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // 🔹 Header
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.Default.Close, contentDescription = "Đóng")
-                }
-                Text(
-                    text = "Nguyên liệu & Món ăn",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
+    val dietTypes = if (firebaseDietTypes.isNotEmpty()) {
+        firebaseDietTypes
+    } else {
+        com.example.nutricook.data.SampleData.dietTypes
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 🔹 Header
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.Close, contentDescription = "Đóng")
+                    }
+                    Text(
+                        text = "Nguyên liệu & Món ăn",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
 
-        // 🔸 Thanh A–Z
-        item {
-            Row(
-                modifier = Modifier
+            // 🔸 Thanh A–Z
+            item {
+                Row(
+                    modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -209,6 +234,7 @@ fun IngredientBrowserScreen(navController: NavController) {
 
         item {
             Spacer(modifier = Modifier.height(40.dp))
+        }
         }
     }
 }

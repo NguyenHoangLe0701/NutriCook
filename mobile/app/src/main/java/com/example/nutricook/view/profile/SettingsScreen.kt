@@ -40,7 +40,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
     bottomBar: @Composable () -> Unit = {},
-    vm: ProfileSharedViewModel = hiltViewModel()
+    vm: ProfileSharedViewModel = hiltViewModel(),
+    navController: androidx.navigation.NavController? = null
 ) {
     val ui by vm.uiState.collectAsState()
 
@@ -240,6 +241,38 @@ fun SettingsScreen(
                         },
                         onClick = { showGender = true }
                     )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // Debug Seed button (temporary)
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { navController?.navigate("seed_data") }
+                            .padding(horizontal = 18.dp, vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🔧",
+                            fontSize = 26.sp,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            text = "Debug: Seed Firestore",
+                            color = Color(0xFF2E7D32),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(20.dp))

@@ -20,7 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nutricook.R
+import com.example.nutricook.viewmodel.QueryViewModel
 
 data class CookingTip(
     val title: String,
@@ -37,95 +39,106 @@ data class CalorieInfo(
 )
 
 @Composable
-fun RecipeGuidanceScreen(navController: NavController) {
-    val cookingTips = listOf(
-        CookingTip(
-            title = "Cách nấu cơm ngon",
-            description = "Tỷ lệ nước và gạo 1:1.5, để lửa nhỏ 15 phút",
-            icon = Icons.Default.Restaurant,
-            category = "Cơm"
-        ),
-        CookingTip(
-            title = "Cách luộc trứng hoàn hảo",
-            description = "Nước sôi, thả trứng, đun 6-7 phút cho lòng đào",
-            icon = Icons.Default.Egg,
-            category = "Trứng"
-        ),
-        CookingTip(
-            title = "Cách ướp thịt mềm",
-            description = "Dùng nước dứa hoặc giấm táo ướp 30 phút",
-            icon = Icons.Default.LocalDining,
-            category = "Thịt"
-        ),
-        CookingTip(
-            title = "Cách làm nước dùng trong",
-            description = "Đun sôi, vớt bọt, thêm hành tây và gừng",
-            icon = Icons.Default.SoupKitchen,
-            category = "Nước dùng"
-        )
-    )
+fun RecipeGuidanceScreen(navController: NavController, queryVM: QueryViewModel = hiltViewModel()) {
+    // Load from Firestore
+    val firebaseCookingTips by queryVM.cookingTips
+    val firebaseCalorieInfo by queryVM.calorieInfo
+    val isLoading by queryVM.isLoading
 
-    val calorieInfo = listOf(
-        CalorieInfo(
-            foodName = "Thơm (Dứa)",
-            calories = 48,
-            imageRes = R.drawable.pineapple,
-            benefits = listOf(
-                "Giàu vitamin C",
-                "Hỗ trợ tiêu hóa",
-                "Chống viêm",
-                "Tăng cường miễn dịch"
-            )
-        ),
-        CalorieInfo(
-            foodName = "Chuối",
-            calories = 89,
-            imageRes = R.drawable.banana,
-            benefits = listOf(
-                "Giàu kali",
-                "Cung cấp năng lượng",
-                "Tốt cho tim mạch",
-                "Hỗ trợ cơ bắp"
-            )
-        ),
-        CalorieInfo(
-            foodName = "Cà rốt",
-            calories = 52,
-            imageRes = R.drawable.carrot,
-            benefits = listOf(
-                "Giàu beta-carotene",
-                "Tốt cho mắt",
-                "Chống oxy hóa",
-                "Hỗ trợ da khỏe"
-            )
-        )
-    )
+    LaunchedEffect(Unit) {
+        queryVM.loadCookingTips()
+        queryVM.loadCalorieInfo()
+    }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        item {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Công Thức & Hướng dẫn",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+    // Convert Map to typed data, fallback to SampleData
+    val cookingTips: List<CookingTip> = if (firebaseCookingTips.isNotEmpty()) {
+        firebaseCookingTips.mapNotNull { map ->
+            try {
+                CookingTip(
+                    title = map["title"] as? String ?: "",
+                    description = map["description"] as? String ?: "",
+                    icon = Icons.Default.Restaurant,
+                    category = map["category"] as? String ?: ""
                 )
+            } catch (e: Exception) {
+                null
             }
         }
+    } else {
+        com.example.nutricook.data.SampleData.cookingTips.mapNotNull { map ->
+            try {
+                CookingTip(
+                    title = map["title"] as? String ?: "",
+                    description = map["description"] as? String ?: "",
+                    icon = Icons.Default.Restaurant,
+                    category = map["category"] as? String ?: ""
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    val calorieInfo: List<CalorieInfo> = if (firebaseCalorieInfo.isNotEmpty()) {
+        firebaseCalorieInfo.mapNotNull { map ->
+            try {
+                @Suppress("UNCHECKED_CAST")
+                CalorieInfo(
+                    foodName = map["foodName"] as? String ?: "",
+                    calories = (map["calories"] as? Number)?.toInt() ?: 0,
+                    imageRes = R.drawable.pineapple,
+                    benefits = (map["benefits"] as? List<String>) ?: emptyList()
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    } else {
+        com.example.nutricook.data.SampleData.calorieInfo.mapNotNull { map ->
+            try {
+                @Suppress("UNCHECKED_CAST")
+                CalorieInfo(
+                    foodName = map["foodName"] as? String ?: "",
+                    calories = (map["calories"] as? Number)?.toInt() ?: 0,
+                    imageRes = R.drawable.pineapple,
+                    benefits = (map["benefits"] as? List<String>) ?: emptyList()
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+        ) {
+            item {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Công Thức & Hướng dẫn",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
 
         item {
             // Welcome Section
@@ -267,6 +280,7 @@ fun RecipeGuidanceScreen(navController: NavController) {
 
         item {
             Spacer(modifier = Modifier.height(32.dp))
+        }
         }
     }
 }
