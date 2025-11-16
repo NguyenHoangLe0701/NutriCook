@@ -1,6 +1,5 @@
 package com.example.nutricook.view.categories
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,136 +18,76 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel // Import Hilt
 import androidx.navigation.NavController
-import com.example.nutricook.R
+import coil.compose.AsyncImage
+import com.example.nutricook.viewmodel.CategoriesViewModel
+import com.example.nutricook.viewmodel.CategoryUI
+import com.example.nutricook.viewmodel.FoodItemUI
 
-data class FoodItem(
-    val name: String,
-    val calories: String,
-    val imageRes: Int
-)
-
-data class CategoryTab(
-    val name: String,
-    val icon: Int,
-    val color: Color
-)
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoriesScreen(navController: NavController) {
-    val categories = listOf(
-        CategoryTab("Rau củ", R.drawable.salad, Color(0xFF20B2AA)),
-        CategoryTab("Trái cây", R.drawable.fruit, Color(0xFFFF8C00)),
-        CategoryTab("Hải sản", R.drawable.seafood, Color(0xFFDC143C)),
-        CategoryTab("Thịt", R.drawable.meat, Color(0xFF4169E1))
-    )
-    
-    val vegetables = listOf(
-        FoodItem("Cà rốt", "52 kcal", R.drawable.carrot),
-        FoodItem("Khoai tây", "104 kcal", R.drawable.potato),
-        FoodItem("Nghệ (bột)", "354 kcal", R.drawable.turmeric_powder),
-        FoodItem("Cà tím", "24 kcal", R.drawable.eggpalnt),
-        FoodItem("Cà chua", "18 kcal", R.drawable.tomato),
-        FoodItem("Củ dền", "26 kcal", R.drawable.beetroot),
-        FoodItem("Ngô", "132 kcal", R.drawable.corn),
-        FoodItem("Ớt chuông", "26 kcal", R.drawable.bell_pepper),
-        FoodItem("Hành tây", "42 kcal", R.drawable.onion)
-    )
-    
-    val fruits = listOf(
-        FoodItem("Chuối", "89 kcal", R.drawable.banana),
-        FoodItem("Bơ", "130 kcal", R.drawable.butter),
-        FoodItem("Sung", "74 kcal", R.drawable.figs),
-        FoodItem("Anh đào ngọt", "63 kcal", R.drawable.cheries),
-        FoodItem("Dừa", "354 kcal", R.drawable.cocunut),
-        FoodItem("Nho", "69 kcal", R.drawable.grape),
-        FoodItem("Sầu riêng", "885 kcal", R.drawable.durian),
-        FoodItem("Thơm", "48 kcal", R.drawable.pineapple),
-        FoodItem("Cam", "47 kcal", R.drawable.orange)
-    )
+fun CategoriesScreen(
+    navController: NavController,
+    viewModel: CategoriesViewModel = hiltViewModel() // Lấy ViewModel từ Hilt
+) {
+    val categories by viewModel.categories.collectAsState()
+    val foodItems by viewModel.foodItems.collectAsState()
+    val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
 
-    val fishAndSeafood = listOf(
-        FoodItem("Tôm", "99 kcal", R.drawable.tom),
-        FoodItem("Cá hồi", "208 kcal", R.drawable.cahoi),
-        FoodItem("Cua", "97 kcal", R.drawable.cua),
-        FoodItem("Mực", "92 kcal", R.drawable.muc),
-        FoodItem("Cá ngừ", "132 kcal", R.drawable.cangu),
-        FoodItem("Cá thu", "205 kcal", R.drawable.cathu),
-        FoodItem("Tôm hùm", "89 kcal", R.drawable.tomhum),
-        FoodItem("Sò điệp", "88 kcal", R.drawable.sodiep),
-        FoodItem("Cá tuyết", "82 kcal", R.drawable.catuyet),
-        FoodItem("Hàu", "68 kcal", R.drawable.hau)
-    )
-    val meat = listOf(
-        FoodItem("Hàu", "68 kcal", R.drawable.hau)
-    )
-    var selectedCategory by remember { mutableStateOf(0) }
-    
-    val currentFoodList = when (selectedCategory) {
-        0 -> vegetables
-        1 -> fruits
-        2 -> fishAndSeafood
-        3 -> meat
-        else -> vegetables
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Danh mục",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Danh mục", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
-
-        // Category Tabs
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            items(categories.size) { index ->
-                CategoryTabItem(
-                    category = categories[index],
-                    isSelected = selectedCategory == index,
-                    onClick = { selectedCategory = index }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Food Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .background(Color.White)
+                .padding(paddingValues)
         ) {
-            items(currentFoodList) { food ->
-                FoodItemCard(food = food)
+            // Category Tabs
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                items(categories) { category ->
+                    CategoryTabItem(
+                        category = category,
+                        isSelected = selectedCategoryId == category.id,
+                        onClick = { viewModel.selectCategory(category.id) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Food Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(foodItems) { food ->
+                    FoodItemCard(food = food)
+                }
             }
         }
     }
@@ -156,7 +95,7 @@ fun CategoriesScreen(navController: NavController) {
 
 @Composable
 fun CategoryTabItem(
-    category: CategoryTab,
+    category: CategoryUI,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -178,15 +117,14 @@ fun CategoryTabItem(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(id = category.icon),
-                contentDescription = category.name,
-                modifier = Modifier.size(40.dp)
+            Text(
+                text = category.icon, // Hiển thị Emoji
+                fontSize = 30.sp
             )
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = category.name,
             fontSize = 14.sp,
@@ -197,7 +135,7 @@ fun CategoryTabItem(
 }
 
 @Composable
-fun FoodItemCard(food: FoodItem) {
+fun FoodItemCard(food: FoodItemUI) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,14 +151,14 @@ fun FoodItemCard(food: FoodItem) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Image(
-                painter = painterResource(id = food.imageRes),
+            AsyncImage(
+                model = food.imageUrl, // Tải ảnh từ URL
                 contentDescription = food.name,
                 modifier = Modifier
                     .size(72.dp)
                     .clip(RoundedCornerShape(8.dp))
             )
-            
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
