@@ -38,7 +38,6 @@ public class FoodItem {
     @JoinColumn(name = "user_id")  // Nullable, vì có thể admin thêm thủ công
     private User user;
     
-    private Double price;
     private Boolean available = true;
     
     private LocalDateTime createdAt;
@@ -85,8 +84,6 @@ public class FoodItem {
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
     
-    public Double getPrice() { return price; }
-    public void setPrice(Double price) { this.price = price; }
     
     public Boolean getAvailable() { return available; }
     public void setAvailable(Boolean available) { this.available = available; }

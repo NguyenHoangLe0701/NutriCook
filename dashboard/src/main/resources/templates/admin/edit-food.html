@@ -4,9 +4,6 @@
     <div class="max-w-4xl mx-auto">
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900">Chỉnh sửa món ăn</h3>
-                <p class="mt-1 text-sm text-gray-500">Cập nhật chi tiết cho món ăn <strong th:text="${foodItem.name}"></strong>.</p>
-                
                 <form th:action="@{/admin/foods/{id}/edit(id=${foodItem.id})}" th:object="${foodItem}" method="post" enctype="multipart/form-data" class="mt-6">
                     <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                         <div class="sm:col-span-6">
@@ -21,61 +18,19 @@
                             </select>
                         </div>
 
-                        <div class="sm:col-span-3">
-                            <label for="price" class="block text-sm font-medium text-gray-700">Giá (VND) *</label>
-                            <input type="number" th:field="*{price}" id="price" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" min="0" step="1000" required>
-                        </div>
-
-                        <div class="sm:col-span-3">
-                            <label for="calories" class="block text-sm font-medium text-gray-700">Calories *</label>
+                        <div class="sm:col-span-3"> <label for="calories" class="block text-sm font-medium text-gray-700">Calories *</label>
                             <input type="text" th:field="*{calories}" id="calories" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
                         </div>
 
-                        <div class="sm:col-span-6">
-                            <label for="description" class="block text-sm font-medium text-gray-700">Mô tả</label>
-                            <textarea th:field="*{description}" id="description" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required></textarea>
                         </div>
-
-                        <div class="sm:col-span-6">
-                            <label class="block text-sm font-medium text-gray-700">Ảnh món ăn</label>
-                            <div class="mt-2 flex items-center">
-                                <div class="flex-shrink-0">
-                                    <img id="imagePreview" class="h-20 w-20 rounded-lg object-cover" th:src="${foodItem.imageUrl} ?: '/img/food-placeholder.png'" alt="Current image">
-                                </div>
-                                <div class="ml-4">
-                                    <input type="file" name="imageFile" id="imageFile" accept="image/*" class="sr-only" onchange="previewImage(event, 'imagePreview')">
-                                    <label for="imageFile" class="cursor-pointer rounded-md border border-gray-300 bg-white py-2 px-3 text-sm font-medium leading-4 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                                        Thay đổi
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="sm:col-span-6">
-                            <div class="flex items-center">
-                                <input id="available" th:field="*{available}" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                                <label for="available" class="ml-3 block text-sm font-medium text-gray-700">Đang được bán</label>
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="mt-8 flex justify-end">
-                        <a th:href="@{/admin/foods}" class="rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Hủy</a>
-                        <button type="submit" class="ml-3 inline-flex justify-center rounded-md border border-transparent bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Lưu thay đổi</button>
+                        <a th:href="@{/admin/foods}" class="rounded-lg border border-gray-300 bg-white py-3 px-6 text-base font-bold text-gray-700 shadow-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl">Hủy</a>
+                        <button type="submit" class="ml-3 inline-flex justify-center rounded-lg border border-transparent bg-gradient-to-r from-primary-500 to-orange-500 py-3 px-6 text-base font-bold text-white shadow-xl hover:from-primary-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl">Lưu thay đổi</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    <script>
-        function previewImage(event, previewId) {
-            const reader = new FileReader();
-            reader.onload = function(){
-                const output = document.getElementById(previewId);
-                output.src = reader.result;
-            };
-            reader.readAsDataURL(event.target.files[0]);
-        }
-    </script>
-</div>
+    </div>
 </html>

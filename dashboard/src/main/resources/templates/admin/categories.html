@@ -4,40 +4,45 @@
 
     <div class="sm:flex sm:items-center">
         <div class="sm:flex-auto">
-            <!-- Title is in the header -->
-        </div>
+            </div>
         <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-            <button type="button" onclick="openModal('addCategoryModal')" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:w-auto">
+            <button type="button" onclick="openModal('addCategoryModal')" class="inline-flex items-center justify-center rounded-xl border border-transparent bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-base font-bold text-white shadow-lg hover:from-emerald-600 hover:to-teal-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:w-auto transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl">
                 <i class="fas fa-plus mr-2"></i> Thêm danh mục
             </button>
         </div>
     </div>
 
+    <div th:if="${#lists.isEmpty(categories)}" class="text-center py-12 mt-8 bg-white rounded-lg shadow">
+        <i class="fa-solid fa-tags fa-2x text-gray-400"></i>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Chưa có danh mục nào</h3>
+        <p class="mt-1 text-sm text-gray-500">Hãy thêm danh mục mới để bắt đầu quản lý.</p>
+    </div>
+
     <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div th:each="cat : ${categories}" class="col-span-1 flex flex-col divide-y divide-gray-200 rounded-lg bg-white text-center shadow">
+        <div th:each="cat : ${categories}" class="col-span-1 flex flex-col divide-y divide-emerald-100 rounded-2xl bg-gradient-to-br from-white to-emerald-50 text-center shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-emerald-100">
             <div class="flex flex-1 flex-col p-8">
-                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full" th:style="'background-color: ' + ${cat.color} + '1A;'">
-                    <span class="text-3xl" th:text="${cat.icon}"></span>
+                <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl" th:style="'background: linear-gradient(135deg, ' + ${cat.color} + '30, ' + ${cat.color} + '10);'"> 
+                    <span class="text-5xl" th:text="${cat.icon}"></span>
                 </div>
-                <h3 class="mt-6 text-lg font-medium text-gray-900" th:text="${cat.name}">Category Name</h3>
+                <h3 class="mt-6 text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent" th:text="${cat.name}">Category Name</h3>
                 <dl class="mt-1 flex flex-grow flex-col justify-between">
                     <dt class="sr-only">Description</dt>
-                    <dd class="text-sm text-gray-500" th:text="${cat.description}">Description</dd>
+                    <dd class="text-sm text-gray-600 font-medium" th:text="${cat.description}">Description</dd>
                 </dl>
             </div>
             <div>
-                <div class="-mt-px flex divide-x divide-gray-200">
-                    <div class="flex w-0 flex-1">
-                        <a th:href="@{/admin/categories/{id}/edit(id=${cat.id})}" class="relative -mr-px inline-flex w-0 flex-1 items-center justify-center rounded-bl-lg border border-transparent py-4 text-sm font-medium text-gray-700 hover:text-gray-500">
-                            <i class="fas fa-edit h-5 w-5 text-gray-400"></i>
-                            <span class="ml-3">Sửa</span>
+                <div class="grid grid-cols-2 gap-px">
+                    <div class="flex w-full">
+                        <a th:href="@{/admin/categories/{id}/edit(id=${cat.id})}" class="relative inline-flex w-full flex-1 items-center justify-center gap-x-2 rounded-bl-2xl border border-transparent py-4 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700 transition-all duration-300 hover:shadow-lg">
+                            <i class="fas fa-edit h-5 w-5"></i>
+                            <span class="ml-2">Sửa</span>
                         </a>
                     </div>
-                    <div class="-ml-px flex w-0 flex-1">
-                        <form th:action="@{/admin/categories/{id}/delete(id=${cat.id})}" method="post" class="w-full" onsubmit="return confirm('Xóa danh mục này?')">
-                            <button type="submit" class="relative inline-flex w-0 flex-1 items-center justify-center rounded-br-lg border border-transparent py-4 text-sm font-medium text-red-700 hover:text-red-500">
-                                <i class="fas fa-trash h-5 w-5 text-red-400"></i>
-                                <span class="ml-3">Xóa</span>
+                    <div class="flex w-full">
+                        <form th:action="@{/admin/categories/{id}/delete(id=${cat.id})}" method="post" class="w-full" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này?');">
+                            <button type="submit" class="relative inline-flex w-full flex-1 items-center justify-center gap-x-2 rounded-br-2xl border border-transparent py-4 text-sm font-bold text-white bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 transition-all duration-300 hover:shadow-lg">
+                                <i class="fas fa-trash h-5 w-5"></i>
+                                <span class="ml-2">Xóa</span>
                             </button>
                         </form>
                     </div>
@@ -46,39 +51,40 @@
         </div>
     </div>
 
-    <!-- Add Category Modal -->
     <div id="addCategoryModal" class="relative z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <div class="fixed inset-0 bg-black/40 transition-opacity backdrop-blur-sm"></div>
         <div class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+            <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-gradient-to-br from-white to-emerald-50 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-emerald-100">
                     <form th:action="@{/admin/categories}" th:object="${category}" method="post">
-                        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-6">Thêm danh mục mới</h3>
-                            <div class="space-y-4">
+                        <div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 pt-6 pb-3">
+                            <h3 class="text-2xl font-bold bg-gradient-to-r from-white to-emerald-50 bg-clip-text text-transparent">Thêm danh mục mới</h3>
+                        </div>
+                        <div class="px-6 pt-6 pb-6 sm:p-8">
+                            <div class="space-y-6">
                                 <div>
-                                    <label for="name" class="block text-sm font-medium text-gray-700">Tên danh mục *</label>
-                                    <input type="text" th:field="*{name}" id="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                    <label for="name" class="block text-sm font-bold text-emerald-900 mb-2">Tên danh mục *</label>
+                                    <input type="text" th:field="*{name}" id="name" class="block w-full px-4 py-3 rounded-xl border-2 border-emerald-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 sm:text-base font-medium" required>
                                 </div>
                                 <div>
-                                    <label for="description" class="block text-sm font-medium text-gray-700">Mô tả</label>
-                                    <textarea th:field="*{description}" id="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"></textarea>
+                                    <label for="description" class="block text-sm font-bold text-emerald-900 mb-2">Mô tả</label>
+                                    <textarea th:field="*{description}" id="description" rows="4" class="block w-full px-4 py-3 rounded-xl border-2 border-emerald-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 sm:text-base font-medium"></textarea>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label for="icon" class="block text-sm font-medium text-gray-700">Icon (emoji) *</label>
-                                        <input type="text" th:field="*{icon}" id="icon" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+                                        <label for="icon" class="block text-sm font-bold text-emerald-900 mb-2">Icon (emoji) *</label>
+                                        <input type="text" th:field="*{icon}" id="icon" class="block w-full px-4 py-3 rounded-xl border-2 border-emerald-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 sm:text-base font-medium" placeholder="VD: 🥬" required>
                                     </div>
                                     <div>
-                                        <label for="color" class="block text-sm font-medium text-gray-700">Màu sắc *</label>
-                                        <input type="color" th:field="*{color}" id="color" class="mt-1 h-10 w-full rounded-md cursor-pointer border-gray-300">
+                                        <label for="color" class="block text-sm font-bold text-emerald-900 mb-2">Màu sắc *</label>
+                                        <input type="color" th:field="*{color}" id="color" th:value="*{color} ?: '#FF8C00'" class="block w-full h-12 px-2 rounded-xl cursor-pointer border-2 border-emerald-300 shadow-sm">
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                            <button type="submit" class="inline-flex w-full justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm">Thêm</button>
-                            <button type="button" onclick="closeModal('addCategoryModal')" class="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm">Hủy</button>
+                        <div class="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 sm:flex sm:flex-row-reverse sm:gap-3 border-t border-emerald-200">
+                            <button type="submit" class="inline-flex w-full justify-center items-center rounded-xl border border-transparent bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-6 py-3 text-base font-bold text-white shadow-lg hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 sm:w-auto">✓ Thêm</button>
+                            <button type="button" onclick="closeModal('addCategoryModal')" class="mt-3 inline-flex w-full justify-center items-center rounded-xl border-2 border-emerald-300 bg-white px-6 py-3 text-base font-bold text-emerald-700 shadow-md hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 transition-all duration-300 sm:mt-0 sm:w-auto">✕ Hủy</button>
                         </div>
                     </form>
                 </div>

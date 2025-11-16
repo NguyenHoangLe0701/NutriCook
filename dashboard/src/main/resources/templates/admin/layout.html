@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content, title, subtitle, activeTab)" class="h-full bg-neutral-100">
+<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content, title, subtitle, activeTab)" class="h-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,19 +7,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script th:src="@{/js/app.js}"></script>
     <style>
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        /* Remove custom purple scrollbar styling so browsers show default or no visible thumb.
+           Nav scrollbars are already hidden via `.nav-scroll` rules. */
+        ::-webkit-scrollbar { width: 0; height: 0; }
+        ::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb { background: transparent; }
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="h-full font-sans antialiased bg-neutral-100">
+<body class="h-full font-sans antialiased bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
 <div class="min-h-full">
     <div x-data="{ open: false }" @keydown.window.escape="open = false">
-        <!-- Off-canvas menu for mobile -->
         <div x-show="open" class="relative z-50 lg:hidden" role="dialog" aria-modal="true">
             <div x-show="open"
                  x-transition:enter="transition-opacity ease-linear duration-300"
@@ -39,8 +39,7 @@
                      x-transition:leave-start="translate-x-0"
                      x-transition:leave-end="-translate-x-full"
                      @click.away="open = false"
-                     class="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-neutral-900">
-
+                     class="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700">
                     <div class="absolute top-0 left-full flex w-16 justify-center pt-5">
                         <button @click="open = false" type="button" class="-m-2.5 p-2.5">
                             <span class="sr-only">Close sidebar</span>
@@ -48,65 +47,66 @@
                         </button>
                     </div>
 
-                    <div class="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4 pt-4">
-                        <div class="flex h-16 shrink-0 items-center gap-x-3">
-                            <span class="bg-primary-500 text-white flex items-center justify-center w-10 h-10 rounded-lg">
-                                <i class="fa-solid fa-leaf text-xl"></i>
-                            </span>
-                            <h1 class="text-xl font-bold text-white">NutriCook</h1>
+                    <div class="flex grow flex-col justify-between gap-y-5 pb-4 pt-4 relative">
+                        <div class="nav-scroll overflow-y-auto">
+                            <div class="flex h-24 shrink-0 items-center justify-center px-8">
+                                <img class="h-24 w-auto" th:src="@{/images/logo-nutricook.png}" alt="NutriCook Logo">
+                            </div>
+
+                            <nav class="flex flex-1 flex-col">
+                                <ul role="list" class="flex flex-1 flex-col gap-y-7">
+                                    <li>
+                                        <ul role="list" class="space-y-1" th:insert="~{admin/layout :: navLinks(${activeTab})}">
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </nav>
                         </div>
-                        <nav class="flex flex-1 flex-col">
-                            <ul role="list" class="flex flex-1 flex-col gap-y-7">
-                                <li>
-                                    <ul role="list" class="-mx-2 space-y-3" th:include="~{admin/layout :: navLinks(${activeTab})}">
-                                    </ul>
-                                </li>
-                                <li class="mt-auto">
-                                    <form th:action="@{/logout}" method="post" class="w-full">
-                                        <button type="submit" class="group -mx-2 flex gap-x-3 rounded-md p-3 text-sm font-semibold leading-6 text-neutral-300 hover:bg-neutral-800 hover:text-white w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-                                            <i class="fa-solid fa-right-from-bracket h-6 w-6 shrink-0 text-neutral-400 group-hover:text-white"></i>
-                                            Đăng xuất
-                                        </button>
-                                    </form>
-                                </li>
-                            </ul>
-                        </nav>
+
+                        <div class="mt-4">
+                            <form th:action="@{/logout}" method="post" class="w-full">
+                                <button type="submit" class="logout-button group">
+                                    <i class="fa-solid fa-right-from-bracket logout-icon group-hover:text-white"></i>
+                                    <span class="pl-2">Đăng xuất</span>
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Static sidebar for desktop -->
-        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-            <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-neutral-900 px-6 pb-4 pt-4">
-                <div class="flex h-16 shrink-0 items-center gap-x-3">
-                     <span class="bg-primary-500 text-white flex items-center justify-center w-10 h-10 rounded-lg">
-                        <i class="fa-solid fa-leaf text-xl"></i>
-                    </span>
-                    <h1 class="text-xl font-bold text-white">NutriCook</h1>
+        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col pl-4 bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700">
+            <div class="flex grow flex-col justify-between gap-y-5 pb-4 pt-4 relative">
+                <div class="nav-scroll overflow-y-auto">
+                    <div class="flex h-24 shrink-0 items-center justify-center px-8 pl-0">
+                        <img class="h-24 w-auto" th:src="@{/images/logo-nutricook.png}" alt="NutriCook Logo">
+                    </div>
+
+                    <nav class="flex flex-1 flex-col">
+                        <ul role="list" class="flex flex-1 flex-col gap-y-7">
+                            <li>
+                                <ul role="list" class="space-y-2" th:insert="~{admin/layout :: navLinks(${activeTab})}">
+                                </ul>
+                            </li>
+                        </ul>
+                    </nav>
                 </div>
-                <nav class="flex flex-1 flex-col">
-                    <ul role="list" class="flex flex-1 flex-col gap-y-7">
-                        <li>
-                            <ul role="list" class="-mx-2 space-y-3" th:include="~{admin/layout :: navLinks(${activeTab})}">
-                            </ul>
-                        </li>
-                        <li class="mt-auto">
-                             <form th:action="@{/logout}" method="post" class="w-full">
-                                <button type="submit" class="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-neutral-300 hover:bg-neutral-800 hover:text-white w-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-                                    <i class="fa-solid fa-right-from-bracket h-6 w-6 shrink-0 text-neutral-400 group-hover:text-white"></i>
-                                    Đăng xuất
-                                </button>
-                            </form>
-                        </li>
-                    </ul>
-                </nav>
+
+                <div class="mt-4">
+                    <form th:action="@{/logout}" method="post" class="w-full">
+                        <button type="submit" class="logout-button group lg:absolute lg:bottom-6 lg:left-4 lg:right-4">
+                            <i class="fa-solid fa-right-from-bracket logout-icon group-hover:text-white"></i>
+                            <span class="pl-2">Đăng xuất</span>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
         <div class="lg:pl-64">
-            <div class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-neutral-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-                <button @click="open = !open" type="button" class="-m-2.5 p-2.5 text-gray-700 lg:hidden focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+            <div class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-indigo-200 bg-white/80 backdrop-blur-sm px-4 shadow-md sm:gap-x-6 sm:px-6 lg:px-8">
+                <button @click="open = !open" type="button" class="-m-2.5 p-2.5 text-emerald-700 lg:hidden focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500">
                     <span class="sr-only">Open sidebar</span>
                     <i class="fa-solid fa-bars h-6 w-6"></i>
                 </button>
@@ -115,8 +115,7 @@
 
                 <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
                     <div class="relative flex flex-1">
-                        <!-- Search can go here if needed -->
-                    </div>
+                        </div>
                     <div class="flex items-center gap-x-4 lg:gap-x-6">
                         <div x-data="{ userMenuOpen: false }" class="relative">
                             <button @click="userMenuOpen = !userMenuOpen" type="button" class="-m-1.5 flex items-center p-1.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
@@ -138,9 +137,6 @@
                                  class="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-neutral-900/5 focus:outline-none"
                                  role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
                                 <a href="#" class="block px-3 py-1 text-sm leading-6 text-neutral-900 hover:bg-gray-50" role="menuitem" tabindex="-1" id="user-menu-item-0">Your profile</a>
-                                <form th:action="@{/logout}" method="post">
-                                    <button type="submit" class="block w-full text-left px-3 py-1 text-sm leading-6 text-neutral-900 hover:bg-gray-50" role="menuitem" tabindex="-1" id="user-menu-item-1">Sign out</button>
-                                </form>
                             </div>
                         </div>
                     </div>
@@ -151,12 +147,11 @@
                 <div class="px-4 sm:px-6 lg:px-8">
                     <div class="pb-5 sm:flex sm:items-center sm:justify-between">
                         <div>
-                            <h1 class="text-3xl font-bold leading-tight tracking-tight text-neutral-900" th:text="${title}">Page Title</h1>
-                            <p class="mt-2 text-sm text-neutral-500" th:text="${subtitle}">Page subtitle</p>
+                            <h1 class="text-4xl font-bold leading-tight tracking-tight bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent" th:text="${title}">Page Title</h1>
+                            <p class="mt-2 text-sm text-emerald-600 font-medium" th:text="${subtitle}">Page subtitle</p>
                         </div>
                     </div>
 
-                    <!-- Flash Messages -->
                     <div th:if="${success}" class="mt-4 rounded-md bg-green-50 p-4">
                         <div class="flex">
                             <div class="flex-shrink-0">
@@ -178,48 +173,86 @@
                         </div>
                     </div>
 
-                    <!-- Main content -->
                     <div class="py-4">
                         <div th:replace="${content}"></div>
                     </div>
                 </div>
             </main>
-        </div>
+        </div>  
     </div>
 </div>
 
 <th:block th:fragment="navLinks(activeTab)">
-    <li>
-        <a th:href="@{/admin/dashboard}" th:class="${activeTab == 'dashboard'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-            <i class="h-6 w-6 shrink-0 fa-solid fa-chart-pie" th:classappend="${activeTab == 'dashboard'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
-            Tổng quan
-        </a>
-    </li>
-    <li>
-        <a th:href="@{/admin/foods}" th:class="${activeTab == 'foods'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-            <i class="h-6 w-6 shrink-0 fa-solid fa-utensils" th:classappend="${activeTab == 'foods'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
-            Món ăn
-        </a>
-    </li>
-    <li>
-        <a th:href="@{/admin/categories}" th:class="${activeTab == 'categories'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-            <i class="h-6 w-6 shrink-0 fa-solid fa-tags" th:classappend="${activeTab == 'categories'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
-            Danh mục
-        </a>
-    </li>
-    <li>
-        <a th:href="@{/admin/users}" th:class="${activeTab == 'users'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-            <i class="h-6 w-6 shrink-0 fa-solid fa-users" th:classappend="${activeTab == 'users'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
-            Người dùng
-        </a>
-    </li>
-    <li>
-        <a th:href="@{/admin/updates}" th:class="${activeTab == 'updates'} ? 'bg-neutral-800 text-white' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'" class="group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-            <i class="h-6 w-6 shrink-0 fa-solid fa-history" th:classappend="${activeTab == 'updates'} ? 'text-white' : 'text-neutral-400 group-hover:text-white'"></i>
-            Lịch sử
-        </a>
-    </li>
-</th:block>
+    <style>
+        .sidebar {
+            @apply flex flex-col justify-between h-full w-full bg-gradient-to-b from-green-700 to-teal-600 p-4;
+        }
 
+        .nav-item {
+            @apply group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform;
+        }
+
+        .nav-hover {
+            @apply hover:bg-gradient-to-r hover:from-white/25 hover:to-white/10 hover:text-white hover:shadow-2xl hover:scale-105 hover:-translate-y-1 hover:translate-z-0;
+        }
+
+        .nav-active {
+            @apply bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-2xl scale-110 ring-2 ring-white/20 -translate-y-1;
+        }
+
+        .nav-icon {
+            @apply text-[30px] transition-all duration-500 ease-out;
+        }
+
+        .logout-button {
+            @apply flex items-center gap-x-3 pl-10 pr-4 py-4 text-[17px] font-medium text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 hover:shadow-lg rounded-xl transition-all duration-500 ease-out w-full bg-white/20;
+        }
+
+        .logout-icon {
+            @apply text-[22px] transition-all duration-500 ease-out;
+        }
+    </style>
+
+    <div class="sidebar">
+        <div class="flex flex-col gap-y-4">
+                <a th:href="@{/admin/dashboard}"
+                     th:class="${activeTab == 'dashboard'} ? 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform -translate-y-1 scale-110 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-2xl ring-2 ring-white/20 relative z-10' : 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform hover:bg-gradient-to-r hover:from-white/25 hover:to-white/10 hover:text-white hover:shadow-2xl hover:scale-105 hover:-translate-y-1 relative hover:z-10'">
+                     <i class="fa-solid fa-chart-pie nav-icon"
+                         th:classappend="${activeTab == 'dashboard'} ? 'text-white' : 'text-blue-200 group-hover:text-white'"></i>
+                     <span>Tổng quan</span>
+                </a>
+
+                <a th:href="@{/admin/foods}"
+                     th:class="${activeTab == 'foods'} ? 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform -translate-y-1 scale-110 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-2xl ring-2 ring-white/20 relative z-10' : 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform hover:bg-gradient-to-r hover:from-white/25 hover:to-white/10 hover:text-white hover:shadow-2xl hover:scale-105 hover:-translate-y-1 relative hover:z-10'">
+                     <i class="fa-solid fa-utensils nav-icon"
+                         th:classappend="${activeTab == 'foods'} ? 'text-white' : 'text-blue-200 group-hover:text-white'"></i>
+                     <span>Món ăn</span>
+                </a>
+
+                <a th:href="@{/admin/categories}"
+                     th:class="${activeTab == 'categories'} ? 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform -translate-y-1 scale-110 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-2xl ring-2 ring-white/20 relative z-10' : 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform hover:bg-gradient-to-r hover:from-white/25 hover:to-white/10 hover:text-white hover:shadow-2xl hover:scale-105 hover:-translate-y-1 relative hover:z-10'">
+                     <i class="fa-solid fa-list nav-icon"
+                         th:classappend="${activeTab == 'categories'} ? 'text-white' : 'text-blue-200 group-hover:text-white'"></i>
+                     <span>Danh mục</span>
+                </a>
+
+                <a th:href="@{/admin/users}"
+                     th:class="${activeTab == 'users'} ? 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform -translate-y-1 scale-110 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-2xl ring-2 ring-white/20 relative z-10' : 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform hover:bg-gradient-to-r hover:from-white/25 hover:to-white/10 hover:text-white hover:shadow-2xl hover:scale-105 hover:-translate-y-1 relative hover:z-10'">
+                     <i class="fa-solid fa-user nav-icon"
+                         th:classappend="${activeTab == 'users'} ? 'text-white' : 'text-blue-200 group-hover:text-white'"></i>
+                     <span>Người dùng</span>
+                </a>
+
+                <a th:href="@{/admin/updates}"
+                     th:class="${activeTab == 'updates'} ? 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform -translate-y-1 scale-110 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-2xl ring-2 ring-white/20 relative z-10' : 'group block flex items-center gap-x-4 pl-10 pr-4 py-5 text-[20px] font-semibold rounded-xl w-full transition-all duration-500 ease-out leading-7 transform hover:bg-gradient-to-r hover:from-white/25 hover:to-white/10 hover:text-white hover:shadow-2xl hover:scale-105 hover:-translate-y-1 relative hover:z-10'">
+                     <i class="fa-solid fa-clock nav-icon"
+                         th:classappend="${activeTab == 'updates'} ? 'text-white' : 'text-blue-200 group-hover:text-white'"></i>
+                     <span>Lịch sử</span>
+                </a>
+        </div>
+
+        
+    </div>
+</th:block>
 </body>
 </html>

@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.1.5</version> <!-- Dùng version ổn định -->
+		<version>3.1.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.nutricook</groupId>
@@ -20,10 +20,12 @@
 	
 	<dependencies>
 		<!-- Spring Boot Starters -->
+		<!-- Data JPA (required by entity/repository classes) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
+		
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
@@ -34,18 +36,86 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId> <!-- Thay webmvc bằng web -->
+			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.thymeleaf.extras</groupId>
 			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
 		</dependency>
 
-		<!-- MySQL Database -->
+		<!-- MySQL connector: ensure available at compile/runtime for spring-boot:run -->
 		<dependency>
 			<groupId>com.mysql</groupId>
 			<artifactId>mysql-connector-j</artifactId>
-			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Guava required by some Google/Firebase libs (restore if excluded above) -->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>32.1.2-jre</version>
+		</dependency>
+
+		<!-- In-memory DB for tests and development (removed for production / MySQL)
+			 H2 dependency removed so app won't auto-configure an H2 datasource. -->
+
+		<!-- ĐÂY LÀ THƯ VIỆN DUY NHẤT BẠN CẦN CHO DATABASE -->
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>9.3.0</version>
+			<exclusions>
+				<!-- 
+				Spring Boot đã quản lý các thư viện này. 
+				Chúng ta loại trừ chúng khỏi firebase-admin để
+				tránh xung đột và buộc nó sử dụng phiên bản của Spring.
+				-->
+				<exclusion>
+					<groupId>com.google.guava</groupId>
+					<artifactId>guava</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>io.grpc</groupId>
+					<artifactId>grpc-api</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>io.grpc</groupId>
+					<artifactId>grpc-context</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.google.errorprone</groupId>
+					<artifactId>error_prone_annotations</artifactId>
+				</exclusion>
+				<!-- Thêm exclusion cho thư viện con bị lỗi tải -->
+				<exclusion>
+					<groupId>com.google.api.grpc</groupId>
+					<artifactId>proto-google-common-protos</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		
+		<!-- 
+		Vì chúng ta đã loại trừ proto-google-common-protos,
+		chúng ta cần thêm nó lại một cách thủ công để Spring quản lý.
+		-->
+		<dependency>
+			<groupId>com.google.api.grpc</groupId>
+			<artifactId>proto-google-common-protos</artifactId>
+			<version>2.39.0</version> 
+		</dependency>
+
+		<!-- Google HTTP Client (needed for Firebase OAuth2) -->
+		<dependency>
+			<groupId>com.google.http-client</groupId>
+			<artifactId>google-http-client</artifactId>
+			<version>1.43.3</version>
+		</dependency>
+
+		<!-- gRPC Netty (required by Firestore for communication) -->
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-netty-shaded</artifactId>
+			<version>1.56.0</version>
 		</dependency>
 
 		<!-- File Upload -->
@@ -73,9 +143,15 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-websocket</artifactId>
-</dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.cdimascio</groupId>
+			<artifactId>java-dotenv</artifactId>
+			<version>5.2.2</version> 
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -86,4 +162,24 @@
 			</plugin>
 		</plugins>
 	</build>
+
+
+	<dependencyManagement>
+	
+
+		<dependencies>
+
+			<dependency>
+				<groupId>com.google.http-client</groupId>
+				<artifactId>google-http-client-gson</artifactId>
+				<version>1.43.3</version>
+			</dependency>
+
+		
+
+			
+
+		</dependencies>
+
+	</dependencyManagement>
 </project>
