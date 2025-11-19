@@ -4,6 +4,7 @@ import android.net.Uri
 import com.example.nutricook.model.common.Paged
 import com.example.nutricook.model.profile.ActivityItem
 import com.example.nutricook.model.profile.ActivityType
+import com.example.nutricook.model.profile.Nutrition
 import com.example.nutricook.model.profile.Post
 import com.example.nutricook.model.profile.Profile
 import com.example.nutricook.model.user.User
@@ -21,6 +22,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import org.json.JSONObject
 import java.util.Date
 import javax.inject.Inject
 import kotlin.math.abs
@@ -71,7 +73,6 @@ class FirebaseProfileRepository @Inject constructor(
         val doc = userDoc(uid)
         var snap = doc.get().await()
 
-        // nếu chưa có -> tạo 1 bản default từ user đăng nhập
         if (!snap.exists()) {
             val u = auth.currentUser ?: error("Chưa đăng nhập")
             val data = mapOf(
@@ -101,13 +102,12 @@ class FirebaseProfileRepository @Inject constructor(
         val uid = requireUid()
         val current = auth.currentUser ?: error("Chưa đăng nhập")
 
-        // Đổi email trong FirebaseAuth nếu thay đổi
         if (!email.isNullOrBlank() && email != current.email) {
             try {
                 current.updateEmail(email).await()
             } catch (e: Exception) {
                 if (e is FirebaseAuthRecentLoginRequiredException) {
-                    throw IllegalStateException("Phiên đăng nhập đã cũ, vui lòng đăng nhập lại trước khi đổi email.")
+                    throw IllegalStateException("Phiên đăng nhập đã cũ, vui lòng đăng nhập lại.")
                 } else {
                     throw e
                 }
@@ -154,7 +154,6 @@ class FirebaseProfileRepository @Inject constructor(
 
         db.runTransaction { t ->
             val already = t.get(followingRef).exists()
-
             if (follow && !already) {
                 t.set(followingRef, mapOf("at" to FieldValue.serverTimestamp()))
                 t.set(followerRef, mapOf("at" to FieldValue.serverTimestamp()))
@@ -185,7 +184,7 @@ class FirebaseProfileRepository @Inject constructor(
         user.updatePassword(newPassword).await()
     }
 
-    // ===================== POSTS (PAGINATED) =====================
+    // ===================== POSTS =====================
     override suspend fun getUserPosts(uid: String, cursor: String?): Paged<Post> {
         val pageSize = DEFAULT_PAGE_SIZE
         var q = posts()
@@ -194,19 +193,16 @@ class FirebaseProfileRepository @Inject constructor(
             .limit(pageSize)
 
         tsFromCursor(cursor)?.let { q = q.startAfter(it) }
-
         val snaps = q.get().await().documents
         if (snaps.isEmpty()) return Paged(emptyList(), null)
 
-        // lấy thông tin tác giả một lần
         val author = fetchUser(uid)
-
         val items = snaps.mapNotNull { it.toPostDomain(author = author) }
         val next = nextCursorFrom(snaps.last())
         return Paged(items = items, nextCursor = next)
     }
 
-    // ===================== SAVES (PAGINATED) =====================
+    // ===================== SAVES =====================
     override suspend fun getUserSaves(uid: String, cursor: String?): Paged<Post> {
         val pageSize = DEFAULT_PAGE_SIZE
         var q = savesCol(uid)
@@ -214,16 +210,11 @@ class FirebaseProfileRepository @Inject constructor(
             .limit(pageSize)
 
         tsFromCursor(cursor)?.let { q = q.startAfter(it) }
-
         val saveDocs = q.get().await().documents
         if (saveDocs.isEmpty()) return Paged(emptyList(), null)
 
-        // gom postId
         val postIds = saveDocs.mapNotNull { it.getString("postId") }
-        // tải lần lượt (có thể tối ưu bằng batch/whereIn ≤ 10)
         val postsSnap = postIds.map { pid -> posts().document(pid).get().await() }
-
-        // cache user theo uid để tránh gọi trùng
         val authorCache = HashMap<String, User>()
         fun getAuthor(authorUid: String): User = authorCache.getOrPut(authorUid) { runBlockingFetchUser(authorUid) }
 
@@ -232,12 +223,11 @@ class FirebaseProfileRepository @Inject constructor(
             val author = getAuthor(authorUid)
             pSnap.toPostDomain(author = author, forceSaved = true)
         }
-
         val next = saveDocs.last().getTimestamp("at")?.toDate()?.time?.toString()
         return Paged(items = items, nextCursor = next)
     }
 
-    // ===================== ACTIVITIES (PAGINATED) =====================
+    // ===================== ACTIVITIES =====================
     override suspend fun getUserActivities(uid: String, cursor: String?): Paged<ActivityItem> {
         val pageSize = DEFAULT_PAGE_SIZE
         var q = activitiesCol(uid)
@@ -245,11 +235,9 @@ class FirebaseProfileRepository @Inject constructor(
             .limit(pageSize)
 
         tsFromCursor(cursor)?.let { q = q.startAfter(it) }
-
         val docs = q.get().await().documents
         if (docs.isEmpty()) return Paged(emptyList(), null)
 
-        // cache user theo uid
         val userCache = HashMap<String, User>()
         fun getUserCached(u: String): User = userCache.getOrPut(u) { runBlockingFetchUser(u) }
 
@@ -268,13 +256,24 @@ class FirebaseProfileRepository @Inject constructor(
                 createdAt = createdAtMs
             )
         }
-
         val next = docs.last().getTimestamp("createdAt")?.toDate()?.time?.toString()
         return Paged(items = items, nextCursor = next)
     }
 
-    // ===================== HELPERS & MAPPERS =====================
+    // ===================== SEARCH =====================
+    override suspend fun searchProfiles(query: String): List<Profile> {
+        if (query.isBlank()) return emptyList()
+        val snapshot = db.collection(USERS)
+            .orderBy("displayName")
+            .startAt(query)
+            .endAt(query + "\uf8ff")
+            .limit(20)
+            .get()
+            .await()
+        return snapshot.documents.mapNotNull { it.toProfileDomain() }
+    }
 
+    // ===================== MAPPERS =====================
     private fun tsFromCursor(cursor: String?): Timestamp? =
         cursor?.toLongOrNull()?.let { ms -> Timestamp(Date(ms)) }
 
@@ -286,29 +285,23 @@ class FirebaseProfileRepository @Inject constructor(
         return snap.toUserDomain(uid)
     }
 
-    // Khi cần dùng trong map sync (cache), tránh suspend trong lambda
     private fun runBlockingFetchUser(uid: String): User {
-        // dùng Tasks.await thay vì runBlocking để không chặn main thread — nhưng ở đây repo đang gọi trong IO context
-        val snap = userDoc(uid).get().result ?: throw IllegalStateException("Không tải được user $uid")
+        val snap = userDoc(uid).get().result ?: throw IllegalStateException("Err")
         return snap.toUserDomain(uid)
     }
 
     private fun DocumentSnapshot.toUserDomain(uid: String): User {
-        val email = getString("email") ?: ""
-        val displayName = getString("displayName")
-        val avatarUrl = getString("avatarUrl")
-        // Model User(id=String, email, displayName, avatarUrl)
         return User(
             id = uid,
-            email = email,
-            displayName = displayName,
-            avatarUrl = avatarUrl
+            email = getString("email") ?: "",
+            displayName = getString("displayName"),
+            avatarUrl = getString("avatarUrl")
         )
     }
 
+    // PARSE PROFILE VÀ JSON NUTRITION
     private fun DocumentSnapshot.toProfileDomain(): Profile? {
         if (!exists()) return null
-
         val uid = id
         val email = getString("email") ?: ""
         val displayName = getString("displayName")
@@ -320,27 +313,31 @@ class FirebaseProfileRepository @Inject constructor(
         val dayOfBirth = getString("dayOfBirth")
         val gender = getString("gender")
 
-        val user = User(
-            id = uid,
-            email = email,
-            displayName = displayName,
-            avatarUrl = avatarUrl
-        )
+        var nutritionObj: Nutrition? = null
+        val nutritionJsonString = getString("nutrition")
 
-        return Profile(
-            user = user,
-            posts = posts,
-            following = following,
-            followers = followers,
-            bio = bio,
-            dayOfBirth = dayOfBirth,
-            gender = gender
-        )
+        // Parse JSON String thành Object Nutrition
+        if (!nutritionJsonString.isNullOrBlank()) {
+            try {
+                val root = JSONObject(nutritionJsonString)
+                if (root.has("targets")) {
+                    val targets = root.getJSONObject("targets")
+                    nutritionObj = Nutrition(
+                        caloriesTarget = targets.optDouble("caloriesTarget", 0.0).toFloat(),
+                        proteinG = targets.optDouble("proteinG", 0.0).toFloat(),
+                        fatG = targets.optDouble("fatG", 0.0).toFloat(),
+                        carbG = targets.optDouble("carbG", 0.0).toFloat()
+                    )
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        val user = User(id = uid, email = email, displayName = displayName, avatarUrl = avatarUrl)
+        return Profile(user, posts, following, followers, 0, 0, bio, dayOfBirth, gender, nutritionObj)
     }
 
     private fun DocumentSnapshot.toPostDomain(author: User, forceSaved: Boolean = false): Post? {
         if (!exists()) return null
-        val idLong = getLong("numericId") ?: hashToLong(id)
         val content = getString("content")
         @Suppress("UNCHECKED_CAST")
         val images = (get("images") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
@@ -349,7 +346,7 @@ class FirebaseProfileRepository @Inject constructor(
         val commentCount = getLong("commentCount")?.toInt() ?: 0
 
         return Post(
-            id = id,
+            id = id, // Sửa lỗi Long/String: Dùng trực tiếp id String của doc
             author = author,
             content = content,
             images = images,
@@ -360,36 +357,6 @@ class FirebaseProfileRepository @Inject constructor(
         )
     }
 
-    private fun parseActivityType(s: String?): ActivityType =
-        when (s?.uppercase()) {
-            "FOLLOWED_YOU" -> ActivityType.FOLLOWED_YOU
-            "LIKED_POST" -> ActivityType.LIKED_POST
-            "COMMENTED_POST" -> ActivityType.COMMENTED_POST
-            "NEW_POST" -> ActivityType.NEW_POST
-            else -> ActivityType.NEW_POST
-        }
-
+    private fun parseActivityType(s: String?): ActivityType = ActivityType.values().find { it.name == s?.uppercase() } ?: ActivityType.NEW_POST
     private fun hashToLong(s: String): Long = abs(s.hashCode().toLong())
-
-    // Trong class FirebaseProfileRepository
-    // ===================== SEARCH =====================
-    override suspend fun searchProfiles(query: String): List<Profile> {
-        if (query.isBlank()) return emptyList()
-
-        // 1. Dùng biến 'db' thay vì 'firestore'
-        // 2. Dùng collection USERS ("users") thay vì "profiles"
-        // 3. orderBy "displayName" thay vì "user.displayName"
-        val snapshot = db.collection(USERS)
-            .orderBy("displayName")
-            .startAt(query)
-            .endAt(query + "\uf8ff")
-            .limit(20)
-            .get()
-            .await()
-
-        return snapshot.documents.mapNotNull { doc ->
-            // 4. Dùng lại hàm mapper đã viết sẵn để đảm bảo dữ liệu đúng format
-            doc.toProfileDomain()
-        }
-    }
 }

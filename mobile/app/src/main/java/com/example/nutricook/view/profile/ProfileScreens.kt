@@ -8,28 +8,29 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,17 +38,17 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.nutricook.model.profile.Post
 import com.example.nutricook.model.user.bestName
+import com.example.nutricook.viewmodel.nutrition.NutritionViewModel
 import com.example.nutricook.viewmodel.profile.PostViewModel
 import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
 
-// --- MÀU SẮC & STYLE ---
-private val PeachGradientStart = Color(0xFFFFF0E3) // Cam phấn nhạt
-private val PeachGradientEnd = Color(0xFFFFFFFF)   // Trắng
-private val TealPrimary = Color(0xFF2BB6AD)        // Xanh chủ đạo
+// --- MÀU SẮC ---
+private val PeachGradientStart = Color(0xFFFFF0E3)
+private val PeachGradientEnd = Color(0xFFFFFFFF)
+private val TealPrimary = Color(0xFF2BB6AD)
 private val TextDark = Color(0xFF1F2937)
 private val TextGray = Color(0xFF9CA3AF)
-private val CardBg = Color.White
 private val ScreenBg = Color(0xFFFAFAFA)
 
 @Composable
@@ -56,18 +57,24 @@ fun ProfileScreen(
     onOpenRecent: () -> Unit = {},
     onOpenPosts: () -> Unit = {},
     onOpenSaves: () -> Unit = {},
-    onEditAvatar: () -> Unit = {}, // Callback mở thư viện ảnh
+    onEditAvatar: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    // Inject cả 3 ViewModel
     vm: ProfileViewModel = hiltViewModel(),
-    postVm: PostViewModel = hiltViewModel()
+    postVm: PostViewModel = hiltViewModel(),
+    nutritionVm: NutritionViewModel = hiltViewModel()
 ) {
     val ui by vm.uiState.collectAsState()
+    // State cho dữ liệu dinh dưỡng thật
+    val nutritionState by nutritionVm.ui.collectAsState()
+
+    // State quản lý Dialog nhập liệu
+    var showUpdateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = bottomBar,
         containerColor = ScreenBg,
-        // TopBar chúng ta tự vẽ bên trong content để đè lên Gradient
         topBar = {}
     ) { padding ->
         when {
@@ -78,18 +85,39 @@ fun ProfileScreen(
 
             ui.profile != null -> {
                 val me = ui.profile!!.user.id
-                LaunchedEffect(me) { postVm.loadInitial(me) }
+                LaunchedEffect(me) {
+                    postVm.loadInitial(me)
+                    nutritionVm.loadData() // Load dữ liệu biểu đồ thật
+                }
 
                 ProfileContent(
                     modifier = Modifier.padding(padding),
                     state = ui,
+                    // Truyền dữ liệu biểu đồ thật vào content
+                    realChartData = nutritionState.history.map { it.calories },
                     onEditAvatar = onEditAvatar,
                     onOpenSettings = onOpenSettings,
                     onOpenRecent = onOpenRecent,
                     onOpenPosts = onOpenPosts,
                     onOpenSaves = onOpenSaves,
-                    onOpenSearch = onOpenSearch
+                    onOpenSearch = onOpenSearch,
+                    onOpenUpdateDialog = { showUpdateDialog = true }
                 )
+
+                // Hiển thị Dialog nếu đang bật
+                if (showUpdateDialog) {
+                    UpdateNutritionDialog(
+                        initialCalories = nutritionState.todayLog?.calories ?: 0f,
+                        initialProtein = nutritionState.todayLog?.protein ?: 0f,
+                        initialFat = nutritionState.todayLog?.fat ?: 0f,
+                        initialCarb = nutritionState.todayLog?.carb ?: 0f,
+                        onDismiss = { showUpdateDialog = false },
+                        onSave = { c, p, f, cb ->
+                            nutritionVm.updateTodayNutrition(c, p, f, cb)
+                            showUpdateDialog = false
+                        }
+                    )
+                }
             }
 
             else -> Box(
@@ -104,142 +132,267 @@ fun ProfileScreen(
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     state: ProfileUiState,
+    realChartData: List<Float>, // Nhận list dữ liệu thật
     onEditAvatar: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRecent: () -> Unit,
     onOpenPosts: () -> Unit,
     onOpenSaves: () -> Unit,
-    onOpenSearch: () -> Unit
+    onOpenSearch: () -> Unit,
+    onOpenUpdateDialog: () -> Unit
 ) {
     val p = state.profile!!
     val scroll = rememberScrollState()
 
-    // Gradient Background cho phần Header
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(ScreenBg)
-    ) {
-        // Lớp Gradient nền phía trên
+    Box(modifier = modifier.fillMaxSize().background(ScreenBg)) {
+        // Gradient Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(350.dp) // Phủ hết phần header info
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(PeachGradientStart, PeachGradientEnd)
-                    )
-                )
+                .height(350.dp)
+                .background(Brush.verticalGradient(listOf(PeachGradientStart, PeachGradientEnd)))
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scroll),
+            modifier = Modifier.fillMaxSize().verticalScroll(scroll),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Top Bar (Custom)
             MyProfileTopBar(
-                onEditProfile = { /* TODO: Navigate to Edit Text Info */ },
-                onSettings = onOpenSettings
+                onEditProfile = { /* TODO */ },
+                onSettings = onOpenSettings,
+                onSearch = onOpenSearch
             )
 
             Spacer(Modifier.height(8.dp))
 
-            // 2. Avatar + Name Section
-            AvatarSection(
-                avatarUrl = p.user.avatarUrl,
-                name = p.user.bestName(),
-                onEditAvatar = onEditAvatar
-            )
+            AvatarSection(p.user.avatarUrl, p.user.bestName(), onEditAvatar)
 
             Spacer(Modifier.height(24.dp))
 
-            // 3. Stats Row (Post / Following / Follower)
-            StatsRow(
-                posts = p.posts,
-                following = p.following,
-                followers = p.followers
-            )
+            StatsRow(p.posts, p.following, p.followers)
 
             Spacer(Modifier.height(24.dp))
 
-            // 4. Menu List (Recent Activity, Post, Save)
+            // Menu List
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Lưu ý: Dữ liệu Activity/Save chưa có count trong Profile model,
-                // tạm thời hiển thị số mặc định hoặc ẩn số đi nếu muốn chính xác.
-                // Ở đây mình để (10) giả lập theo Figma hoặc bạn có thể bỏ đi.
-
-                MenuCardItem(
-                    title = "Recent Activity",
-                    icon = Icons.Outlined.Image, // Icon dạng ảnh/gallery
-                    iconColor = Color(0xFF5B6B9A),
-                    iconBg = Color(0xFFD5D9E8),
-                    // count = p.activitiesCount, // Chưa có field này
-                    onClick = onOpenRecent
-                )
-
-                MenuCardItem(
-                    title = "Post",
-                    count = p.posts, // Dữ liệu thật
-                    icon = Icons.Outlined.Description, // Icon file/post
-                    iconColor = Color(0xFF1D9B87),
-                    iconBg = Color(0xFFBEF0E8),
-                    onClick = onOpenPosts
-                )
-
-                MenuCardItem(
-                    title = "Save",
-                    // count = p.savesCount, // Chưa có field này
-                    icon = Icons.Outlined.Bookmark,
-                    iconColor = Color(0xFFE07C00),
-                    iconBg = Color(0xFFFFDDB8),
-                    onClick = onOpenSaves
-                )
+                MenuCardItem("Recent Activity", null, Icons.Outlined.Image, Color(0xFF5B6B9A), Color(0xFFD5D9E8), onOpenRecent)
+                MenuCardItem("Post", p.posts, Icons.Outlined.Description, Color(0xFF1D9B87), Color(0xFFBEF0E8), onOpenPosts)
+                MenuCardItem("Save", null, Icons.Outlined.Bookmark, Color(0xFFE07C00), Color(0xFFFFDDB8), onOpenSaves)
             }
 
             Spacer(Modifier.height(30.dp))
 
-            // 5. Chart Section
+            // Chart Section
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
             ) {
-                Text(
-                    text = "My Fatscret", // Theo Figma
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = TextDark
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "My Fatscret (Calories)",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
                     )
-                )
-                Spacer(Modifier.height(12.dp))
-                ChartCard()
+                    // Nút Cập nhật nhỏ
+                    IconButton(onClick = onOpenUpdateDialog) {
+                        Icon(Icons.Default.Edit, contentDescription = "Update", tint = TealPrimary)
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // VẼ BIỂU ĐỒ TỪ DỮ LIỆU THẬT
+                // Nếu chưa có dữ liệu (list rỗng), hiển thị biểu đồ phẳng
+                val chartData = if (realChartData.isEmpty()) listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f) else realChartData
+                ChartCard(dataPoints = chartData)
+
+                if (p.nutrition != null) {
+                    val n = p.nutrition!!
+                    Text(
+                        text = "Target: ${n.caloriesTarget.toInt()} Kcal",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
 
-            Spacer(Modifier.height(100.dp)) // Padding bottom cho BottomBar
+            Spacer(Modifier.height(100.dp))
         }
     }
 }
 
-// ================= COMPONENTS =================
+// --- DIALOG CẬP NHẬT DINH DƯỠNG ---
+@Composable
+fun UpdateNutritionDialog(
+    initialCalories: Float,
+    initialProtein: Float,
+    initialFat: Float,
+    initialCarb: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float, Float, Float, Float) -> Unit
+) {
+    var cal by remember { mutableStateOf(if(initialCalories > 0) initialCalories.toString() else "") }
+    var pro by remember { mutableStateOf(if(initialProtein > 0) initialProtein.toString() else "") }
+    var fat by remember { mutableStateOf(if(initialFat > 0) initialFat.toString() else "") }
+    var carb by remember { mutableStateOf(if(initialCarb > 0) initialCarb.toString() else "") }
 
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Hôm nay bạn ăn gì?", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = cal,
+                    onValueChange = { cal = it },
+                    label = { Text("Calories (Kcal)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = pro,
+                        onValueChange = { pro = it },
+                        label = { Text("Pro (g)") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = fat,
+                        onValueChange = { fat = it },
+                        label = { Text("Fat (g)") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = carb,
+                        onValueChange = { carb = it },
+                        label = { Text("Carb (g)") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        cal.toFloatOrNull() ?: 0f,
+                        pro.toFloatOrNull() ?: 0f,
+                        fat.toFloatOrNull() ?: 0f,
+                        carb.toFloatOrNull() ?: 0f
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary)
+            ) {
+                Text("Lưu")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy", color = TextGray) }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+// ================= CÁC COMPONENT CŨ GIỮ NGUYÊN =================
+// (Copy lại y nguyên phần MyProfileTopBar, AvatarSection, StatsRow, MenuCardItem, ChartCard, StatItem, VerticalDivider từ file cũ vào đây)
+// Để tiết kiệm không gian tôi không paste lại phần này, bạn hãy giữ nguyên chúng nhé.
+
+@Composable
+fun ChartCard(dataPoints: List<Float>, modifier: Modifier = Modifier) {
+    // Dùng lại code ChartCard ở câu trả lời trước
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(16.dp)) {
+            if (dataPoints.isEmpty() || dataPoints.all { it == 0f }) {
+                Text("Chưa có dữ liệu", modifier = Modifier.align(Alignment.Center), color = TextGray)
+            } else {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val width = size.width
+                    val height = size.height
+                    // Logic vẽ biểu đồ (Copy lại từ câu trước)
+                    val maxVal = dataPoints.maxOrNull() ?: 100f
+                    val minVal = (dataPoints.minOrNull() ?: 0f) * 0.8f // Giảm min xuống tí để đồ thị ko chạm đáy
+                    val range = if (maxVal - minVal <= 1f) 100f else maxVal - minVal
+
+                    val points = dataPoints.mapIndexed { index, value ->
+                        val x = index * (width / (dataPoints.size - 1).coerceAtLeast(1))
+                        val normalizedY = (value - minVal) / range
+                        val y = height - (normalizedY * height * 0.8f) - (height * 0.1f)
+                        Offset(x, y)
+                    }
+
+                    val path = Path().apply {
+                        if (points.isNotEmpty()) {
+                            moveTo(points.first().x, points.first().y)
+                            for (i in 0 until points.size - 1) {
+                                val p0 = points[i]
+                                val p1 = points[i + 1]
+                                val conX1 = (p0.x + p1.x) / 2f
+                                val conY1 = p0.y
+                                val conX2 = (p0.x + p1.x) / 2f
+                                val conY2 = p1.y
+                                cubicTo(conX1, conY1, conX2, conY2, p1.x, p1.y)
+                            }
+                        }
+                    }
+
+                    // Draw Fill & Stroke (như cũ)
+                    val fillPath = Path().apply {
+                        addPath(path)
+                        lineTo(width, height)
+                        lineTo(0f, height)
+                        close()
+                    }
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(TealPrimary.copy(alpha = 0.2f), TealPrimary.copy(alpha = 0.0f)),
+                            startY = 0f, endY = height
+                        )
+                    )
+                    drawPath(path = path, color = TealPrimary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                    points.forEach {
+                        drawCircle(Color.White, 5.dp.toPx(), it)
+                        drawCircle(TealPrimary, 3.dp.toPx(), it)
+                    }
+                }
+            }
+        }
+    }
+}
+// Các hàm AvatarSection, MyProfileTopBar, StatsRow, MenuCardItem... giữ nguyên như cũ
 @Composable
 fun MyProfileTopBar(
     onEditProfile: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onSearch: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Nút Edit bên trái (Icon cây bút/note) - Giống Figma
+        // 1. Nút Edit (Trái)
         IconButton(
             onClick = onEditProfile,
             modifier = Modifier
@@ -254,6 +407,10 @@ fun MyProfileTopBar(
             )
         }
 
+        // Spacer đẩy Title ra giữa
+        Spacer(Modifier.weight(1f))
+
+        // 2. Title (Giữa)
         Text(
             text = "Profile",
             style = MaterialTheme.typography.titleLarge.copy(
@@ -263,19 +420,41 @@ fun MyProfileTopBar(
             )
         )
 
-        // Nút Settings bên phải (Icon bánh răng)
-        IconButton(
-            onClick = onSettings,
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.White) // Nền trắng mờ hoặc rõ
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Settings,
-                contentDescription = "Settings",
-                tint = Color(0xFF566275) // Màu xám đậm
-            )
+        Spacer(Modifier.weight(1f))
+
+        // 3. Cụm nút bên phải (Search + Settings)
+        Row {
+            // Nút Search
+            IconButton(
+                onClick = onSearch,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = "Search User",
+                    tint = Color(0xFF566275)
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            // Nút Settings
+            IconButton(
+                onClick = onSettings,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Settings",
+                    tint = Color(0xFF566275)
+                )
+            }
         }
     }
 }
@@ -488,68 +667,6 @@ fun MenuCardItem(
                 tint = Color(0xFF9CA3AF),
                 modifier = Modifier.size(20.dp)
             )
-        }
-    }
-}
-
-@Composable
-fun ChartCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .padding(16.dp)
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                // Vẽ chart giả lập giống hình (Đường cong teal)
-                val width = size.width
-                val height = size.height
-
-                val path = Path().apply {
-                    moveTo(0f, height * 0.8f)
-                    cubicTo(
-                        width * 0.2f, height * 0.2f,
-                        width * 0.5f, height * 0.9f,
-                        width * 0.8f, height * 0.4f
-                    )
-                    lineTo(width, height * 0.6f)
-                }
-
-                // Fill Gradient bên dưới đường line
-                val fillPath = Path().apply {
-                    addPath(path)
-                    lineTo(width, height)
-                    lineTo(0f, height)
-                    close()
-                }
-
-                drawPath(
-                    path = fillPath,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            TealPrimary.copy(alpha = 0.2f),
-                            TealPrimary.copy(alpha = 0.0f)
-                        )
-                    )
-                )
-
-                // Stroke Line
-                drawPath(
-                    path = path,
-                    color = TealPrimary,
-                    style = Stroke(width = 3.dp.toPx())
-                )
-
-                // Các điểm chấm tròn
-                drawCircle(TealPrimary, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(width * 0.25f, height * 0.45f))
-                drawCircle(TealPrimary, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(width * 0.65f, height * 0.6f))
-            }
         }
     }
 }
