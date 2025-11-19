@@ -1,0 +1,591 @@
+{
+  "categories": [
+    { "id": "veg",     "name": "Rau củ",   "icon": "salad",  "tint": "#20B2AA" },
+    { "id": "fruit",   "name": "Trái cây", "icon": "fruit",  "tint": "#FF8C00" },
+    { "id": "seafood", "name": "Hải sản",  "icon": "seafood","tint": "#DC143C" },
+    { "id": "meat",    "name": "Thịt",     "icon": "meat",   "tint": "#4169E1" }
+  ],
+  "foods": [
+    {
+      "id": "carrot",
+      "name": "Cà rốt",
+      "categoryId": "veg",
+      "image": "carrot",
+      "kcalPer100g": 41,
+      "proteinPer100g": 0.9,
+      "fatPer100g": 0.2,
+      "carbPer100g": 10.0,
+      "fiberPer100g": 2.8,
+      "sugarPer100g": 4.7,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 69,
+      "servingSizeGrams": 80,
+      "ediblePortion": 0.90,
+      "cookedVariants": [
+        { "type": "raw",      "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "boiled",   "lossFactor": 0.98, "extraFatGPer100g": 0.0, "note": "thất thoát tan trong nước" },
+        { "type": "stir_fry", "lossFactor": 0.95, "extraFatGPer100g": 3.0, "note": "xào ~1 tsp dầu/100g" }
+      ]
+    },
+    {
+      "id": "potato",
+      "name": "Khoai tây",
+      "categoryId": "veg",
+      "image": "potato",
+      "kcalPer100g": 87,
+      "proteinPer100g": 1.9,
+      "fatPer100g": 0.1,
+      "carbPer100g": 20.1,
+      "fiberPer100g": 1.8,
+      "sugarPer100g": 0.8,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 7,
+      "servingSizeGrams": 150,
+      "ediblePortion": 0.95,
+      "cookedVariants": [
+        { "type": "boiled", "lossFactor": 0.97, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "baked",  "lossFactor": 0.98, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "fried",  "lossFactor": 0.95, "extraFatGPer100g": 8.0, "note": "khoai chiên thấm dầu" }
+      ]
+    },
+    {
+      "id": "turmeric_powder",
+      "name": "Nghệ (bột)",
+      "categoryId": "veg",
+      "image": "turmeric_powder",
+      "kcalPer100g": 354,
+      "proteinPer100g": 7.8,
+      "fatPer100g": 9.9,
+      "carbPer100g": 64.9,
+      "fiberPer100g": 21.0,
+      "sugarPer100g": 3.2,
+      "saturatedFatPer100g": 3.1,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 38,
+      "servingSizeGrams": 5,
+      "ediblePortion": 1.00,
+      "cookedVariants": [
+        { "type": "raw",   "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "dùng như gia vị" },
+        { "type": "stir_fry", "lossFactor": 0.95, "extraFatGPer100g": 1.0, "note": "pha dầu" }
+      ]
+    },
+    {
+      "id": "eggplant",
+      "name": "Cà tím",
+      "categoryId": "veg",
+      "image": "eggpalnt",
+      "kcalPer100g": 24,
+      "proteinPer100g": 1.0,
+      "fatPer100g": 0.2,
+      "carbPer100g": 5.7,
+      "fiberPer100g": 3.0,
+      "sugarPer100g": 3.5,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 2,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.95,
+      "cookedVariants": [
+        { "type": "grilled",  "lossFactor": 0.96, "extraFatGPer100g": 2.0, "note": "quét dầu mỏng" },
+        { "type": "stir_fry", "lossFactor": 0.93, "extraFatGPer100g": 5.0, "note": "hút dầu mạnh" }
+      ]
+    },
+    {
+      "id": "tomato",
+      "name": "Cà chua",
+      "categoryId": "veg",
+      "image": "tomato",
+      "kcalPer100g": 18,
+      "proteinPer100g": 0.9,
+      "fatPer100g": 0.2,
+      "carbPer100g": 3.9,
+      "fiberPer100g": 1.2,
+      "sugarPer100g": 2.6,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 5,
+      "servingSizeGrams": 120,
+      "ediblePortion": 0.98,
+      "cookedVariants": [
+        { "type": "raw",   "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "sauté", "lossFactor": 0.97, "extraFatGPer100g": 2.0, "note": "" }
+      ]
+    },
+    {
+      "id": "beetroot",
+      "name": "Củ dền",
+      "categoryId": "veg",
+      "image": "beetroot",
+      "kcalPer100g": 43,
+      "proteinPer100g": 1.6,
+      "fatPer100g": 0.2,
+      "carbPer100g": 9.6,
+      "fiberPer100g": 2.8,
+      "sugarPer100g": 6.8,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 78,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.95,
+      "cookedVariants": [
+        { "type": "boiled", "lossFactor": 0.96, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "roasted","lossFactor": 0.97, "extraFatGPer100g": 1.0, "note": "" }
+      ]
+    },
+    {
+      "id": "corn",
+      "name": "Ngô",
+      "categoryId": "veg",
+      "image": "corn",
+      "kcalPer100g": 132,
+      "proteinPer100g": 4.0,
+      "fatPer100g": 1.6,
+      "carbPer100g": 29.0,
+      "fiberPer100g": 2.7,
+      "sugarPer100g": 3.2,
+      "saturatedFatPer100g": 0.2,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 15,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.90,
+      "cookedVariants": [
+        { "type": "boiled","lossFactor": 0.97, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "buttered","lossFactor": 0.97, "extraFatGPer100g": 5.0, "note": "bơ/100g" }
+      ]
+    },
+    {
+      "id": "bell_pepper",
+      "name": "Ớt chuông",
+      "categoryId": "veg",
+      "image": "bell_pepper",
+      "kcalPer100g": 26,
+      "proteinPer100g": 1.0,
+      "fatPer100g": 0.3,
+      "carbPer100g": 6.0,
+      "fiberPer100g": 2.1,
+      "sugarPer100g": 4.2,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 2,
+      "servingSizeGrams": 85,
+      "ediblePortion": 0.92,
+      "cookedVariants": [
+        { "type": "raw",   "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "stir_fry","lossFactor": 0.96, "extraFatGPer100g": 2.0, "note": "" }
+      ]
+    },
+    {
+      "id": "onion",
+      "name": "Hành tây",
+      "categoryId": "veg",
+      "image": "onion",
+      "kcalPer100g": 40,
+      "proteinPer100g": 1.1,
+      "fatPer100g": 0.1,
+      "carbPer100g": 9.3,
+      "fiberPer100g": 1.7,
+      "sugarPer100g": 4.2,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 4,
+      "servingSizeGrams": 80,
+      "ediblePortion": 0.95,
+      "cookedVariants": [
+        { "type": "raw",   "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "sauté", "lossFactor": 0.95, "extraFatGPer100g": 3.0, "note": "xào thơm" }
+      ]
+    },
+
+    {
+      "id": "banana",
+      "name": "Chuối",
+      "categoryId": "fruit",
+      "image": "banana",
+      "kcalPer100g": 89,
+      "proteinPer100g": 1.1,
+      "fatPer100g": 0.3,
+      "carbPer100g": 23.0,
+      "fiberPer100g": 2.6,
+      "sugarPer100g": 12.0,
+      "saturatedFatPer100g": 0.1,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 1,
+      "servingSizeGrams": 118,
+      "ediblePortion": 0.64,
+      "cookedVariants": [
+        { "type": "raw",   "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "fried", "lossFactor": 0.95, "extraFatGPer100g": 6.0, "note": "chuối chiên" }
+      ]
+    },
+    {
+      "id": "avocado",
+      "name": "Bơ",
+      "categoryId": "fruit",
+      "image": "butter",
+      "kcalPer100g": 160,
+      "proteinPer100g": 2.0,
+      "fatPer100g": 14.7,
+      "carbPer100g": 8.5,
+      "fiberPer100g": 6.7,
+      "sugarPer100g": 0.7,
+      "saturatedFatPer100g": 2.1,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 7,
+      "servingSizeGrams": 70,
+      "ediblePortion": 0.70,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "figs",
+      "name": "Sung",
+      "categoryId": "fruit",
+      "image": "figs",
+      "kcalPer100g": 74,
+      "proteinPer100g": 0.8,
+      "fatPer100g": 0.3,
+      "carbPer100g": 19.2,
+      "fiberPer100g": 2.9,
+      "sugarPer100g": 16.3,
+      "saturatedFatPer100g": 0.1,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 1,
+      "servingSizeGrams": 80,
+      "ediblePortion": 0.95,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "sweet_cherries",
+      "name": "Anh đào ngọt",
+      "categoryId": "fruit",
+      "image": "cheries",
+      "kcalPer100g": 63,
+      "proteinPer100g": 1.1,
+      "fatPer100g": 0.2,
+      "carbPer100g": 16.0,
+      "fiberPer100g": 2.1,
+      "sugarPer100g": 12.8,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 0,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.92,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "coconut",
+      "name": "Dừa",
+      "categoryId": "fruit",
+      "image": "cocunut",
+      "kcalPer100g": 354,
+      "proteinPer100g": 3.3,
+      "fatPer100g": 33.5,
+      "carbPer100g": 15.2,
+      "fiberPer100g": 9.0,
+      "sugarPer100g": 6.2,
+      "saturatedFatPer100g": 29.7,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 20,
+      "servingSizeGrams": 50,
+      "ediblePortion": 1.00,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "toasted", "lossFactor": 0.98, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "grape",
+      "name": "Nho",
+      "categoryId": "fruit",
+      "image": "grape",
+      "kcalPer100g": 69,
+      "proteinPer100g": 0.7,
+      "fatPer100g": 0.2,
+      "carbPer100g": 18.1,
+      "fiberPer100g": 0.9,
+      "sugarPer100g": 15.5,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 2,
+      "servingSizeGrams": 92,
+      "ediblePortion": 0.95,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "durian",
+      "name": "Sầu riêng",
+      "categoryId": "fruit",
+      "image": "durian",
+      "kcalPer100g": 147,
+      "proteinPer100g": 1.5,
+      "fatPer100g": 5.3,
+      "carbPer100g": 27.1,
+      "fiberPer100g": 3.8,
+      "sugarPer100g": 19.0,
+      "saturatedFatPer100g": 2.2,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 2,
+      "servingSizeGrams": 80,
+      "ediblePortion": 0.55,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "pineapple",
+      "name": "Thơm (Dứa)",
+      "categoryId": "fruit",
+      "image": "pineapple",
+      "kcalPer100g": 50,
+      "proteinPer100g": 0.5,
+      "fatPer100g": 0.1,
+      "carbPer100g": 13.1,
+      "fiberPer100g": 1.4,
+      "sugarPer100g": 9.9,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 1,
+      "servingSizeGrams": 112,
+      "ediblePortion": 0.55,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "orange",
+      "name": "Cam",
+      "categoryId": "fruit",
+      "image": "orange",
+      "kcalPer100g": 47,
+      "proteinPer100g": 0.9,
+      "fatPer100g": 0.1,
+      "carbPer100g": 11.8,
+      "fiberPer100g": 2.4,
+      "sugarPer100g": 9.4,
+      "saturatedFatPer100g": 0.0,
+      "cholesterolMgPer100g": 0,
+      "sodiumMgPer100g": 0,
+      "servingSizeGrams": 140,
+      "ediblePortion": 0.72,
+      "cookedVariants": [
+        { "type": "raw", "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+
+    {
+      "id": "shrimp",
+      "name": "Tôm",
+      "categoryId": "seafood",
+      "image": "tom",
+      "kcalPer100g": 99,
+      "proteinPer100g": 24.0,
+      "fatPer100g": 0.3,
+      "carbPer100g": 0.2,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.1,
+      "cholesterolMgPer100g": 189,
+      "sodiumMgPer100g": 111,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.55,
+      "cookedVariants": [
+        { "type": "boiled", "lossFactor": 0.96, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "fried",  "lossFactor": 0.93, "extraFatGPer100g": 6.0, "note": "tẩm bột/chiên" }
+      ]
+    },
+    {
+      "id": "salmon",
+      "name": "Cá hồi",
+      "categoryId": "seafood",
+      "image": "cahoi",
+      "kcalPer100g": 208,
+      "proteinPer100g": 20.4,
+      "fatPer100g": 13.4,
+      "carbPer100g": 0.0,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 3.1,
+      "cholesterolMgPer100g": 55,
+      "sodiumMgPer100g": 59,
+      "servingSizeGrams": 120,
+      "ediblePortion": 0.85,
+      "cookedVariants": [
+        { "type": "grilled",  "lossFactor": 0.95, "extraFatGPer100g": 1.0, "note": "quét dầu" },
+        { "type": "pan_sear", "lossFactor": 0.94, "extraFatGPer100g": 2.0, "note": "áo dầu chảo" },
+        { "type": "boiled",   "lossFactor": 0.96, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "crab",
+      "name": "Cua",
+      "categoryId": "seafood",
+      "image": "cua",
+      "kcalPer100g": 97,
+      "proteinPer100g": 18.1,
+      "fatPer100g": 1.5,
+      "carbPer100g": 0.0,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.2,
+      "cholesterolMgPer100g": 53,
+      "sodiumMgPer100g": 321,
+      "servingSizeGrams": 120,
+      "ediblePortion": 0.35,
+      "cookedVariants": [
+        { "type": "steamed", "lossFactor": 0.97, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "squid",
+      "name": "Mực",
+      "categoryId": "seafood",
+      "image": "muc",
+      "kcalPer100g": 92,
+      "proteinPer100g": 15.6,
+      "fatPer100g": 1.4,
+      "carbPer100g": 3.1,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.4,
+      "cholesterolMgPer100g": 233,
+      "sodiumMgPer100g": 44,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.70,
+      "cookedVariants": [
+        { "type": "grilled", "lossFactor": 0.96, "extraFatGPer100g": 1.0, "note": "" },
+        { "type": "fried",   "lossFactor": 0.94, "extraFatGPer100g": 6.0, "note": "mực chiên" }
+      ]
+    },
+    {
+      "id": "tuna",
+      "name": "Cá ngừ",
+      "categoryId": "seafood",
+      "image": "cangu",
+      "kcalPer100g": 132,
+      "proteinPer100g": 29.0,
+      "fatPer100g": 1.0,
+      "carbPer100g": 0.0,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.2,
+      "cholesterolMgPer100g": 47,
+      "sodiumMgPer100g": 50,
+      "servingSizeGrams": 120,
+      "ediblePortion": 0.90,
+      "cookedVariants": [
+        { "type": "seared", "lossFactor": 0.96, "extraFatGPer100g": 1.0, "note": "" }
+      ]
+    },
+    {
+      "id": "mackerel",
+      "name": "Cá thu",
+      "categoryId": "seafood",
+      "image": "cathu",
+      "kcalPer100g": 205,
+      "proteinPer100g": 19.0,
+      "fatPer100g": 13.9,
+      "carbPer100g": 0.0,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 3.3,
+      "cholesterolMgPer100g": 70,
+      "sodiumMgPer100g": 90,
+      "servingSizeGrams": 120,
+      "ediblePortion": 0.80,
+      "cookedVariants": [
+        { "type": "grilled", "lossFactor": 0.95, "extraFatGPer100g": 1.0, "note": "" }
+      ]
+    },
+    {
+      "id": "lobster",
+      "name": "Tôm hùm",
+      "categoryId": "seafood",
+      "image": "tomhum",
+      "kcalPer100g": 89,
+      "proteinPer100g": 19.0,
+      "fatPer100g": 0.9,
+      "carbPer100g": 0.0,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.2,
+      "cholesterolMgPer100g": 145,
+      "sodiumMgPer100g": 360,
+      "servingSizeGrams": 110,
+      "ediblePortion": 0.35,
+      "cookedVariants": [
+        { "type": "steamed", "lossFactor": 0.97, "extraFatGPer100g": 0.0, "note": "" }
+      ]
+    },
+    {
+      "id": "scallop",
+      "name": "Sò điệp",
+      "categoryId": "seafood",
+      "image": "sodiep",
+      "kcalPer100g": 88,
+      "proteinPer100g": 16.8,
+      "fatPer100g": 0.8,
+      "carbPer100g": 3.2,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.2,
+      "cholesterolMgPer100g": 33,
+      "sodiumMgPer100g": 161,
+      "servingSizeGrams": 100,
+      "ediblePortion": 0.80,
+      "cookedVariants": [
+        { "type": "seared", "lossFactor": 0.96, "extraFatGPer100g": 1.0, "note": "" },
+        { "type": "grilled","lossFactor": 0.96, "extraFatGPer100g": 1.0, "note": "" }
+      ]
+    },
+    {
+      "id": "cod",
+      "name": "Cá tuyết",
+      "categoryId": "seafood",
+      "image": "catuyet",
+      "kcalPer100g": 82,
+      "proteinPer100g": 18.0,
+      "fatPer100g": 0.7,
+      "carbPer100g": 0.0,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.1,
+      "cholesterolMgPer100g": 43,
+      "sodiumMgPer100g": 54,
+      "servingSizeGrams": 120,
+      "ediblePortion": 0.90,
+      "cookedVariants": [
+        { "type": "baked", "lossFactor": 0.97, "extraFatGPer100g": 1.0, "note": "" }
+      ]
+    },
+    {
+      "id": "oyster",
+      "name": "Hàu",
+      "categoryId": "seafood",
+      "image": "hau",
+      "kcalPer100g": 68,
+      "proteinPer100g": 7.0,
+      "fatPer100g": 2.5,
+      "carbPer100g": 4.2,
+      "fiberPer100g": 0.0,
+      "sugarPer100g": 0.0,
+      "saturatedFatPer100g": 0.6,
+      "cholesterolMgPer100g": 50,
+      "sodiumMgPer100g": 90,
+      "servingSizeGrams": 85,
+      "ediblePortion": 0.50,
+      "cookedVariants": [
+        { "type": "raw",    "lossFactor": 1.00, "extraFatGPer100g": 0.0, "note": "" },
+        { "type": "grilled","lossFactor": 0.95, "extraFatGPer100g": 1.0, "note": "mỡ hành" }
+      ]
+    }
+  ]
+}
