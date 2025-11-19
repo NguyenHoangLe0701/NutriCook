@@ -47,4 +47,7 @@ interface ProfileRepository {
 
     /** Lấy activity gần đây của một user (phân trang). */
     suspend fun getUserActivities(uid: String, cursor: String? = null): Paged<ActivityItem>
+
+    /** Search */
+    suspend fun searchProfiles(query: String): List<Profile>
 }

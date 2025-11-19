@@ -349,7 +349,7 @@ class FirebaseProfileRepository @Inject constructor(
         val commentCount = getLong("commentCount")?.toInt() ?: 0
 
         return Post(
-            id = idLong,
+            id = id,
             author = author,
             content = content,
             images = images,
@@ -370,4 +370,26 @@ class FirebaseProfileRepository @Inject constructor(
         }
 
     private fun hashToLong(s: String): Long = abs(s.hashCode().toLong())
+
+    // Trong class FirebaseProfileRepository
+    // ===================== SEARCH =====================
+    override suspend fun searchProfiles(query: String): List<Profile> {
+        if (query.isBlank()) return emptyList()
+
+        // 1. Dùng biến 'db' thay vì 'firestore'
+        // 2. Dùng collection USERS ("users") thay vì "profiles"
+        // 3. orderBy "displayName" thay vì "user.displayName"
+        val snapshot = db.collection(USERS)
+            .orderBy("displayName")
+            .startAt(query)
+            .endAt(query + "\uf8ff")
+            .limit(20)
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            // 4. Dùng lại hàm mapper đã viết sẵn để đảm bảo dữ liệu đúng format
+            doc.toProfileDomain()
+        }
+    }
 }
