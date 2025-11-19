@@ -2,47 +2,55 @@ package com.example.nutricook.view.profile
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.example.nutricook.viewmodel.common.ListState
+import coil.request.ImageRequest
 import com.example.nutricook.model.profile.Post
 import com.example.nutricook.model.user.bestName
-import com.example.nutricook.model.user.initial
+import com.example.nutricook.viewmodel.nutrition.NutritionViewModel
 import com.example.nutricook.viewmodel.profile.PostViewModel
 import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
 
-private val HeaderStart = Color(0xFFFFE0C6)
-private val HeaderEnd = Color(0xFFCCE7FF)
+// --- MÀU SẮC ---
+private val PeachGradientStart = Color(0xFFFFF0E3)
+private val PeachGradientEnd = Color(0xFFFFFFFF)
+private val TealPrimary = Color(0xFF2BB6AD)
+private val TextDark = Color(0xFF1F2937)
+private val TextGray = Color(0xFF9CA3AF)
 private val ScreenBg = Color(0xFFFAFAFA)
-private val CardBg = Color.White
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onOpenSettings: () -> Unit = {},
@@ -50,43 +58,72 @@ fun ProfileScreen(
     onOpenPosts: () -> Unit = {},
     onOpenSaves: () -> Unit = {},
     onEditAvatar: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    // Inject cả 3 ViewModel
     vm: ProfileViewModel = hiltViewModel(),
-    postVm: PostViewModel = hiltViewModel()
+    postVm: PostViewModel = hiltViewModel(),
+    nutritionVm: NutritionViewModel = hiltViewModel()
 ) {
     val ui by vm.uiState.collectAsState()
+    // State cho dữ liệu dinh dưỡng thật
+    val nutritionState by nutritionVm.ui.collectAsState()
+
+    // State quản lý Dialog nhập liệu
+    var showUpdateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
+        bottomBar = bottomBar,
         containerColor = ScreenBg,
-        topBar = {},
-        bottomBar = bottomBar
+        topBar = {}
     ) { padding ->
         when {
             ui.loading -> Box(
-                Modifier.padding(padding).fillMaxSize(),
+                Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
+            ) { CircularProgressIndicator(color = TealPrimary) }
 
             ui.profile != null -> {
                 val me = ui.profile!!.user.id
-                LaunchedEffect(me) { postVm.loadInitial(me) }
+                LaunchedEffect(me) {
+                    postVm.loadInitial(me)
+                    nutritionVm.loadData() // Load dữ liệu biểu đồ thật
+                }
 
                 ProfileContent(
                     modifier = Modifier.padding(padding),
                     state = ui,
+                    // Truyền dữ liệu biểu đồ thật vào content
+                    realChartData = nutritionState.history.map { it.calories },
                     onEditAvatar = onEditAvatar,
                     onOpenSettings = onOpenSettings,
                     onOpenRecent = onOpenRecent,
                     onOpenPosts = onOpenPosts,
                     onOpenSaves = onOpenSaves,
-                    postVm = postVm
+                    onOpenSearch = onOpenSearch,
+                    onOpenUpdateDialog = { showUpdateDialog = true }
                 )
+
+                // Hiển thị Dialog nếu đang bật
+                if (showUpdateDialog) {
+                    UpdateNutritionDialog(
+                        initialCalories = nutritionState.todayLog?.calories ?: 0f,
+                        initialProtein = nutritionState.todayLog?.protein ?: 0f,
+                        initialFat = nutritionState.todayLog?.fat ?: 0f,
+                        initialCarb = nutritionState.todayLog?.carb ?: 0f,
+                        onDismiss = { showUpdateDialog = false },
+                        onSave = { c, p, f, cb ->
+                            nutritionVm.updateTodayNutrition(c, p, f, cb)
+                            showUpdateDialog = false
+                        }
+                    )
+                }
             }
 
             else -> Box(
-                Modifier.padding(padding).fillMaxSize(),
+                Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
-            ) { Text(ui.message ?: "Không có dữ liệu") }
+            ) { Text(ui.message ?: "Không tải được dữ liệu") }
         }
     }
 }
@@ -95,225 +132,327 @@ fun ProfileScreen(
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     state: ProfileUiState,
+    realChartData: List<Float>, // Nhận list dữ liệu thật
     onEditAvatar: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRecent: () -> Unit,
     onOpenPosts: () -> Unit,
     onOpenSaves: () -> Unit,
-    postVm: PostViewModel
+    onOpenSearch: () -> Unit,
+    onOpenUpdateDialog: () -> Unit
 ) {
     val p = state.profile!!
     val scroll = rememberScrollState()
-    val postsSt by postVm.state.collectAsState()
 
     Box(modifier = modifier.fillMaxSize().background(ScreenBg)) {
-        // header gradient
+        // Gradient Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
-                .background(Brush.horizontalGradient(listOf(HeaderStart, HeaderEnd)))
+                .height(350.dp)
+                .background(Brush.verticalGradient(listOf(PeachGradientStart, PeachGradientEnd)))
         )
 
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(scroll)) {
-            TopBar(onOpenSettings = onOpenSettings)
-
-            Spacer(Modifier.height(4.dp))
-
-            // Avatar
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                AvatarBox(
-                    avatarUrl = p.user.avatarUrl,
-                    text = p.user.initial(),
-                    onEdit = onEditAvatar
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Name
-            Text(
-                text = p.user.bestName(),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp
-                ),
-                color = Color(0xFF1F2937),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(scroll),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            MyProfileTopBar(
+                onEditProfile = { /* TODO */ },
+                onSettings = onOpenSettings,
+                onSearch = onOpenSearch
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
-            // Stats
-            StatsCard(
-                posts = p.posts,
-                following = p.following,
-                followers = p.followers,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+            AvatarSection(p.user.avatarUrl, p.user.bestName(), onEditAvatar)
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // Menu
+            StatsRow(p.posts, p.following, p.followers)
+
+            Spacer(Modifier.height(24.dp))
+
+            // Menu List
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier.padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ProfileMenuRow(
-                    title = "Recent Activity",
-                    iconBg = Color(0xFFD5D9E8),
-                    icon = Icons.Outlined.History,
-                    iconTint = Color(0xFF5B6B9A),
-                    onClick = onOpenRecent
-                )
-                ProfileMenuRow(
-                    title = "Post (${p.posts})",
-                    iconBg = Color(0xFFBEF0E8),
-                    icon = Icons.Outlined.Description,
-                    iconTint = Color(0xFF1D9B87),
-                    onClick = onOpenPosts
-                )
-                ProfileMenuRow(
-                    title = "Save",
-                    iconBg = Color(0xFFFFDDB8),
-                    icon = Icons.Outlined.BookmarkBorder,
-                    iconTint = Color(0xFFE07C00),
-                    onClick = onOpenSaves
-                )
+                MenuCardItem("Recent Activity", null, Icons.Outlined.Image, Color(0xFF5B6B9A), Color(0xFFD5D9E8), onOpenRecent)
+                MenuCardItem("Post", p.posts, Icons.Outlined.Description, Color(0xFF1D9B87), Color(0xFFBEF0E8), onOpenPosts)
+                MenuCardItem("Save", null, Icons.Outlined.Bookmark, Color(0xFFE07C00), Color(0xFFFFDDB8), onOpenSaves)
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(30.dp))
 
-            // Chart title
-            Text(
-                text = "My Fatscret",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                ),
-                color = Color(0xFF1F2937),
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // Chart
-            ChartCard(modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth())
-
-            // ===== Preview My Posts ngay dưới chart =====
-            Spacer(Modifier.height(18.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Chart Section
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
             ) {
-                Text(
-                    text = "My Posts",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    ),
-                    color = Color(0xFF1F2937)
-                )
-                TextButton(onClick = onOpenPosts) {
-                    Text("See all")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "My Fatscret (Calories)",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
+                    )
+                    // Nút Cập nhật nhỏ
+                    IconButton(onClick = onOpenUpdateDialog) {
+                        Icon(Icons.Default.Edit, contentDescription = "Update", tint = TealPrimary)
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // VẼ BIỂU ĐỒ TỪ DỮ LIỆU THẬT
+                // Nếu chưa có dữ liệu (list rỗng), hiển thị biểu đồ phẳng
+                val chartData = if (realChartData.isEmpty()) listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f) else realChartData
+                ChartCard(dataPoints = chartData)
+
+                if (p.nutrition != null) {
+                    val n = p.nutrition!!
+                    Text(
+                        text = "Target: ${n.caloriesTarget.toInt()} Kcal",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
-
-            PostsPreviewSection(
-                st = postsSt,
-                modifier = Modifier.padding(horizontal = 20.dp),
-                onLoadMore = { postVm.loadMore() }
-            )
 
             Spacer(Modifier.height(100.dp))
         }
     }
 }
 
+// --- DIALOG CẬP NHẬT DINH DƯỠNG ---
 @Composable
-private fun PostsPreviewSection(
-    st: ListState<Post>,
-    modifier: Modifier = Modifier,
-    onLoadMore: () -> Unit
+fun UpdateNutritionDialog(
+    initialCalories: Float,
+    initialProtein: Float,
+    initialFat: Float,
+    initialCarb: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float, Float, Float, Float) -> Unit
 ) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        when {
-            st.loading && st.items.isEmpty() -> {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-                }
-            }
-            st.items.isEmpty() -> {
-                Text(
-                    "Chưa có bài viết",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7280)
+    var cal by remember { mutableStateOf(if(initialCalories > 0) initialCalories.toString() else "") }
+    var pro by remember { mutableStateOf(if(initialProtein > 0) initialProtein.toString() else "") }
+    var fat by remember { mutableStateOf(if(initialFat > 0) initialFat.toString() else "") }
+    var carb by remember { mutableStateOf(if(initialCarb > 0) initialCarb.toString() else "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Hôm nay bạn ăn gì?", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = cal,
+                    onValueChange = { cal = it },
+                    label = { Text("Calories (Kcal)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = pro,
+                        onValueChange = { pro = it },
+                        label = { Text("Pro (g)") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = fat,
+                        onValueChange = { fat = it },
+                        label = { Text("Fat (g)") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = carb,
+                        onValueChange = { carb = it },
+                        label = { Text("Carb (g)") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
             }
-            else -> {
-                // hiển thị tối đa 3 bài
-                st.items.take(3).forEach { post ->
-                    PostItem(post = post)
-                }
-                if (st.hasMore && !st.loadingMore) {
-                    TextButton(
-                        onClick = onLoadMore,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) { Text("Tải thêm…") }
-                }
-                if (st.loadingMore) {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        cal.toFloatOrNull() ?: 0f,
+                        pro.toFloatOrNull() ?: 0f,
+                        fat.toFloatOrNull() ?: 0f,
+                        carb.toFloatOrNull() ?: 0f
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary)
+            ) {
+                Text("Lưu")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy", color = TextGray) }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+// ================= CÁC COMPONENT CŨ GIỮ NGUYÊN =================
+// (Copy lại y nguyên phần MyProfileTopBar, AvatarSection, StatsRow, MenuCardItem, ChartCard, StatItem, VerticalDivider từ file cũ vào đây)
+// Để tiết kiệm không gian tôi không paste lại phần này, bạn hãy giữ nguyên chúng nhé.
+
+@Composable
+fun ChartCard(dataPoints: List<Float>, modifier: Modifier = Modifier) {
+    // Dùng lại code ChartCard ở câu trả lời trước
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(16.dp)) {
+            if (dataPoints.isEmpty() || dataPoints.all { it == 0f }) {
+                Text("Chưa có dữ liệu", modifier = Modifier.align(Alignment.Center), color = TextGray)
+            } else {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val width = size.width
+                    val height = size.height
+                    // Logic vẽ biểu đồ (Copy lại từ câu trước)
+                    val maxVal = dataPoints.maxOrNull() ?: 100f
+                    val minVal = (dataPoints.minOrNull() ?: 0f) * 0.8f // Giảm min xuống tí để đồ thị ko chạm đáy
+                    val range = if (maxVal - minVal <= 1f) 100f else maxVal - minVal
+
+                    val points = dataPoints.mapIndexed { index, value ->
+                        val x = index * (width / (dataPoints.size - 1).coerceAtLeast(1))
+                        val normalizedY = (value - minVal) / range
+                        val y = height - (normalizedY * height * 0.8f) - (height * 0.1f)
+                        Offset(x, y)
+                    }
+
+                    val path = Path().apply {
+                        if (points.isNotEmpty()) {
+                            moveTo(points.first().x, points.first().y)
+                            for (i in 0 until points.size - 1) {
+                                val p0 = points[i]
+                                val p1 = points[i + 1]
+                                val conX1 = (p0.x + p1.x) / 2f
+                                val conY1 = p0.y
+                                val conX2 = (p0.x + p1.x) / 2f
+                                val conY2 = p1.y
+                                cubicTo(conX1, conY1, conX2, conY2, p1.x, p1.y)
+                            }
+                        }
+                    }
+
+                    // Draw Fill & Stroke (như cũ)
+                    val fillPath = Path().apply {
+                        addPath(path)
+                        lineTo(width, height)
+                        lineTo(0f, height)
+                        close()
+                    }
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(TealPrimary.copy(alpha = 0.2f), TealPrimary.copy(alpha = 0.0f)),
+                            startY = 0f, endY = height
+                        )
+                    )
+                    drawPath(path = path, color = TealPrimary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                    points.forEach {
+                        drawCircle(Color.White, 5.dp.toPx(), it)
+                        drawCircle(TealPrimary, 3.dp.toPx(), it)
                     }
                 }
             }
         }
     }
 }
-
+// Các hàm AvatarSection, MyProfileTopBar, StatsRow, MenuCardItem... giữ nguyên như cũ
 @Composable
-private fun TopBar(onOpenSettings: () -> Unit) {
+fun MyProfileTopBar(
+    onEditProfile: () -> Unit,
+    onSettings: () -> Unit,
+    onSearch: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(shape = CircleShape, color = Color.White, shadowElevation = 2.dp) {
-            IconButton(onClick = {}) {
-                Icon(
-                    Icons.Outlined.Menu,
-                    contentDescription = "Menu",
-                    tint = Color(0xFF374151),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+        // 1. Nút Edit (Trái)
+        IconButton(
+            onClick = onEditProfile,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.EditNote,
+                contentDescription = "Edit Profile",
+                tint = TealPrimary
+            )
         }
 
+        // Spacer đẩy Title ra giữa
+        Spacer(Modifier.weight(1f))
+
+        // 2. Title (Giữa)
         Text(
             text = "Profile",
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            ),
-            color = Color(0xFF1F2937)
+                fontSize = 20.sp,
+                color = TextDark
+            )
         )
 
-        Surface(shape = CircleShape, color = Color.White, shadowElevation = 2.dp) {
-            IconButton(onClick = onOpenSettings) {
+        Spacer(Modifier.weight(1f))
+
+        // 3. Cụm nút bên phải (Search + Settings)
+        Row {
+            // Nút Search
+            IconButton(
+                onClick = onSearch,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            ) {
                 Icon(
-                    Icons.Outlined.Settings,
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = "Search User",
+                    tint = Color(0xFF566275)
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            // Nút Settings
+            IconButton(
+                onClick = onSettings,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
                     contentDescription = "Settings",
-                    tint = Color(0xFF374151),
-                    modifier = Modifier.size(22.dp)
+                    tint = Color(0xFF566275)
                 )
             }
         }
@@ -321,193 +460,213 @@ private fun TopBar(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun AvatarBox(avatarUrl: String?, text: String, onEdit: () -> Unit) {
-    Box(Modifier.size(108.dp), contentAlignment = Alignment.BottomEnd) {
-        Box(
-            modifier = Modifier
-                .size(108.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFFFFC166)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (!avatarUrl.isNullOrBlank()) {
+fun AvatarSection(
+    avatarUrl: String?,
+    name: String,
+    onEditAvatar: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            // Avatar Shape: Rounded Rectangle (Squircle) giống Figma
+            val shape = RoundedCornerShape(32.dp)
+            val size = 110.dp
+
+            if (avatarUrl.isNullOrBlank()) {
+                // Avatar mặc định: Chữ cái đầu
+                val initial = name.firstOrNull()?.uppercase() ?: "?"
+                Box(
+                    modifier = Modifier
+                        .size(size)
+                        .clip(shape)
+                        .background(Color(0xFFFFC107)), // Màu vàng cam giống ảnh
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initial,
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            } else {
                 AsyncImage(
-                    model = avatarUrl,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(avatarUrl)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "Avatar",
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .size(size)
+                        .clip(shape)
+                        .background(Color.White),
                     contentScale = ContentScale.Crop
                 )
-            } else {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+            }
+
+            // Nút Edit Avatar nhỏ màu xanh (Teal)
+            Box(
+                modifier = Modifier
+                    .offset(x = 6.dp, y = 6.dp) // Đẩy ra góc một chút
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(TealPrimary)
+                    .border(2.dp, Color.White, CircleShape) // Viền trắng xung quanh nút
+                    .clickable { onEditAvatar() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Change Avatar",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .offset(x = 6.dp, y = 6.dp)
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF06B6D4))
-                .clickable { onEdit() },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Outlined.Edit, contentDescription = "Edit avatar", tint = Color.White, modifier = Modifier.size(16.dp))
-        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = name,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937) // Màu xanh đen đậm
+            )
+        )
     }
 }
 
 @Composable
-private fun StatsCard(
-    posts: Int,
-    following: Int,
-    followers: Int,
-    modifier: Modifier = Modifier
-) {
+fun StatsRow(posts: Int, following: Int, followers: Int) {
+    // Card trắng bo góc chứa stats
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Phẳng hoặc bóng nhẹ tùy ý
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 18.dp, horizontal = 8.dp),
+                .padding(vertical = 20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            StatCell(number = posts, label = "Post")
-            Box(Modifier.width(1.dp).height(36.dp).background(Color(0xFFE5E7EB)))
-            StatCell(number = following, label = "Following")
-            Box(Modifier.width(1.dp).height(36.dp).background(Color(0xFFE5E7EB)))
-            StatCell(number = followers, label = "Follower")
+            StatItem(count = posts, label = "Post")
+
+            // Divider mờ
+            VerticalDivider()
+
+            StatItem(count = following, label = "Following")
+
+            VerticalDivider()
+
+            StatItem(count = followers, label = "Follower")
         }
     }
 }
 
 @Composable
-private fun StatCell(number: Int, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 12.dp)) {
+fun StatItem(count: Int, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = number.toString(),
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, fontSize = 24.sp),
-            color = Color(0xFF1F2937)
+            text = count.toString(),
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = TextDark
+            )
         )
-        Spacer(Modifier.height(2.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-            color = Color(0xFF9CA3AF)
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = TextGray,
+                fontSize = 13.sp
+            )
         )
     }
 }
 
 @Composable
-private fun ProfileMenuRow(
+fun VerticalDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(24.dp)
+            .background(Color(0xFFF3F4F6)) // Màu xám rất nhạt
+    )
+}
+
+@Composable
+fun MenuCardItem(
     title: String,
-    iconBg: Color,
+    count: Int? = null,
     icon: ImageVector,
-    iconTint: Color,
+    iconColor: Color,
+    iconBg: Color,
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.clickable { onClick() }.padding(horizontal = 18.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Icon Box
             Box(
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(iconBg),
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconBg), // Nền icon màu nhạt
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(26.dp))
-            }
-            Spacer(Modifier.width(16.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
-                color = Color(0xFF1F2937),
-                modifier = Modifier.weight(1f)
-            )
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(20.dp))
-        }
-    }
-}
-
-@Composable
-private fun ChartCard(modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth().height(130.dp).padding(16.dp)) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val width = size.width
-                val height = size.height
-
-                val points = listOf(
-                    0.0f to 0.55f,
-                    0.12f to 0.5f,
-                    0.24f to 0.52f,
-                    0.36f to 0.48f,
-                    0.48f to 0.45f,
-                    0.6f to 0.42f,
-                    0.72f to 0.38f,
-                    0.84f to 0.4f,
-                    1.0f to 0.38f
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor, // Màu icon đậm
+                    modifier = Modifier.size(22.dp)
                 )
+            }
 
-                val linePath = Path()
-                val fillPath = Path()
+            Spacer(Modifier.width(16.dp))
 
-                points.forEachIndexed { index, (x, y) ->
-                    val xPos = x * width
-                    val yPos = (1 - y) * height
-                    if (index == 0) {
-                        linePath.moveTo(xPos, yPos)
-                        fillPath.moveTo(xPos, height)
-                        fillPath.lineTo(xPos, yPos)
-                    } else {
-                        linePath.lineTo(xPos, yPos)
-                        fillPath.lineTo(xPos, yPos)
-                    }
-                }
-
-                fillPath.lineTo(width, height)
-                fillPath.close()
-
-                drawPath(
-                    path = fillPath,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF06B6D4).copy(alpha = 0.25f),
-                            Color(0xFF06B6D4).copy(alpha = 0.05f)
+            // Title + Count
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextDark
+                    )
+                )
+                if (count != null) {
+                    Text(
+                        text = " ($count)",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
                         )
                     )
-                )
-
-                drawPath(path = linePath, color = Color(0xFF06B6D4), style = Stroke(width = 2.5.dp.toPx()))
-
-                points.forEach { (x, y) ->
-                    val xPos = x * width
-                    val yPos = (1 - y) * height
-                    drawCircle(
-                        color = Color(0xFF06B6D4),
-                        radius = 3.dp.toPx(),
-                        center = androidx.compose.ui.geometry.Offset(xPos, yPos)
-                    )
                 }
             }
+
+            // Arrow Right
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color(0xFF9CA3AF),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

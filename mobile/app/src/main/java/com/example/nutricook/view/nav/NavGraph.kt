@@ -28,7 +28,9 @@ import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
 import com.example.nutricook.view.profile.ProfileScreen
+import com.example.nutricook.view.profile.PublicProfileScreen // Import màn hình xem profile người khác
 import com.example.nutricook.view.profile.RecipeGuidanceScreen
+import com.example.nutricook.view.profile.SearchProfileScreen // Import màn hình search
 import com.example.nutricook.view.profile.SettingsScreen
 import com.example.nutricook.view.profile.UserActivitiesScreen
 import com.example.nutricook.view.profile.UserPostsScreen
@@ -177,7 +179,36 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("saves/$uid")
                 },
+                // [MỚI] Thêm sự kiện mở màn hình tìm kiếm
+                onOpenSearch = {
+                    navController.navigate("search_profiles")
+                },
                 bottomBar = { BottomNavigationBar(navController) }
+            )
+        }
+
+        // ========== SEARCH PROFILES (MỚI) ==========
+        composable("search_profiles") {
+            SearchProfileScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToProfile = { uid ->
+                    // Chuyển đến trang Public Profile của user tìm được
+                    navController.navigate("public_profile/$uid")
+                }
+            )
+        }
+
+        // ========== PUBLIC PROFILE (MỚI) ==========
+        composable(
+            route = "public_profile/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) {
+            PublicProfileScreen(
+                onBack = { navController.popBackStack() },
+                onPostClick = { post ->
+                    // Xử lý khi click vào bài post của người khác (nếu cần)
+                    // Ví dụ: navController.navigate("recipe_detail/...")
+                }
             )
         }
 

@@ -3,6 +3,7 @@ package com.example.nutricook.viewmodel.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
+import com.example.nutricook.model.profile.Profile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Random
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,7 +30,14 @@ class ProfileViewModel @Inject constructor(
         repo.myProfileFlow()
             .distinctUntilChanged()
             .onEach { p ->
-                _ui.update { it.copy(loading = false, profile = p) }
+                val chartData = generateChartData(p)
+                _ui.update {
+                    it.copy(
+                        loading = false,
+                        profile = p,
+                        chartData = chartData
+                    )
+                }
             }
             .catch { e ->
                 _ui.update { it.copy(message = e.message ?: "Lỗi luồng hồ sơ") }
@@ -45,7 +54,14 @@ class ProfileViewModel @Inject constructor(
         _ui.update { it.copy(loading = true) }
         runCatching { repo.getMyProfile() }
             .onSuccess { p ->
-                _ui.update { it.copy(loading = false, profile = p) }
+                val chartData = generateChartData(p)
+                _ui.update {
+                    it.copy(
+                        loading = false,
+                        profile = p,
+                        chartData = chartData
+                    )
+                }
             }
             .onFailure { e ->
                 _ui.update {
@@ -55,6 +71,26 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
             }
+    }
+
+    /**
+     * Hàm helper: Tạo dữ liệu biểu đồ lịch sử Calo (7 ngày)
+     * Dựa trên Calories Target và biến thiên ngẫu nhiên cố định (Deterministic Random)
+     */
+    private fun generateChartData(p: Profile?): List<Float> {
+        if (p?.nutrition != null && p.nutrition.caloriesTarget > 0) {
+            val target = p.nutrition.caloriesTarget
+            // Tạo 7 điểm dữ liệu
+            return List(7) { index ->
+                // Dùng ID user + index làm seed để biểu đồ không bị nhảy lung tung mỗi lần load
+                val seed = (p.user.id.hashCode() + index).toLong()
+                // Random biến thiên từ -20% đến +20% quanh target
+                val randomFactor = Random(seed).nextFloat() * 0.4f - 0.2f
+                target + (target * randomFactor)
+            }
+        }
+        // Dữ liệu mặc định nếu chưa có nutrition
+        return listOf(1500f, 1800f, 1600f, 1900f, 1700f, 2000f, 1800f)
     }
 
     /** Dùng ở các màn chỉnh profile đơn giản (không phải settings) */
