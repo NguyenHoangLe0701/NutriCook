@@ -25,16 +25,15 @@ import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.home.NutritionDetailScreen
 import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
+import com.example.nutricook.view.newsfeed.FeedScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
 import com.example.nutricook.view.profile.ProfileScreen
-import com.example.nutricook.view.profile.PublicProfileScreen // Import màn hình xem profile người khác
+import com.example.nutricook.view.profile.PublicProfileScreen
 import com.example.nutricook.view.profile.RecipeGuidanceScreen
-import com.example.nutricook.view.profile.SearchProfileScreen // Import màn hình search
+import com.example.nutricook.view.profile.SearchProfileScreen
 import com.example.nutricook.view.profile.SettingsScreen
 import com.example.nutricook.view.profile.UserActivitiesScreen
-import com.example.nutricook.view.profile.UserPostsScreen
-import com.example.nutricook.view.profile.UserSavesScreen
 import com.example.nutricook.view.recipes.CreateRecipeScreen
 import com.example.nutricook.view.recipes.IngredientBrowserScreen
 import com.example.nutricook.view.recipes.IngredientDetailScreen
@@ -50,8 +49,8 @@ import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
+import com.example.nutricook.viewmodel.newsfeed.PostViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
-import com.example.nutricook.viewmodel.profile.PostViewModel
 import com.example.nutricook.viewmodel.profile.SavesViewModel
 
 @Composable
@@ -179,7 +178,6 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("saves/$uid")
                 },
-                // [MỚI] Thêm sự kiện mở màn hình tìm kiếm
                 onOpenSearch = {
                     navController.navigate("search_profiles")
                 },
@@ -187,18 +185,17 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // ========== SEARCH PROFILES (MỚI) ==========
+        // ========== SEARCH PROFILES ==========
         composable("search_profiles") {
             SearchProfileScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToProfile = { uid ->
-                    // Chuyển đến trang Public Profile của user tìm được
                     navController.navigate("public_profile/$uid")
                 }
             )
         }
 
-        // ========== PUBLIC PROFILE (MỚI) ==========
+        // ========== PUBLIC PROFILE ==========
         composable(
             route = "public_profile/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
@@ -206,13 +203,12 @@ fun NavGraph(navController: NavHostController) {
             PublicProfileScreen(
                 onBack = { navController.popBackStack() },
                 onPostClick = { post ->
-                    // Xử lý khi click vào bài post của người khác (nếu cần)
-                    // Ví dụ: navController.navigate("recipe_detail/...")
+                    // TODO: Navigate to post detail
                 }
             )
         }
 
-        // ========== SETTINGS (BOTTOM) ==========
+        // ========== SETTINGS ==========
         composable("settings") {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
@@ -228,76 +224,56 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // ========== INGREDIENTS (BOTTOM) ==========
+        // ========== INGREDIENTS ==========
         composable("ingredients") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) {
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     IngredientsFilterScreen(navController = navController)
                 }
             }
         }
 
-        // ========== INGREDIENT BROWSER (BOTTOM) ==========
+        // ========== INGREDIENT BROWSER ==========
         composable("ingredient_browser") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) {
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     IngredientBrowserScreen(navController = navController)
                 }
             }
         }
 
-        // ========== NUTRITION DETAIL (BOTTOM) ==========
+        // ========== NUTRITION DETAIL ==========
         composable("nutrition_detail") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) {
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     NutritionDetailScreen(navController = navController)
                 }
             }
         }
 
-        // ========== CREATE RECIPE (BOTTOM) ==========
+        // ========== CREATE RECIPE ==========
         composable("create_recipe") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) {
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     CreateRecipeScreen(navController = navController)
                 }
             }
         }
 
-        // ========== NOTIFICATIONS (BOTTOM) ==========
+        // ========== NOTIFICATIONS ==========
         composable("notifications") {
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) {
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     NotificationsScreen(navController)
                 }
             }
@@ -308,7 +284,6 @@ fun NavGraph(navController: NavHostController) {
             route = "recent_activity/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
-            // cấp đúng tham số onBack & vm
             val vm: ActivitiesViewModel = hiltViewModel()
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
@@ -322,41 +297,26 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // ========== POSTS ==========
+        // ========== POSTS (NEWS FEED) ==========
         composable(
             route = "posts/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
             val vm: PostViewModel = hiltViewModel()
+
             Scaffold(
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    UserPostsScreen(
-                        onBack = { navController.popBackStack() },
-                        vm = vm
+                    FeedScreen(
+                        vm = vm,
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
         }
 
         // ========== SAVES ==========
-        composable(
-            route = "saves/{userId}",
-            arguments = listOf(navArgument("userId") { type = NavType.StringType })
-        ) {
-            val vm: SavesViewModel = hiltViewModel()
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    UserSavesScreen(
-                        onBack = { navController.popBackStack() },
-                        vm = vm
-                    )
-                }
-            }
-        }
 
         // ========== EDIT PROFILE ==========
         composable("edit_profile") {
@@ -369,7 +329,7 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // ========== DETAIL MÀN – KHÔNG BOTTOM ==========
+        // ========== DETAIL SCREENS ==========
         composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
             val imageRes =
@@ -383,7 +343,6 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable("upload_success") { RecipeUploadSuccessScreen(navController) }
-
         composable("recipe_direction") { RecipeDirectionsScreen(navController) }
         composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
         composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
@@ -402,10 +361,13 @@ fun NavGraph(navController: NavHostController) {
         composable("nutrition_facts") { NutritionFactsScreen(navController) }
         composable("review_screen") { ReviewScreen(navController) }
 
-        // ========== DATA SEEDER (DEBUG) ==========
+        // ========== DEBUG ==========
         composable("seed_data") { DataSeedScreen(navController) }
 
-        // ========== ARTICLE DETAIL ==========
+        // ========== ARTICLES ==========
         composable("article_detail") { ArticleDetailScreen(navController) }
     }
 }
+
+// ĐÃ XÓA: Phần BottomNavigationBar trùng lặp ở đây
+// Nó sẽ tự động dùng BottomNavigationBar từ file BottomNavigationBar.kt
