@@ -14,7 +14,7 @@ target/
 
 ### Firebase / Service Account keys ###
 dashboard/src/main/resources/serviceAccountKey.json
-
+src/main/resources/serviceAccountKey.json
 ### STS ###
 .apt_generated
 .classpath

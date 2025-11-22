@@ -194,14 +194,58 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
+    @GetMapping("/users/{id}/edit")
+    public String showEditUserForm(@PathVariable Long id, Model model) {
+        try {
+            User user = null;
+            if (firestoreService != null) {
+                // Tìm user từ Firestore
+                List<User> users = firestoreService.listUsersAsEntities();
+                user = users.stream()
+                    .filter(u -> u.getId() != null && u.getId().equals(id))
+                    .findFirst()
+                    .orElse(null);
+            }
+            if (user == null) {
+                user = userRepository.findById(id).orElse(null);
+            }
+            if (user == null) {
+                return "redirect:/admin/users";
+            }
+            model.addAttribute("editUser", user);
+            model.addAttribute("users", firestoreService != null ? firestoreService.listUsersAsEntities() : userRepository.findAll());
+            model.addAttribute("newUser", new User());
+            model.addAttribute("title", "Quản lý người dùng");
+            model.addAttribute("subtitle", "Quản lý tài khoản người dùng");
+            model.addAttribute("activeTab", "users");
+            return "admin/users";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "redirect:/admin/users";
+        }
+    }
+    
     @PostMapping("/users/{id}/edit")
     public String updateUser(@PathVariable Long id, @ModelAttribute User user, RedirectAttributes redirectAttributes) {
         try {
-            User existing = userRepository.findById(id).orElse(null);
+            User existing = null;
+            // Tìm user từ Firestore hoặc H2
+            if (firestoreService != null) {
+                List<User> users = firestoreService.listUsersAsEntities();
+                existing = users.stream()
+                    .filter(u -> u.getId() != null && u.getId().equals(id))
+                    .findFirst()
+                    .orElse(null);
+            }
+            if (existing == null) {
+                existing = userRepository.findById(id).orElse(null);
+            }
             if (existing == null) {
                 redirectAttributes.addFlashAttribute("error", "Người dùng không tồn tại!");
                 return "redirect:/admin/users";
             }
+            
+            // Kiểm tra username và email trùng lặp
             if (userRepository.existsByUsernameAndIdNot(user.getUsername(), id)) {
                 redirectAttributes.addFlashAttribute("error", "Tên đăng nhập đã tồn tại!");
                 return "redirect:/admin/users";
@@ -210,6 +254,8 @@ public class AdminController {
                 redirectAttributes.addFlashAttribute("error", "Email đã tồn tại!");
                 return "redirect:/admin/users";
             }
+            
+            // Update user data
             existing.setFullName(user.getFullName());
             existing.setUsername(user.getUsername());
             existing.setEmail(user.getEmail());
@@ -219,14 +265,22 @@ public class AdminController {
                 existing.setPassword(passwordEncoder.encode(user.getPassword()));
             }
             existing.setUpdatedAt(LocalDateTime.now());
+            
+            // Save to database
             userRepository.save(existing);
+            
+            // Save to Firestore
             try {
                 if (firestoreService != null) {
                     firestoreService.saveUserWithDocId(String.valueOf(existing.getId()), existing);
                 }
-            } catch (Exception ignored) { }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            
             redirectAttributes.addFlashAttribute("success", "Cập nhật người dùng thành công!");
         } catch (Exception e) {
+            e.printStackTrace();
             redirectAttributes.addFlashAttribute("error", "Lỗi khi cập nhật người dùng: " + e.getMessage());
         }
         return "redirect:/admin/users";

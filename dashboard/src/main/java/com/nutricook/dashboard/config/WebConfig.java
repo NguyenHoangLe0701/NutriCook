@@ -17,8 +17,9 @@ public class WebConfig implements WebMvcConfigurer {
         String uploadPath = uploadDir.toFile().getAbsolutePath();
 
         // Ánh xạ URL /uploads/** tới thư mục uploads/ trên hệ thống file
-        // Thêm "file:/" (hoặc "file:///" cho Windows) để chỉ định đây là đường dẫn file system
+        // Sử dụng "file:///" cho Windows và "file:/" cho Linux/Mac
+        String fileUrlPrefix = uploadPath.startsWith("/") ? "file:" : "file:///";
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:/" + uploadPath + "/");
+                .addResourceLocations(fileUrlPrefix + uploadPath.replace("\\", "/") + "/");
     }
 }
