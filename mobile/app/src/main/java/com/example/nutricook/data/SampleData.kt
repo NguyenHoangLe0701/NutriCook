@@ -74,32 +74,44 @@ object SampleData {
 
     val todayRecipes = listOf(
         TodayRecipe(
-            "Slow-Cooker Corned Beef and Cabbage",
-            "Cook this in your slow cooker all day and enjoy the tenderness!",
-            4.5,
-            R.drawable.beefandcabbage,
-            1250
+            name = "Slow-Cooker Corned Beef and Cabbage",
+            description = "Cook this in your slow cooker all day and enjoy the tenderness!",
+            rating = 4.5,
+            imageRes = R.drawable.beefandcabbage,
+            imageUrl = null,
+            reviews = 1250,
+            userName = null,
+            createdAt = null
         ),
         TodayRecipe(
-            "One-Pan White Cheddar Mac and Cheese",
-            "If you can make boxed macaroni and cheese, you can make this!",
-            4.5,
-            R.drawable.macandcheese,
-            980
+            name = "One-Pan White Cheddar Mac and Cheese",
+            description = "If you can make boxed macaroni and cheese, you can make this!",
+            rating = 4.5,
+            imageRes = R.drawable.macandcheese,
+            imageUrl = null,
+            reviews = 980,
+            userName = null,
+            createdAt = null
         ),
         TodayRecipe(
-            "Simple Macaroni and Cheese",
-            "A super satisfying, quick and easy dinner.",
-            3.4,
-            R.drawable.macaroniandcheese,
-            850
+            name = "Simple Macaroni and Cheese",
+            description = "A super satisfying, quick and easy dinner.",
+            rating = 3.4,
+            imageRes = R.drawable.macaroniandcheese,
+            imageUrl = null,
+            reviews = 850,
+            userName = null,
+            createdAt = null
         ),
         TodayRecipe(
-            "Marie's Easy Slow Cooker Pot Roast",
-            "Moist and juicy pot roast with carrots, onion and potatoes.",
-            4.6,
-            R.drawable.potroast,
-            2382
+            name = "Marie's Easy Slow Cooker Pot Roast",
+            description = "Moist and juicy pot roast with carrots, onion and potatoes.",
+            rating = 4.6,
+            imageRes = R.drawable.potroast,
+            imageUrl = null,
+            reviews = 2382,
+            userName = null,
+            createdAt = null
         )
     )
 

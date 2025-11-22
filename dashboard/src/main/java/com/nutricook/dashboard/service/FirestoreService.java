@@ -247,6 +247,21 @@ public class FirestoreService {
             } else {
                 f.setAvailable(true); 
             }
+            
+            // Đọc rating và reviews
+            Object ratingObj = data.get("rating");
+            if (ratingObj instanceof Number) {
+                f.setRating(((Number) ratingObj).doubleValue());
+            } else {
+                f.setRating(0.0);
+            }
+            
+            Object reviewsObj = data.get("reviews");
+            if (reviewsObj instanceof Number) {
+                f.setReviews(((Number) reviewsObj).intValue());
+            } else {
+                f.setReviews(0);
+            }
 
             Object categoryIdObj = data.get("categoryId");
             if (categoryIdObj != null) {
@@ -282,10 +297,24 @@ public class FirestoreService {
         data.put("description", food.getDescription());
         data.put("available", food.getAvailable());
         data.put("imageUrl", food.getImageUrl());
+        data.put("rating", food.getRating() != null ? food.getRating() : 0.0);
+        data.put("reviews", food.getReviews() != null ? food.getReviews() : 0);
         
         if (food.getCategory() != null) {
             data.put("categoryId", food.getCategory().getId());
             data.put("categoryName", food.getCategory().getName()); 
+        }
+        
+        // Lưu thông tin người upload nếu có
+        if (food.getUser() != null) {
+            data.put("userId", food.getUser().getId());
+            data.put("userName", food.getUser().getFullName());
+            data.put("userEmail", food.getUser().getEmail());
+        }
+        
+        // Lưu ngày upload
+        if (food.getCreatedAt() != null) {
+            data.put("createdAt", Date.from(food.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()));
         }
         
         String docId = String.valueOf(food.getId());

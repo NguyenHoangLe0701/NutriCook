@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +30,8 @@ import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
 import com.example.nutricook.R
 import com.example.nutricook.viewmodel.QueryViewModel
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.firestore.FirebaseFirestore
 
 // 🧱 Data models
 data class RecipeCategory(
@@ -46,7 +48,10 @@ data class TodayRecipe(
     val description: String,
     val rating: Double,
     val imageRes: Int,
-    val reviews: Int
+    val imageUrl: String? = null, // URL ảnh từ server
+    val reviews: Int,
+    val userName: String? = null, // Tên người upload
+    val createdAt: String? = null // Ngày upload
 )
 
 @Composable
@@ -75,7 +80,7 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     userCount = (map["userCount"] as? Number)?.toInt() ?: 0,
                     additionalUsers = (map["additionalUsers"] as? Number)?.toInt() ?: 0
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
@@ -83,7 +88,55 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
         com.example.nutricook.data.SampleData.categories
     }
 
-    val todayRecipes = if (firebaseRecipes.isNotEmpty()) {
+    // Lấy món ăn từ Firestore (foodItems collection)
+    val foodItems = remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    
+    LaunchedEffect(Unit) {
+        try {
+            val snapshot = FirebaseFirestore.getInstance()
+                .collection("foodItems")
+                .whereEqualTo("available", true)
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(10)
+                .get()
+                .await()
+            
+            foodItems.value = snapshot.documents.mapNotNull { doc ->
+                doc.data?.toMutableMap()?.apply {
+                    put("docId", doc.id)
+                }
+            }
+        } catch (_: Exception) {
+            // Ignore errors loading food items
+        }
+    }
+    
+    val todayRecipes = if (foodItems.value.isNotEmpty()) {
+        // Ưu tiên hiển thị món ăn từ Firestore (người dùng upload)
+        foodItems.value.mapNotNull { map ->
+            try {
+                val imageUrl = map["imageUrl"] as? String
+                val baseUrl = "http://192.168.88.164:8080" // Thay bằng IP thật của bạn
+                val fullImageUrl = if (!imageUrl.isNullOrBlank()) {
+                    if (imageUrl.startsWith("http")) imageUrl else "$baseUrl$imageUrl"
+                } else null
+                
+                TodayRecipe(
+                    name = map["name"] as? String ?: "",
+                    description = map["description"] as? String ?: "",
+                    rating = (map["rating"] as? Number)?.toDouble() ?: 0.0,
+                    imageRes = R.drawable.beefandcabbage,
+                    imageUrl = fullImageUrl,
+                    reviews = (map["reviews"] as? Number)?.toInt() ?: 0,
+                    userName = map["userName"] as? String,
+                    createdAt = (map["createdAt"] as? com.google.firebase.Timestamp)?.toDate()?.toString()
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
+    } else if (firebaseRecipes.isNotEmpty()) {
+        // Fallback: dùng dữ liệu cũ nếu không có món ăn mới
         firebaseRecipes.mapNotNull { map ->
             try {
                 TodayRecipe(
@@ -93,7 +146,7 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     imageRes = R.drawable.beefandcabbage,
                     reviews = (map["reviews"] as? Number)?.toInt() ?: 0
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
         }
@@ -128,7 +181,7 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                 IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
 
                 Text(
@@ -278,16 +331,19 @@ fun TodayRecipeItem(recipe: TodayRecipe, onClick: () -> Unit) {
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Hiển thị ảnh từ URL nếu có, nếu không thì dùng imageRes
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(recipe.imageRes)
+                    .data(recipe.imageUrl ?: recipe.imageRes)
                     .crossfade(true)
                     .build(),
                 contentDescription = recipe.name,
                 modifier = Modifier
                     .size(90.dp)
                     .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                error = painterResource(id = recipe.imageRes),
+                placeholder = painterResource(id = recipe.imageRes)
             )
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -307,13 +363,47 @@ fun TodayRecipeItem(recipe: TodayRecipe, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Text(
-                    text = recipe.description,
-                    fontSize = 13.sp,
-                    color = Color(0xFF757575),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (recipe.description.isNotBlank()) {
+                    Text(
+                        text = recipe.description,
+                        fontSize = 13.sp,
+                        color = Color(0xFF757575),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Hiển thị tên người upload nếu có
+                if (!recipe.userName.isNullOrBlank()) {
+                    Text(
+                        text = "Người đăng: ${recipe.userName}",
+                        fontSize = 11.sp,
+                        color = Color(0xFF00BFA5),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Hiển thị ngày upload nếu có
+                val formattedDate = remember(recipe.createdAt) {
+                    if (!recipe.createdAt.isNullOrBlank()) {
+                        try {
+                            val date = java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", java.util.Locale.US).parse(recipe.createdAt)
+                            java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(date ?: java.util.Date())
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                }
+                
+                if (formattedDate != null) {
+                    Text(
+                        text = "Đăng ngày: $formattedDate",
+                        fontSize = 10.sp,
+                        color = Color(0xFF999999)
+                    )
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -334,7 +424,7 @@ fun TodayRecipeItem(recipe: TodayRecipe, onClick: () -> Unit) {
                     Spacer(modifier = Modifier.width(6.dp))
 
                     Text(
-                        text = "${recipe.rating}/5 (${recipe.reviews})",
+                        text = "${String.format(java.util.Locale.getDefault(), "%.1f", recipe.rating)}/5 (${recipe.reviews} đánh giá)",
                         fontSize = 12.sp,
                         color = Color.Gray
                     )

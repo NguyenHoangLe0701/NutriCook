@@ -40,6 +40,10 @@ public class FoodItem {
     
     private Boolean available = true;
     
+    // Thêm field rating và reviews cho món ăn người dùng upload
+    private Double rating = 0.0; // Điểm đánh giá từ 0-5
+    private Integer reviews = 0; // Số lượt đánh giá
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -84,6 +88,11 @@ public class FoodItem {
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
     
+    public Double getRating() { return rating; }
+    public void setRating(Double rating) { this.rating = rating; }
+    
+    public Integer getReviews() { return reviews; }
+    public void setReviews(Integer reviews) { this.reviews = reviews; }
     
     public Boolean getAvailable() { return available; }
     public void setAvailable(Boolean available) { this.available = available; }

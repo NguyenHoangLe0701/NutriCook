@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Món ăn người dùng upload', 'Quản lý các món ăn được người dùng đăng tải', 'userUploadedFoods')}">
+
+<div th:fragment="content">
+
+    <div class="mt-8 flex flex-col">
+        <div class="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+                <div class="overflow-hidden shadow-lg ring-1 ring-indigo-200 md:rounded-2xl bg-white">
+                    <table class="min-w-full divide-y divide-indigo-100">
+                        <thead class="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200">
+                            <tr>
+                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-bold text-indigo-900 sm:pl-6">Ảnh</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-bold text-indigo-900">Tên món ăn</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-bold text-indigo-900">Người upload</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-bold text-indigo-900">Calo</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-bold text-indigo-900">Rating</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-bold text-indigo-900">Ngày upload</th>
+                                <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                                    <span class="sr-only">Hành động</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-indigo-100 bg-white">
+                            <tr th:each="food : ${foods}" class="hover:bg-indigo-50 transition-colors duration-200">
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                                    <div class="h-16 w-16 flex-shrink-0">
+                                        <img class="h-16 w-16 rounded-lg object-cover" 
+                                             th:src="${food.imageUrl} ?: '/images/default-food.png'" 
+                                             th:alt="${food.name}">
+                                    </div>
+                                </td>
+                                <td class="px-3 py-4 text-sm">
+                                    <div class="font-medium text-gray-900" th:text="${food.name}">Tên món ăn</div>
+                                    <div class="text-gray-500 text-xs mt-1" th:text="${food.description} ?: 'Không có mô tả'" 
+                                         th:if="${food.description != null and food.description != ''}">Mô tả</div>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900">
+                                    <div th:if="${food.user != null}">
+                                        <div class="font-medium" th:text="${food.user.fullName} ?: food.user.username">Người dùng</div>
+                                        <div class="text-gray-500 text-xs" th:text="${food.user.email}">email@example.com</div>
+                                    </div>
+                                    <div th:unless="${food.user != null}" class="text-gray-400">N/A</div>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-500" th:text="${food.calories}">52 kcal</td>
+                                <td class="px-3 py-4 text-sm">
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-yellow-500">★</span>
+                                        <span class="font-medium text-gray-900" th:text="${food.rating != null ? food.rating : 0.0}">0.0</span>
+                                        <span class="text-gray-500 text-xs" th:text="'(' + ${food.reviews != null ? food.reviews : 0} + ')'">(0)</span>
+                                    </div>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-500" 
+                                    th:text="${food.createdAt != null ? #temporals.format(food.createdAt, 'dd/MM/yyyy HH:mm') : 'N/A'}">01/01/2024</td>
+                                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
+                                    <form th:action="@{/admin/foods/{id}/toggle-availability(id=${food.id})}" method="POST" class="inline-block">
+                                        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-slate-500 to-slate-600 px-3 py-2 font-bold text-white shadow-md hover:from-slate-600 hover:to-slate-700 transition-all duration-300 transform hover:scale-110" th:title="${food.available} ? 'Vô hiệu hóa' : 'Kích hoạt'">
+                                            <i class="fa-solid h-4 w-4" th:classappend="${food.available} ? 'fa-eye-slash' : 'fa-eye'"></i>
+                                            <span class="sr-only" th:text="${food.available} ? 'Vô hiệu hóa' : 'Kích hoạt'"></span>
+                                        </button>
+                                    </form>
+                                    <a th:href="@{/admin/foods/{id}/edit(id=${food.id})}" class="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600 px-3 py-2 font-bold text-white shadow-md hover:from-emerald-600 hover:to-cyan-700 transition-all duration-300 transform hover:scale-110" title="Sửa">
+                                        <i class="fa-solid fa-pen h-4 w-4"></i>
+                                        <span class="sr-only">Sửa</span>
+                                    </a>
+                                    <form th:action="@{/admin/foods/{id}/delete(id=${food.id})}" method="post" class="inline-block" onsubmit="return confirm('Bạn có chắc chắn muốn xóa món ăn này?');">
+                                        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-rose-500 to-red-600 px-3 py-2 font-bold text-white shadow-md hover:from-rose-600 hover:to-red-700 transition-all duration-300 transform hover:scale-110" title="Xóa">
+                                            <i class="fa-solid fa-trash h-4 w-4"></i>
+                                            <span class="sr-only">Xóa</span>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+
+                            <tr th:if="${#lists.isEmpty(foods)}">
+                                <td colspan="7" class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 text-center">
+                                    <div class="py-10">
+                                        <i class="fa-solid fa-utensils fa-2x text-gray-400"></i>
+                                        <h3 class="mt-2 text-sm font-medium text-gray-900">Chưa có món ăn nào được upload</h3>
+                                        <p class="mt-1 text-sm text-gray-500">Người dùng chưa upload món ăn nào.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</html>
+

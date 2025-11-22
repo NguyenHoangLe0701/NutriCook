@@ -459,6 +459,7 @@ public class AdminController {
             @RequestParam(value = "description", required = false) String description,
             // price đã bị xóa
             @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "rating", required = false) Double rating,
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile) {
         try {
             Category category = categoryRepository.findById(categoryId).orElse(null);
@@ -472,6 +473,8 @@ public class AdminController {
             FoodItem foodItem = new FoodItem(name, calories, description != null ? description : "", category);
             foodItem.setUser(user);
             foodItem.setAvailable(true);
+            foodItem.setRating(rating != null ? rating : 0.0);
+            foodItem.setReviews(0); // Mới upload nên chưa có review
             if (imageFile != null && !imageFile.isEmpty()) {
                 String fileName = saveImage(imageFile);
                 foodItem.setImageUrl("/uploads/" + fileName);
@@ -640,6 +643,37 @@ public class AdminController {
         model.addAttribute("subtitle", "Theo dõi các thay đổi về món ăn");
         model.addAttribute("activeTab", "updates");
         return "admin/updates";
+    }
+    
+    // User Uploaded Foods Management - Quản lý món ăn người dùng upload
+    @GetMapping("/user-uploaded-foods")
+    public String userUploadedFoods(Model model) {
+        List<FoodItem> userUploadedFoods;
+        try {
+            if (firestoreService != null) {
+                userUploadedFoods = firestoreService.listFoodsAsEntities();
+            } else {
+                userUploadedFoods = foodItemRepository.findAll();
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading foods: " + e.getMessage());
+            userUploadedFoods = foodItemRepository.findAll();
+        }
+        
+        // Lọc chỉ các món ăn do người dùng upload (có user không null)
+        userUploadedFoods = userUploadedFoods.stream()
+            .filter(food -> food.getUser() != null)
+            .sorted((a, b) -> {
+                if (a.getCreatedAt() == null || b.getCreatedAt() == null) return 0;
+                return b.getCreatedAt().compareTo(a.getCreatedAt());
+            })
+            .toList();
+        
+        model.addAttribute("foods", userUploadedFoods);
+        model.addAttribute("title", "Món ăn người dùng upload");
+        model.addAttribute("subtitle", "Quản lý các món ăn được người dùng đăng tải");
+        model.addAttribute("activeTab", "userUploadedFoods");
+        return "admin/user-uploaded-foods";
     }
     
     // Search functionality - Tìm kiếm

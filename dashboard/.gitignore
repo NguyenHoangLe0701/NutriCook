@@ -4,6 +4,17 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Secrets / Environment files ###
+.env
+*.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+### Firebase / Service Account keys ###
+dashboard/src/main/resources/serviceAccountKey.json
+
 ### STS ###
 .apt_generated
 .classpath
@@ -31,4 +42,3 @@ build/
 
 ### VS Code ###
 .vscode/
-.env
