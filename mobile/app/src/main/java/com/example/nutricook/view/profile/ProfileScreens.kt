@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,6 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -20,9 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,8 +36,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -91,6 +99,7 @@ fun ProfileScreen(
                     modifier = Modifier.padding(padding),
                     state = ui,
                     realChartData = nutritionState.history.map { it.calories },
+                    todayLog = nutritionState.todayLog,
                     onEditAvatar = onEditAvatar,
                     onOpenSettings = onOpenSettings,
                     onOpenRecent = onOpenRecent,
@@ -101,11 +110,13 @@ fun ProfileScreen(
                 )
 
                 if (showUpdateDialog) {
-                    UpdateNutritionDialog(
+                    val caloriesTarget = ui.profile?.nutrition?.caloriesTarget ?: 2000f
+                    ProfessionalNutritionDialog(
                         initialCalories = nutritionState.todayLog?.calories ?: 0f,
                         initialProtein = nutritionState.todayLog?.protein ?: 0f,
                         initialFat = nutritionState.todayLog?.fat ?: 0f,
                         initialCarb = nutritionState.todayLog?.carb ?: 0f,
+                        caloriesTarget = caloriesTarget,
                         onDismiss = { showUpdateDialog = false },
                         onSave = { c, p, f, cb ->
                             nutritionVm.updateTodayNutrition(c, p, f, cb)
@@ -128,6 +139,7 @@ private fun ProfileContent(
     modifier: Modifier = Modifier,
     state: ProfileUiState,
     realChartData: List<Float>,
+    todayLog: com.example.nutricook.model.nutrition.DailyLog?,
     onEditAvatar: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRecent: () -> Unit,
@@ -178,53 +190,32 @@ private fun ProfileContent(
 
             Spacer(Modifier.height(30.dp))
 
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "My Fatscret (Calories)",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = TextDark
-                        )
-                    )
-                    IconButton(onClick = onOpenUpdateDialog) {
-                        Icon(Icons.Default.Edit, contentDescription = "Update", tint = TealPrimary)
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                val chartData = if (realChartData.isEmpty()) listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f) else realChartData
-                ChartCard(dataPoints = chartData)
-
-                if (p.nutrition != null) {
-                    val n = p.nutrition!!
-                    Text(
-                        text = "Target: ${n.caloriesTarget.toInt()} Kcal",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
+            // Calories Tracking Section - Redesigned
+            val todayCalories = realChartData.lastOrNull() ?: 0f
+            val caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f
+            
+            CaloriesTrackingCard(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                todayCalories = todayCalories,
+                caloriesTarget = caloriesTarget,
+                todayLog = todayLog,
+                weeklyData = realChartData,
+                onAddClick = onOpenUpdateDialog
+            )
 
             Spacer(Modifier.height(100.dp))
         }
     }
 }
 
+// Professional Nutrition Dialog với tính năng thông minh
 @Composable
-fun UpdateNutritionDialog(
+fun ProfessionalNutritionDialog(
     initialCalories: Float,
     initialProtein: Float,
     initialFat: Float,
     initialCarb: Float,
+    caloriesTarget: Float,
     onDismiss: () -> Unit,
     onSave: (Float, Float, Float, Float) -> Unit
 ) {
@@ -232,96 +223,727 @@ fun UpdateNutritionDialog(
     var pro by remember { mutableStateOf(if(initialProtein > 0) initialProtein.toString() else "") }
     var fat by remember { mutableStateOf(if(initialFat > 0) initialFat.toString() else "") }
     var carb by remember { mutableStateOf(if(initialCarb > 0) initialCarb.toString() else "") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Hôm nay bạn ăn gì?", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = cal,
-                    onValueChange = { cal = it },
-                    label = { Text("Calories (Kcal)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pro,
-                        onValueChange = { pro = it },
-                        label = { Text("Pro (g)") },
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+    
+    val currentCalories = cal.toFloatOrNull() ?: 0f
+    val remaining = caloriesTarget - currentCalories
+    val progress = (currentCalories / caloriesTarget).coerceIn(0f, 1f)
+    
+    // Quick food suggestions
+    val quickFoods = remember {
+        listOf(
+            QuickFood("Cơm trắng", 130f, 3f, 0.3f, 28f),
+            QuickFood("Thịt gà", 165f, 31f, 3.6f, 0f),
+            QuickFood("Cá hồi", 208f, 20f, 12f, 0f),
+            QuickFood("Trứng", 155f, 13f, 11f, 1.1f),
+            QuickFood("Bánh mì", 265f, 9f, 3.2f, 49f),
+            QuickFood("Chuối", 89f, 1.1f, 0.3f, 23f)
+        )
+    }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Thêm bữa ăn",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark
+                            )
+                        )
+                        Text(
+                            text = "Theo dõi dinh dưỡng hôm nay",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = TextGray,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Đóng", tint = TextGray)
+                    }
+                }
+                
+                // Lộ trình Calories
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFFF0F9FF),
+                                    Color(0xFFE0F2FE)
+                                )
+                            ),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clip(RoundedCornerShape(16.dp))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Lộ trình hôm nay",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextDark
+                                )
+                            )
+                            Text(
+                                text = "${currentCalories.toInt()}/${caloriesTarget.toInt()} kcal",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = TealPrimary
+                                )
+                            )
+                        }
+                        
+                        LinearProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(12.dp)
+                                .clip(RoundedCornerShape(6.dp)),
+                            color = when {
+                                progress >= 1f -> Color(0xFFEF4444)
+                                progress >= 0.8f -> Color(0xFFFF9800)
+                                else -> TealPrimary
+                            },
+                            trackColor = Color(0xFFE5E7EB)
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            if (remaining > 0) {
+                                Text(
+                                    text = "Còn ${remaining.toInt()} kcal",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color(0xFF10B981),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            } else {
+                                Text(
+                                    text = "Vượt ${(-remaining).toInt()} kcal",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = Color(0xFFEF4444),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = TextGray,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                // Quick Suggestions
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Thêm nhanh",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
                     )
-                    OutlinedTextField(
-                        value = fat,
-                        onValueChange = { fat = it },
-                        label = { Text("Fat (g)") },
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(quickFoods) { food ->
+                            QuickFoodChip(
+                                food = food,
+                                onClick = {
+                                    val newCal = (currentCalories + food.calories).toString()
+                                    val newPro = ((pro.toFloatOrNull() ?: 0f) + food.protein).toString()
+                                    val newFat = ((fat.toFloatOrNull() ?: 0f) + food.fat).toString()
+                                    val newCarb = ((carb.toFloatOrNull() ?: 0f) + food.carb).toString()
+                                    cal = newCal
+                                    pro = newPro
+                                    fat = newFat
+                                    carb = newCarb
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                // Input Fields
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Calories Input
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Calories (Kcal)",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextDark
+                                )
+                            )
+                            TextField(
+                                value = cal,
+                                onValueChange = { cal = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                    
+                    // Macros Input
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MacroInputField(
+                            label = "Protein",
+                            value = pro,
+                            onValueChange = { pro = it },
+                            color = Color(0xFF3B82F6),
+                            modifier = Modifier.weight(1f)
+                        )
+                        MacroInputField(
+                            label = "Fat",
+                            value = fat,
+                            onValueChange = { fat = it },
+                            color = Color(0xFFF59E0B),
+                            modifier = Modifier.weight(1f)
+                        )
+                        MacroInputField(
+                            label = "Carb",
+                            value = carb,
+                            onValueChange = { carb = it },
+                            color = Color(0xFF10B981),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = carb,
-                        onValueChange = { carb = it },
-                        label = { Text("Carb (g)") },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextGray)
+                    ) {
+                        Text("Hủy", fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = {
+                            onSave(
+                                cal.toFloatOrNull() ?: 0f,
+                                pro.toFloatOrNull() ?: 0f,
+                                fat.toFloatOrNull() ?: 0f,
+                                carb.toFloatOrNull() ?: 0f
+                            )
+                        },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
-                    )
+                        colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Lưu", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(
-                        cal.toFloatOrNull() ?: 0f,
-                        pro.toFloatOrNull() ?: 0f,
-                        fat.toFloatOrNull() ?: 0f,
-                        carb.toFloatOrNull() ?: 0f
-                    )
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary)
-            ) {
-                Text("Lưu")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Hủy", color = TextGray) }
-        },
-        containerColor = Color.White,
-        shape = RoundedCornerShape(16.dp)
-    )
+        }
+    }
+}
+
+// Quick Food Data Class
+data class QuickFood(
+    val name: String,
+    val calories: Float,
+    val protein: Float,
+    val fat: Float,
+    val carb: Float
+)
+
+@Composable
+fun QuickFoodChip(
+    food: QuickFood,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD1FAE5))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = food.name,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextDark,
+                    fontSize = 12.sp
+                )
+            )
+            Text(
+                text = "${food.calories.toInt()} kcal",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF10B981),
+                    fontSize = 11.sp
+                )
+            )
+        }
+    }
 }
 
 @Composable
-fun ChartCard(dataPoints: List<Float>, modifier: Modifier = Modifier) {
+fun MacroInputField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(150.dp).padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextDark,
+                        fontSize = 11.sp
+                    )
+                )
+            }
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
+            )
+        }
+    }
+}
+
+// Professional Calories Tracking Card
+@Composable
+fun CaloriesTrackingCard(
+    modifier: Modifier = Modifier,
+    todayCalories: Float,
+    caloriesTarget: Float,
+    todayLog: com.example.nutricook.model.nutrition.DailyLog?,
+    weeklyData: List<Float>,
+    onAddClick: () -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Theo dõi Calories",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark,
+                            fontSize = 22.sp
+                        )
+                    )
+                    Text(
+                        text = "Hôm nay",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = TextGray,
+                            fontSize = 14.sp
+                        ),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                Button(
+                    onClick = onAddClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Thêm", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Circular Progress với Calories
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Circular Progress
+                Box(
+                    modifier = Modifier.size(140.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val progress = (todayCalories / caloriesTarget).coerceIn(0f, 1f)
+                    val sweepAngle = progress * 360f
+                    val remaining = caloriesTarget - todayCalories
+                    
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val strokeWidth = 16.dp.toPx()
+                        val radius = (size.minDimension - strokeWidth) / 2
+                        val center = Offset(size.width / 2, size.height / 2)
+                        val topLeft = Offset(center.x - radius, center.y - radius)
+                        val sizeArc = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+                        
+                        // Background circle
+                        drawArc(
+                            color = Color(0xFFE5E7EB),
+                            startAngle = -90f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                            topLeft = topLeft,
+                            size = sizeArc
+                        )
+                        
+                        // Progress circle
+                        drawArc(
+                            color = when {
+                                progress >= 1f -> Color(0xFFEF4444) // Red when exceeded
+                                progress >= 0.8f -> Color(0xFFFF9800) // Orange when close
+                                else -> TealPrimary
+                            },
+                            startAngle = -90f,
+                            sweepAngle = sweepAngle,
+                            useCenter = false,
+                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                            topLeft = topLeft,
+                            size = sizeArc
+                        )
+                    }
+                    
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${todayCalories.toInt()}",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark,
+                                fontSize = 32.sp
+                            )
+                        )
+                        Text(
+                            text = "kcal",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = TextGray,
+                                fontSize = 12.sp
+                            )
+                        )
+                        if (remaining > 0) {
+                            Text(
+                                text = "Còn ${remaining.toInt()}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF10B981),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "+${(-remaining).toInt()}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFFEF4444),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Stats Column
+                Column(
+                    modifier = Modifier.weight(1f).padding(start = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    MacroStatItem(
+                        label = "Mục tiêu",
+                        value = "${caloriesTarget.toInt()}",
+                        unit = "kcal",
+                        color = Color(0xFF6366F1)
+                    )
+                    
+                    if (todayLog != null) {
+                        MacroStatItem(
+                            label = "Protein",
+                            value = "${todayLog.protein.toInt()}",
+                            unit = "g",
+                            color = Color(0xFF3B82F6),
+                            progress = (todayLog.protein / (caloriesTarget * 0.3f / 4f)).coerceIn(0f, 1f)
+                        )
+                        MacroStatItem(
+                            label = "Carb",
+                            value = "${todayLog.carb.toInt()}",
+                            unit = "g",
+                            color = Color(0xFF10B981),
+                            progress = (todayLog.carb / (caloriesTarget * 0.45f / 4f)).coerceIn(0f, 1f)
+                        )
+                        MacroStatItem(
+                            label = "Fat",
+                            value = "${todayLog.fat.toInt()}",
+                            unit = "g",
+                            color = Color(0xFFF59E0B),
+                            progress = (todayLog.fat / (caloriesTarget * 0.25f / 9f)).coerceIn(0f, 1f)
+                        )
+                    }
+                }
+            }
+
+            Divider(color = Color(0xFFF3F4F6), thickness = 1.dp)
+
+            // Weekly Chart
+            Column {
+                Text(
+                    text = "7 ngày qua",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark,
+                        fontSize = 16.sp
+                    ),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                val chartData = if (weeklyData.isEmpty()) listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f) else weeklyData
+                ImprovedChartCard(dataPoints = chartData, target = caloriesTarget)
+            }
+        }
+    }
+}
+
+@Composable
+fun MacroStatItem(
+    label: String,
+    value: String,
+    unit: String,
+    color: Color,
+    progress: Float? = null
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = TextGray,
+                    fontSize = 13.sp
+                )
+            )
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark,
+                        fontSize = 15.sp
+                    )
+                )
+                Text(
+                    text = " $unit",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = TextGray,
+                        fontSize = 11.sp
+                    )
+                )
+            }
+        }
+        if (progress != null) {
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = color,
+                trackColor = color.copy(alpha = 0.2f)
+            )
+        }
+    }
+}
+
+@Composable
+fun ImprovedChartCard(dataPoints: List<Float>, target: Float, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().height(180.dp).padding(16.dp)) {
             if (dataPoints.isEmpty() || dataPoints.all { it == 0f }) {
-                Text("Chưa có dữ liệu", modifier = Modifier.align(Alignment.Center), color = TextGray)
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Outlined.BarChart,
+                        contentDescription = null,
+                        tint = TextGray.copy(alpha = 0.5f),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Chưa có dữ liệu",
+                        color = TextGray,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             } else {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                Column {
+                    Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
                     val width = size.width
                     val height = size.height
-                    val maxVal = dataPoints.maxOrNull() ?: 100f
-                    val minVal = (dataPoints.minOrNull() ?: 0f) * 0.8f
-                    val range = if (maxVal - minVal <= 1f) 100f else maxVal - minVal
+                    val maxVal = maxOf(dataPoints.maxOrNull() ?: target, target * 1.2f)
+                    val minVal = 0f
+
+                    // Draw target line
+                    val targetY = height - ((target - minVal) / (maxVal - minVal)) * height * 0.85f - height * 0.075f
+                    val dashPath = Path().apply {
+                        moveTo(0f, targetY)
+                        lineTo(width, targetY)
+                    }
+                    drawPath(
+                        path = dashPath,
+                        color = Color(0xFF6366F1).copy(alpha = 0.3f),
+                        style = Stroke(
+                            width = 2.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f))
+                        )
+                    )
 
                     val points = dataPoints.mapIndexed { index, value ->
-                        val x = index * (width / (dataPoints.size - 1).coerceAtLeast(1))
-                        val normalizedY = (value - minVal) / range
-                        val y = height - (normalizedY * height * 0.8f) - (height * 0.1f)
+                        val x = 24.dp.toPx() + index * ((width - 48.dp.toPx()) / (dataPoints.size - 1).coerceAtLeast(1))
+                        val normalizedY = (value - minVal) / (maxVal - minVal)
+                        val y = height - (normalizedY * height * 0.85f) - height * 0.075f
                         Offset(x, y)
                     }
 
+                    // Draw filled area
+                    val fillPath = Path().apply {
+                        if (points.isNotEmpty()) {
+                            moveTo(points.first().x, height - 16.dp.toPx())
+                            points.forEach { lineTo(it.x, it.y) }
+                            lineTo(points.last().x, height - 16.dp.toPx())
+                            close()
+                        }
+                    }
+                    
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                TealPrimary.copy(alpha = 0.3f),
+                                TealPrimary.copy(alpha = 0.05f)
+                            ),
+                            startY = points.minOfOrNull { it.y } ?: 0f,
+                            endY = height
+                        )
+                    )
+
+                    // Draw line
                     val path = Path().apply {
                         if (points.isNotEmpty()) {
                             moveTo(points.first().x, points.first().y)
@@ -336,24 +958,39 @@ fun ChartCard(dataPoints: List<Float>, modifier: Modifier = Modifier) {
                             }
                         }
                     }
-
-                    val fillPath = Path().apply {
-                        addPath(path)
-                        lineTo(width, height)
-                        lineTo(0f, height)
-                        close()
-                    }
+                    
                     drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(TealPrimary.copy(alpha = 0.2f), TealPrimary.copy(alpha = 0.0f)),
-                            startY = 0f, endY = height
-                        )
+                        path = path,
+                        color = TealPrimary,
+                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                     )
-                    drawPath(path = path, color = TealPrimary, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
-                    points.forEach {
-                        drawCircle(Color.White, 5.dp.toPx(), it)
-                        drawCircle(TealPrimary, 3.dp.toPx(), it)
+
+                    // Draw points
+                    points.forEach { point ->
+                        drawCircle(Color.White, 6.dp.toPx(), point)
+                        drawCircle(TealPrimary, 4.dp.toPx(), point)
+                    }
+
+                    // Day labels sẽ được vẽ bằng Text composable bên ngoài Canvas
+                    }
+                    
+                    // Day labels
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val days = listOf("CN", "T2", "T3", "T4", "T5", "T6", "T7")
+                        days.forEachIndexed { index, day ->
+                            if (index < dataPoints.size) {
+                                Text(
+                                    text = day,
+                                    fontSize = 10.sp,
+                                    color = TextGray,
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall.copy(textAlign = TextAlign.Center)
+                                )
+                            }
+                        }
                     }
                 }
             }

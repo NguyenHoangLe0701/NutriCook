@@ -27,6 +27,7 @@ import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.newsfeed.FeedScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
+import com.example.nutricook.view.profile.ExerciseDetailScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
 import com.example.nutricook.view.profile.ProfileScreen
 import com.example.nutricook.view.profile.PublicProfileScreen
@@ -346,6 +347,22 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_direction") { RecipeDirectionsScreen(navController) }
         composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
         composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
+        
+        composable("exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}") { backStackEntry ->
+            val exerciseName = backStackEntry.arguments?.getString("exerciseName") ?: "Unknown"
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.baseball
+            val duration = backStackEntry.arguments?.getString("duration") ?: "15 phút"
+            val calories = backStackEntry.arguments?.getString("calories")?.toIntOrNull() ?: 100
+            val difficulty = backStackEntry.arguments?.getString("difficulty") ?: "Trung bình"
+            ExerciseDetailScreen(
+                navController = navController,
+                exerciseName = exerciseName,
+                exerciseImageRes = imageRes,
+                exerciseDuration = duration,
+                exerciseCalories = calories,
+                exerciseDifficulty = difficulty
+            )
+        }
 
         // ========== RECIPE STEPS ==========
         composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->

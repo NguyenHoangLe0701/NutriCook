@@ -22,6 +22,7 @@ internal object Routes {
     const val RECIPE_DIRECTION = "recipe_direction"
     const val RECIPE_GUIDANCE = "recipe_guidance"
     const val EXERCISE_SUGGESTIONS = "exercise_suggestions"
+    const val EXERCISE_DETAIL = "exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}"
     const val RECENT_ACTIVITY = "recent_activity"
     const val POSTS = "posts"
     const val EDIT_PROFILE = "edit_profile"

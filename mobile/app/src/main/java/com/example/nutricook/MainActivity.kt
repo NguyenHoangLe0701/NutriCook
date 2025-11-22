@@ -16,6 +16,11 @@ import com.example.nutricook.ui.theme.NutriCookTheme
 import com.example.nutricook.view.nav.NavGraph
 import com.example.nutricook.view.notifications.NotificationScheduler
 import com.example.nutricook.view.notifications.NotificationUtils
+import com.example.nutricook.service.ExerciseService
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -48,6 +53,9 @@ class MainActivity : ComponentActivity() {
 
         // 🔹 Tạo kênh thông báo (chỉ cần 1 lần)
         NotificationUtils.createNotificationChannel(this)
+        
+        // 🔹 Tạo kênh thông báo cho Exercise Service
+        createExerciseNotificationChannel(this)
 
         // 🔹 Đặt lịch nhắc nhở (7h, 12h, 19h)
         NotificationScheduler.scheduleDailyReminders(this)
@@ -71,6 +79,33 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     NavGraph(navController = navController)
                 }
+            }
+        }
+    }
+    
+    private fun createExerciseNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = context.getSystemService(NotificationManager::class.java)
+            // Kiểm tra channel đã tồn tại chưa
+            val existingChannel = notificationManager.getNotificationChannel(ExerciseService.CHANNEL_ID)
+            if (existingChannel == null || existingChannel.importance != NotificationManager.IMPORTANCE_HIGH) {
+                // Xóa channel cũ nếu có (để tạo lại với đúng importance)
+                if (existingChannel != null) {
+                    notificationManager.deleteNotificationChannel(ExerciseService.CHANNEL_ID)
+                }
+                
+                val channel = NotificationChannel(
+                    ExerciseService.CHANNEL_ID,
+                    "Đang tập thể dục",
+                    NotificationManager.IMPORTANCE_HIGH // High để hiển thị trong notification panel
+                ).apply {
+                    description = "Hiển thị tiến trình tập thể dục"
+                    setShowBadge(true)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    enableVibration(false)
+                    enableLights(true)
+                }
+                notificationManager.createNotificationChannel(channel)
             }
         }
     }

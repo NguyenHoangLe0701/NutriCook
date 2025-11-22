@@ -141,7 +141,11 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
                     ExerciseCard(
                         exercise = exercise,
                         modifier = Modifier.weight(1f),
-                        onClick = { }
+                        onClick = {
+                            navController.navigate(
+                                "exercise_detail/${exercise.name}/${exercise.imageRes}/${exercise.duration}/${exercise.caloriesBurned}/${exercise.difficulty}"
+                            )
+                        }
                     )
                 }
                 if (rowExercises.size == 1) {

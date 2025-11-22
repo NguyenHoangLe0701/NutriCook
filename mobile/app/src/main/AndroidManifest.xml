@@ -4,6 +4,10 @@
     <!-- ⚠️ Bổ sung quyền gửi thông báo cho Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
+    <!-- Quyền Foreground Service cho Android 14+ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    
     <!-- Quyền đọc ảnh từ bộ sưu tập -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
@@ -32,6 +36,13 @@
         <receiver
             android:name=".view.notifications.ReminderReceiver"
             android:exported="true" />
+        
+        <!-- 👇 Khai báo ExerciseService cho timer tập thể dục -->
+        <service
+            android:name=".service.ExerciseService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="health" />
     </application>
 
 </manifest>

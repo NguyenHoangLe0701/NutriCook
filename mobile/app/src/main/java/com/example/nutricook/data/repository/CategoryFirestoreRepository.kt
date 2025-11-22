@@ -58,11 +58,24 @@ class CategoryFirestoreRepository @Inject constructor(
         return snapshot.documents.mapNotNull { doc ->
             try {
                 val imageUrl = doc.getString("imageUrl")
+                // Kiểm tra imageUrl không null và không rỗng, sau đó tạo full URL
+                val fullImageUrl = if (!imageUrl.isNullOrBlank()) {
+                    // Nếu imageUrl đã là full URL (bắt đầu bằng http), dùng trực tiếp
+                    // Nếu không, ghép với BASE_URL
+                    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                        imageUrl
+                    } else {
+                        BASE_URL.dropLast(1) + imageUrl
+                    }
+                } else {
+                    "" // Trả về chuỗi rỗng nếu không có imageUrl
+                }
+                
                 FoodItemUI(
                     id = doc.getLong("id") ?: 0L,
                     name = doc.getString("name") ?: "",
                     calories = doc.getString("calories") ?: "0 kcal",
-                    imageUrl = if (imageUrl != null) BASE_URL.dropLast(1) + imageUrl else ""
+                    imageUrl = fullImageUrl
                 )
             } catch (e: Exception) {
                 e.printStackTrace()

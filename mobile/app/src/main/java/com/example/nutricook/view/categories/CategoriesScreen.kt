@@ -18,12 +18,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel // Import Hilt
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.Image
+import com.example.nutricook.R
 import com.example.nutricook.viewmodel.CategoriesViewModel
 import com.example.nutricook.viewmodel.CategoryUI
 import com.example.nutricook.viewmodel.FoodItemUI
@@ -151,13 +157,32 @@ fun FoodItemCard(food: FoodItemUI) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            AsyncImage(
-                model = food.imageUrl, // Tải ảnh từ URL
-                contentDescription = food.name,
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-            )
+            // Hiển thị ảnh từ URL nếu có, nếu không thì hiển thị placeholder
+            if (food.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(food.imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = food.name,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                    error = painterResource(id = R.drawable.cabbage),
+                    placeholder = painterResource(id = R.drawable.cabbage)
+                )
+            } else {
+                // Hiển thị placeholder khi không có imageUrl
+                Image(
+                    painter = painterResource(id = R.drawable.cabbage),
+                    contentDescription = food.name,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
