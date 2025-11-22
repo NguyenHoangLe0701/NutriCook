@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +30,8 @@ import com.nutricook.dashboard.entity.Category;
 import com.nutricook.dashboard.entity.FoodItem;
 import com.nutricook.dashboard.entity.FoodUpdate;
 import com.nutricook.dashboard.entity.User;
+import com.nutricook.dashboard.entity.DailyLog;
+import com.nutricook.dashboard.entity.NutritionStats;
 import com.nutricook.dashboard.repository.CategoryRepository;
 import com.nutricook.dashboard.repository.FoodItemRepository;
 import com.nutricook.dashboard.repository.FoodUpdateRepository;
@@ -792,5 +795,140 @@ public class AdminController {
         Path filePath = uploadPath.resolve(fileName);
         Files.copy(file.getInputStream(), filePath);
         return fileName;
+    }
+    
+    // ==========================================================
+    // NUTRITION MANAGEMENT - Quản lý Calories người dùng
+    // ==========================================================
+    
+    @GetMapping("/nutrition")
+    public String nutrition(
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestParam(value = "filter", required = false, defaultValue = "all") String filter,
+            @RequestParam(value = "period", required = false, defaultValue = "week") String period,
+            Model model) {
+        List<NutritionStats> allStats = new ArrayList<>();
+        
+        try {
+            if (firestoreService != null) {
+                try {
+                    if (userId != null && !userId.isEmpty()) {
+                        // Chi tiết một user cụ thể
+                        NutritionStats stats = null;
+                        List<DailyLog> weeklyLogs = new ArrayList<>();
+                        List<DailyLog> allLogs = new ArrayList<>();
+                        
+                        try {
+                            stats = firestoreService.calculateNutritionStats(userId);
+                        } catch (Exception e) {
+                            System.err.println("Error calculating nutrition stats: " + e.getMessage());
+                            e.printStackTrace();
+                            stats = null;
+                        }
+                        
+                        try {
+                            weeklyLogs = firestoreService.getUserDailyLogs(userId, 7);
+                            if (weeklyLogs == null) {
+                                weeklyLogs = new ArrayList<>();
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error loading weekly logs: " + e.getMessage());
+                            weeklyLogs = new ArrayList<>();
+                        }
+                        
+                        try {
+                            allLogs = firestoreService.getAllUserDailyLogs(userId);
+                            if (allLogs == null) {
+                                allLogs = new ArrayList<>();
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error loading all logs: " + e.getMessage());
+                            allLogs = new ArrayList<>();
+                        }
+                        
+                        if (stats != null) {
+                            model.addAttribute("selectedStats", stats);
+                        }
+                        model.addAttribute("weeklyLogs", weeklyLogs);
+                        model.addAttribute("allLogs", allLogs);
+                    } else {
+                        // Danh sách tất cả users
+                        try {
+                            allStats = firestoreService.getAllUsersNutritionStats();
+                            if (allStats == null) {
+                                allStats = new ArrayList<>();
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error loading all users nutrition stats: " + e.getMessage());
+                            e.printStackTrace();
+                            allStats = new ArrayList<>();
+                        }
+                        
+                        // Áp dụng filter
+                        if (!allStats.isEmpty()) {
+                            try {
+                                if ("high".equals(filter)) {
+                                    allStats = allStats.stream()
+                                        .filter(s -> s != null && s.getAverageCalories() > 2500f)
+                                        .collect(java.util.stream.Collectors.toList());
+                                } else if ("low".equals(filter)) {
+                                    allStats = allStats.stream()
+                                        .filter(s -> s != null && s.getAverageCalories() > 0f && s.getAverageCalories() < 1500f)
+                                        .collect(java.util.stream.Collectors.toList());
+                                } else if ("reached".equals(filter)) {
+                                    allStats = allStats.stream()
+                                        .filter(s -> s != null && s.getGoalAchievementRate() >= 80f)
+                                        .collect(java.util.stream.Collectors.toList());
+                                } else if ("not-reached".equals(filter)) {
+                                    allStats = allStats.stream()
+                                        .filter(s -> s != null && s.getGoalAchievementRate() < 80f && s.getDaysTracked() > 0)
+                                        .collect(java.util.stream.Collectors.toList());
+                                }
+                                
+                                // Sắp xếp theo calories trung bình
+                                allStats.sort((a, b) -> Float.compare(b.getAverageCalories(), a.getAverageCalories()));
+                            } catch (Exception e) {
+                                System.err.println("Error filtering stats: " + e.getMessage());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error in FirestoreService: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("FirestoreService is null - nutrition data not available");
+            }
+        } catch (Exception e) {
+            System.err.println("Unexpected error in nutrition controller: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // Đảm bảo tất cả attributes đều có giá trị, không null
+        model.addAttribute("statsList", allStats != null ? allStats : new ArrayList<>());
+        model.addAttribute("selectedUserId", userId != null ? userId : "");
+        model.addAttribute("filter", filter != null ? filter : "all");
+        model.addAttribute("period", period != null ? period : "week");
+        model.addAttribute("title", "Quản lý Calories");
+        model.addAttribute("subtitle", "Theo dõi và phân tích calories người dùng");
+        model.addAttribute("activeTab", "nutrition");
+        
+        // Đảm bảo selectedStats, weeklyLogs, allLogs luôn có trong model (có thể null)
+        if (!model.containsAttribute("selectedStats")) {
+            model.addAttribute("selectedStats", null);
+        }
+        if (!model.containsAttribute("weeklyLogs")) {
+            model.addAttribute("weeklyLogs", new ArrayList<>());
+        }
+        if (!model.containsAttribute("allLogs")) {
+            model.addAttribute("allLogs", new ArrayList<>());
+        }
+        
+        return "admin/nutrition";
+    }
+    
+    @GetMapping("/nutrition/{userId}")
+    public String nutritionDetail(@PathVariable String userId, Model model) {
+        return nutrition(userId, "all", "week", model);
     }
 }

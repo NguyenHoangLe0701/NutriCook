@@ -9,6 +9,8 @@ import com.google.cloud.Timestamp;
 import com.nutricook.dashboard.entity.Category; // Cần import Category
 import com.nutricook.dashboard.entity.FoodItem; // Cần import FoodItem
 import com.nutricook.dashboard.entity.User;
+import com.nutricook.dashboard.entity.DailyLog;
+import com.nutricook.dashboard.entity.NutritionStats;
 import java.time.ZoneId;
 import java.util.Date;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -432,5 +434,349 @@ public class FirestoreService {
         
         future.get(); // Đợi hoàn thành
         return true;
+    }
+    
+    // ==========================================================
+    // NUTRITION METHODS (Quản lý Calories người dùng)
+    // ==========================================================
+    
+    /**
+     * Lấy danh sách DailyLog của một user từ Firestore.
+     * Path: users/{userId}/daily_logs
+     */
+    public List<DailyLog> getUserDailyLogs(String userId, int limit) throws Exception {
+        if (userId == null || userId.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        CollectionReference logsCol = firestore.collection("users")
+                                               .document(userId)
+                                               .collection("daily_logs");
+        
+        // Lấy tất cả rồi sort trong code để tránh lỗi index
+        QuerySnapshot snap = logsCol.get().get();
+        
+        List<DailyLog> logs = new ArrayList<>();
+        for (DocumentSnapshot doc : snap.getDocuments()) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+            
+            DailyLog log = new DailyLog();
+            // Document ID chính là dateId, hoặc lấy từ field dateId
+            String dateId = (String) data.getOrDefault("dateId", doc.getId());
+            log.setDateId(dateId);
+            
+            // Parse calories, protein, fat, carb
+            Object calObj = data.get("calories");
+            if (calObj instanceof Number) {
+                log.setCalories(((Number) calObj).floatValue());
+            } else if (calObj instanceof String) {
+                try {
+                    log.setCalories(Float.parseFloat((String) calObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object proObj = data.get("protein");
+            if (proObj instanceof Number) {
+                log.setProtein(((Number) proObj).floatValue());
+            } else if (proObj instanceof String) {
+                try {
+                    log.setProtein(Float.parseFloat((String) proObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object fatObj = data.get("fat");
+            if (fatObj instanceof Number) {
+                log.setFat(((Number) fatObj).floatValue());
+            } else if (fatObj instanceof String) {
+                try {
+                    log.setFat(Float.parseFloat((String) fatObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object carbObj = data.get("carb");
+            if (carbObj instanceof Number) {
+                log.setCarb(((Number) carbObj).floatValue());
+            } else if (carbObj instanceof String) {
+                try {
+                    log.setCarb(Float.parseFloat((String) carbObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object updatedObj = data.get("updatedAt");
+            if (updatedObj instanceof Timestamp) {
+                log.setUpdatedAt(((Timestamp) updatedObj).toDate().getTime());
+            } else if (updatedObj instanceof Number) {
+                log.setUpdatedAt(((Number) updatedObj).longValue());
+            }
+            
+            logs.add(log);
+        }
+        
+        // Sort theo dateId (document ID) giảm dần (mới nhất trước)
+        logs.sort((a, b) -> {
+            if (a.getDateId() == null || b.getDateId() == null) return 0;
+            return b.getDateId().compareTo(a.getDateId()); // DESC
+        });
+        
+        // Lấy limit phần tử đầu tiên (mới nhất)
+        if (logs.size() > limit) {
+            logs = logs.subList(0, limit);
+        }
+        
+        // Đảo ngược để từ cũ đến mới (cho biểu đồ)
+        java.util.Collections.reverse(logs);
+        return logs;
+    }
+    
+    /**
+     * Lấy tất cả DailyLogs của một user (không giới hạn)
+     */
+    public List<DailyLog> getAllUserDailyLogs(String userId) throws Exception {
+        if (userId == null || userId.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        CollectionReference logsCol = firestore.collection("users")
+                                               .document(userId)
+                                               .collection("daily_logs");
+        
+        // Lấy tất cả rồi sort trong code để tránh lỗi index
+        QuerySnapshot snap = logsCol.get().get();
+        
+        List<DailyLog> logs = new ArrayList<>();
+        for (DocumentSnapshot doc : snap.getDocuments()) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+            
+            DailyLog log = new DailyLog();
+            String dateId = (String) data.getOrDefault("dateId", doc.getId());
+            log.setDateId(dateId);
+            
+            // Parse calories, protein, fat, carb
+            Object calObj = data.get("calories");
+            if (calObj instanceof Number) {
+                log.setCalories(((Number) calObj).floatValue());
+            } else if (calObj instanceof String) {
+                try {
+                    log.setCalories(Float.parseFloat((String) calObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object proObj = data.get("protein");
+            if (proObj instanceof Number) {
+                log.setProtein(((Number) proObj).floatValue());
+            } else if (proObj instanceof String) {
+                try {
+                    log.setProtein(Float.parseFloat((String) proObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object fatObj = data.get("fat");
+            if (fatObj instanceof Number) {
+                log.setFat(((Number) fatObj).floatValue());
+            } else if (fatObj instanceof String) {
+                try {
+                    log.setFat(Float.parseFloat((String) fatObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object carbObj = data.get("carb");
+            if (carbObj instanceof Number) {
+                log.setCarb(((Number) carbObj).floatValue());
+            } else if (carbObj instanceof String) {
+                try {
+                    log.setCarb(Float.parseFloat((String) carbObj));
+                } catch (Exception ignored) {}
+            }
+            
+            Object updatedObj = data.get("updatedAt");
+            if (updatedObj instanceof Timestamp) {
+                log.setUpdatedAt(((Timestamp) updatedObj).toDate().getTime());
+            } else if (updatedObj instanceof Number) {
+                log.setUpdatedAt(((Number) updatedObj).longValue());
+            }
+            
+            logs.add(log);
+        }
+        
+        // Sort theo dateId (document ID) tăng dần (cũ nhất trước)
+        logs.sort((a, b) -> {
+            if (a.getDateId() == null || b.getDateId() == null) return 0;
+            return a.getDateId().compareTo(b.getDateId()); // ASC
+        });
+        
+        return logs;
+    }
+    
+    /**
+     * Lấy calories target từ profile của user
+     * Path: users/{userId} -> field "nutrition.caloriesTarget"
+     */
+    public Float getUserCaloriesTarget(String userId) throws Exception {
+        if (userId == null || userId.isEmpty()) {
+            return 2000f; // Default
+        }
+        
+        DocumentSnapshot userDoc = firestore.collection("users")
+                                           .document(userId)
+                                           .get()
+                                           .get();
+        
+        if (!userDoc.exists()) {
+            return 2000f;
+        }
+        
+        Map<String, Object> data = userDoc.getData();
+        if (data == null) {
+            return 2000f;
+        }
+        
+        // Tìm nutrition.caloriesTarget
+        Object nutritionObj = data.get("nutrition");
+        if (nutritionObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> nutrition = (Map<String, Object>) nutritionObj;
+            Object targetObj = nutrition.get("caloriesTarget");
+            if (targetObj instanceof Number) {
+                return ((Number) targetObj).floatValue();
+            }
+        }
+        
+        return 2000f; // Default
+    }
+    
+    /**
+     * Tính toán thống kê nutrition cho một user
+     * userId là Firestore document ID
+     */
+    public NutritionStats calculateNutritionStats(String userId) throws Exception {
+        NutritionStats stats = new NutritionStats();
+        stats.setUserId(userId);
+        
+        // Lấy thông tin user từ Firestore document
+        try {
+            DocumentSnapshot userDoc = firestore.collection("users")
+                                               .document(userId)
+                                               .get()
+                                               .get();
+            
+            if (userDoc.exists()) {
+                Map<String, Object> userData = userDoc.getData();
+                if (userData != null) {
+                    String fullName = (String) userData.get("fullName");
+                    String username = (String) userData.get("username");
+                    String email = (String) userData.get("email");
+                    
+                    stats.setUserName(fullName != null && !fullName.isEmpty() ? fullName : username);
+                    stats.setUserEmail(email != null ? email : "");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading user info for " + userId + ": " + e.getMessage());
+        }
+        
+        // Lấy calories target
+        Float target = getUserCaloriesTarget(userId);
+        stats.setCaloriesTarget(target);
+        
+        // Lấy tất cả logs
+        List<DailyLog> allLogs = getAllUserDailyLogs(userId);
+        
+        if (allLogs.isEmpty()) {
+            return stats;
+        }
+        
+        // Lấy 7 ngày gần nhất
+        int limit = Math.min(7, allLogs.size());
+        List<DailyLog> weeklyLogs = allLogs.subList(Math.max(0, allLogs.size() - limit), allLogs.size());
+        stats.setWeeklyLogs(weeklyLogs);
+        
+        // Tính toán trung bình
+        float totalCal = 0f, totalPro = 0f, totalFat = 0f, totalCarb = 0f;
+        int daysReached = 0;
+        int count = 0;
+        
+        for (DailyLog log : allLogs) {
+            if (log.getCalories() > 0) {
+                totalCal += log.getCalories();
+                totalPro += log.getProtein();
+                totalFat += log.getFat();
+                totalCarb += log.getCarb();
+                count++;
+                
+                // Kiểm tra đạt mục tiêu (cho phép sai số 5%)
+                if (log.getCalories() >= target * 0.95f) {
+                    daysReached++;
+                }
+            }
+        }
+        
+        if (count > 0) {
+            stats.setAverageCalories(totalCal / count);
+            stats.setAverageProtein(totalPro / count);
+            stats.setAverageFat(totalFat / count);
+            stats.setAverageCarb(totalCarb / count);
+            stats.setDaysTracked(count);
+            stats.setDaysReachedGoal(daysReached);
+            stats.setGoalAchievementRate((daysReached * 100f) / count);
+        }
+        
+        return stats;
+    }
+    
+    /**
+     * Lấy danh sách NutritionStats cho tất cả users có track calories
+     */
+    public List<NutritionStats> getAllUsersNutritionStats() {
+        List<NutritionStats> statsList = new ArrayList<>();
+        
+        try {
+            // Lấy tất cả users từ Firestore collection "users"
+            CollectionReference usersCol = firestore.collection("users");
+            QuerySnapshot usersSnap = usersCol.get().get();
+            
+            for (DocumentSnapshot userDoc : usersSnap.getDocuments()) {
+                String userId = userDoc.getId(); // Document ID trong Firestore
+                
+                try {
+                    // Kiểm tra xem user có daily_logs không
+                    CollectionReference logsCol = firestore.collection("users")
+                                                           .document(userId)
+                                                           .collection("daily_logs");
+                    QuerySnapshot snap = logsCol.limit(1).get().get();
+                    
+                    // Chỉ thêm user có ít nhất 1 log
+                    if (!snap.isEmpty()) {
+                        NutritionStats stats = calculateNutritionStats(userId);
+                        if (stats != null) {
+                            // Lấy thông tin user từ document
+                            Map<String, Object> userData = userDoc.getData();
+                            if (userData != null) {
+                                if (stats.getUserName() == null || stats.getUserName().isEmpty()) {
+                                    String fullName = (String) userData.get("fullName");
+                                    String username = (String) userData.get("username");
+                                    stats.setUserName(fullName != null && !fullName.isEmpty() ? fullName : username);
+                                }
+                                if (stats.getUserEmail() == null || stats.getUserEmail().isEmpty()) {
+                                    String email = (String) userData.get("email");
+                                    stats.setUserEmail(email != null ? email : "");
+                                }
+                            }
+                            statsList.add(stats);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Skip user nếu có lỗi
+                    System.err.println("Error loading nutrition for user " + userId + ": " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error in getAllUsersNutritionStats: " + e.getMessage());
+            e.printStackTrace();
+            // Không throw, trả về danh sách rỗng
+        }
+        
+        return statsList;
     }
 }
