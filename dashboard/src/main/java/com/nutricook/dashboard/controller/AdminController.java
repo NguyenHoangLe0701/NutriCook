@@ -821,6 +821,7 @@ public class AdminController {
             @RequestParam(value = "period", required = false, defaultValue = "week") String period,
             Model model) {
         List<NutritionStats> allStats = new ArrayList<>();
+        String errorMessage = null;
         
         try {
             if (firestoreService != null) {
@@ -836,6 +837,7 @@ public class AdminController {
                         } catch (Exception e) {
                             System.err.println("Error calculating nutrition stats: " + e.getMessage());
                             e.printStackTrace();
+                            errorMessage = "Không thể tải thống kê calories cho người dùng này: " + e.getMessage();
                             stats = null;
                         }
                         
@@ -874,6 +876,7 @@ public class AdminController {
                         } catch (Exception e) {
                             System.err.println("Error loading all users nutrition stats: " + e.getMessage());
                             e.printStackTrace();
+                            errorMessage = "Không thể tải danh sách người dùng: " + e.getMessage();
                             allStats = new ArrayList<>();
                         }
                         
@@ -908,13 +911,16 @@ public class AdminController {
                 } catch (Exception e) {
                     System.err.println("Error in FirestoreService: " + e.getMessage());
                     e.printStackTrace();
+                    errorMessage = "Lỗi kết nối với Firestore: " + e.getMessage();
                 }
             } else {
+                errorMessage = "FirestoreService chưa được cấu hình. Vui lòng kiểm tra cấu hình kết nối Firestore.";
                 System.out.println("FirestoreService is null - nutrition data not available");
             }
         } catch (Exception e) {
             System.err.println("Unexpected error in nutrition controller: " + e.getMessage());
             e.printStackTrace();
+            errorMessage = "Đã xảy ra lỗi không mong muốn: " + e.getMessage();
         }
         
         // Đảm bảo tất cả attributes đều có giá trị, không null
@@ -925,6 +931,9 @@ public class AdminController {
         model.addAttribute("title", "Quản lý Calories");
         model.addAttribute("subtitle", "Theo dõi và phân tích calories người dùng");
         model.addAttribute("activeTab", "nutrition");
+        if (errorMessage != null) {
+            model.addAttribute("error", errorMessage);
+        }
         
         // Đảm bảo selectedStats, weeklyLogs, allLogs luôn có trong model (có thể null)
         if (!model.containsAttribute("selectedStats")) {

@@ -2,6 +2,19 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Quản lý Calories', 'Theo dõi và phân tích calories người dùng', 'nutrition')}">
 <div th:fragment="content">
 
+    <!-- Error Message -->
+    <div th:if="${error != null}" class="mb-6 rounded-md bg-red-50 border border-red-200 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fa-solid fa-circle-exclamation text-red-400 h-5 w-5"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">Lỗi</h3>
+                <p class="mt-1 text-sm text-red-700" th:text="${error}">Lỗi xảy ra</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Filter and Search Section -->
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div class="flex flex-wrap items-center gap-3">
@@ -189,7 +202,8 @@
                             <td colspan="7" class="px-6 py-12 text-center">
                                 <i class="fa-solid fa-users-slash text-5xl text-gray-400 mb-4 block"></i>
                                 <p class="text-lg font-semibold text-gray-600">Chưa có dữ liệu calories</p>
-                                <p class="text-sm text-gray-500 mt-2">Người dùng chưa bắt đầu theo dõi calories trên ứng dụng</p>
+                                <p class="text-sm text-gray-500 mt-2" th:if="${error == null}">Người dùng chưa bắt đầu theo dõi calories trên ứng dụng</p>
+                                <p class="text-sm text-gray-500 mt-2" th:if="${error != null}">Vui lòng kiểm tra kết nối Firestore và thử lại</p>
                             </td>
                         </tr>
                     </tbody>

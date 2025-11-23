@@ -290,21 +290,21 @@
                      th:class="${activeTab == 'nutrition'} ? 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-lg relative z-10' : 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 transform hover:bg-white/20 hover:text-white relative'">
                      <i class="fa-solid fa-chart-line"
                          th:classappend="${activeTab == 'nutrition'} ? 'text-white text-[18px]' : 'text-blue-200 group-hover:text-white text-[18px]'"></i>
-                     <span>Calories</span>
+                     <span>Theo dõi Calories</span>
                 </a>
 
                 <a th:href="@{/admin/analytics}"
                      th:class="${activeTab == 'analytics'} ? 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-lg relative z-10' : 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 transform hover:bg-white/20 hover:text-white relative'">
                      <i class="fa-solid fa-chart-bar"
                          th:classappend="${activeTab == 'analytics'} ? 'text-white text-[18px]' : 'text-blue-200 group-hover:text-white text-[18px]'"></i>
-                     <span>Analytics</span>
+                     <span>Phân tích</span>
                 </a>
 
                 <a th:href="@{/admin/notifications}"
                      th:class="${activeTab == 'notifications'} ? 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-lg relative z-10' : 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 transform hover:bg-white/20 hover:text-white relative'">
                      <i class="fa-solid fa-bell"
                          th:classappend="${activeTab == 'notifications'} ? 'text-white text-[18px]' : 'text-blue-200 group-hover:text-white text-[18px]'"></i>
-                     <span>Notifications</span>
+                     <span>Thông báo</span>
                 </a>
 
                 <a th:href="@{/admin/updates}"
