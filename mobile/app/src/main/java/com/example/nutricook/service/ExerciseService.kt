@@ -231,10 +231,20 @@ class ExerciseService : Service() {
         
         val caloriesBurned = calculateCaloriesBurned()
         val progress = if (totalSeconds > 0) (currentSeconds.toFloat() / totalSeconds * 100).toInt() else 0
+        val timeElapsed = formatTime(currentSeconds)
+        val timeTotal = formatTime(totalSeconds)
+        val statusText = if (isRunning) "▶️ Đang chạy..." else "⏸️ Đã tạm dừng"
+        
+        // Tạo progress bar text với visual indicator
+        val progressBar = buildString {
+            val filledBlocks = (progress / 5).coerceAtMost(20)
+            repeat(filledBlocks) { append("█") }
+            repeat(20 - filledBlocks) { append("░") }
+        }
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("🔥 $exerciseName")
-            .setContentText("${formatTime(currentSeconds)} / ${formatTime(totalSeconds)} • $caloriesBurned/$totalCalories kcal")
+            .setContentText("$timeElapsed / $timeTotal • $caloriesBurned/$totalCalories kcal")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true) // Notification không thể swipe away - QUAN TRỌNG để chạy nền
@@ -249,6 +259,7 @@ class ExerciseService : Service() {
             .setDefaults(0) // Không có sound/vibration mặc định
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE) // Foreground service chạy ngay
             .setChronometerCountDown(false) // Không dùng countdown
+            .setColor(android.graphics.Color.parseColor("#3AC7BF")) // Màu accent cho notification
             .addAction(
                 R.drawable.ic_launcher_foreground,
                 if (isRunning) "⏸ Tạm dừng" else "▶ Tiếp tục",
@@ -260,12 +271,16 @@ class ExerciseService : Service() {
                 stopPendingIntent
             )
             .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText("⏱️ Thời gian: ${formatTime(currentSeconds)} / ${formatTime(totalSeconds)}\n" +
-                            "🔥 Calo: $caloriesBurned / $totalCalories kcal\n" +
-                            "📊 Tiến trình: $progress%\n" +
-                            (if (isRunning) "▶️ Đang chạy..." else "⏸️ Đã tạm dừng") +
-                            "\n💡 Notification này sẽ hiển thị trên màn hình khóa")
+                NotificationCompat.InboxStyle()
+                    .setBigContentTitle("🔥 $exerciseName")
+                    .setSummaryText(statusText)
+                    .addLine("⏱️  Thời gian:  $timeElapsed / $timeTotal")
+                    .addLine("🔥  Calo:  $caloriesBurned / $totalCalories kcal")
+                    .addLine("📊  Tiến trình:  $progress%")
+                    .addLine("")
+                    .addLine("$progressBar")
+                    .addLine("")
+                    .addLine(statusText)
             )
             .build()
     }
