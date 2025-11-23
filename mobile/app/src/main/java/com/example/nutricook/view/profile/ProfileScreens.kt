@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.delay
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -228,16 +230,77 @@ fun ProfessionalNutritionDialog(
     val remaining = caloriesTarget - currentCalories
     val progress = (currentCalories / caloriesTarget).coerceIn(0f, 1f)
     
-    // Quick food suggestions
-    val quickFoods = remember {
-        listOf(
-            QuickFood("Cơm trắng", 130f, 3f, 0.3f, 28f),
-            QuickFood("Thịt gà", 165f, 31f, 3.6f, 0f),
-            QuickFood("Cá hồi", 208f, 20f, 12f, 0f),
-            QuickFood("Trứng", 155f, 13f, 11f, 1.1f),
-            QuickFood("Bánh mì", 265f, 9f, 3.2f, 49f),
-            QuickFood("Chuối", 89f, 1.1f, 0.3f, 23f)
+    // Quick food suggestions - Món ăn Việt Nam phổ biến
+    val foodCategories = remember {
+        mapOf(
+            "Phổ biến" to listOf(
+                QuickFood("Cơm trắng", 130f, 3f, 0.3f, 28f),
+                QuickFood("Bánh mì", 265f, 9f, 3.2f, 49f),
+                QuickFood("Phở bò", 350f, 20f, 8f, 45f),
+                QuickFood("Bún chả", 380f, 25f, 12f, 42f),
+                QuickFood("Cơm tấm", 450f, 22f, 15f, 55f),
+                QuickFood("Bánh cuốn", 220f, 8f, 5f, 38f)
+            ),
+            "Thịt & Cá" to listOf(
+                QuickFood("Thịt gà", 165f, 31f, 3.6f, 0f),
+                QuickFood("Thịt heo", 242f, 27f, 14f, 0f),
+                QuickFood("Thịt bò", 250f, 26f, 17f, 0f),
+                QuickFood("Cá hồi", 208f, 20f, 12f, 0f),
+                QuickFood("Cá basa", 180f, 18f, 10f, 0f),
+                QuickFood("Tôm", 99f, 24f, 0.3f, 0f),
+                QuickFood("Trứng", 155f, 13f, 11f, 1.1f)
+            ),
+            "Rau & Củ" to listOf(
+                QuickFood("Rau muống", 25f, 2.5f, 0.2f, 4f),
+                QuickFood("Rau cải", 20f, 2f, 0.2f, 3f),
+                QuickFood("Cà chua", 18f, 0.9f, 0.2f, 3.9f),
+                QuickFood("Dưa chuột", 16f, 0.7f, 0.1f, 3.6f),
+                QuickFood("Cà rốt", 41f, 0.9f, 0.2f, 10f),
+                QuickFood("Khoai tây", 77f, 2f, 0.1f, 17f)
+            ),
+            "Trái cây" to listOf(
+                QuickFood("Chuối", 89f, 1.1f, 0.3f, 23f),
+                QuickFood("Táo", 52f, 0.3f, 0.2f, 14f),
+                QuickFood("Cam", 47f, 0.9f, 0.1f, 12f),
+                QuickFood("Xoài", 60f, 0.8f, 0.4f, 15f),
+                QuickFood("Dưa hấu", 30f, 0.6f, 0.2f, 8f),
+                QuickFood("Ổi", 68f, 2.6f, 0.9f, 14f)
+            ),
+            "Món canh" to listOf(
+                QuickFood("Canh chua", 85f, 8f, 3f, 8f),
+                QuickFood("Canh khổ qua", 45f, 4f, 1.5f, 5f),
+                QuickFood("Canh rau củ", 35f, 2f, 1f, 6f),
+                QuickFood("Súp cua", 120f, 12f, 4f, 10f)
+            ),
+            "Đồ uống" to listOf(
+                QuickFood("Nước lọc", 0f, 0f, 0f, 0f),
+                QuickFood("Nước dừa", 19f, 0.7f, 0.2f, 3.7f),
+                QuickFood("Nước cam", 45f, 0.7f, 0.2f, 10f),
+                QuickFood("Sữa tươi", 61f, 3.2f, 3.3f, 4.8f),
+                QuickFood("Cà phê đen", 2f, 0.1f, 0f, 0f),
+                QuickFood("Trà đá", 0f, 0f, 0f, 0f)
+            ),
+            "Đồ ngọt" to listOf(
+                QuickFood("Chè đậu xanh", 150f, 4f, 2f, 30f),
+                QuickFood("Chè thái", 180f, 2f, 3f, 40f),
+                QuickFood("Bánh flan", 120f, 3f, 4f, 18f),
+                QuickFood("Kem", 207f, 3.5f, 11f, 24f)
+            )
         )
+    }
+    
+    var selectedCategory by remember { mutableStateOf("Phổ biến") }
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val displayedFoods = remember(selectedCategory, searchQuery) {
+        val categoryFoods = foodCategories[selectedCategory] ?: emptyList()
+        if (searchQuery.isBlank()) {
+            categoryFoods
+        } else {
+            categoryFoods.filter { 
+                it.name.contains(searchQuery, ignoreCase = true) 
+            }
+        }
     }
     
     Dialog(onDismissRequest = onDismiss) {
@@ -369,20 +432,93 @@ fun ProfessionalNutritionDialog(
                     }
                 }
                 
-                // Quick Suggestions
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Thêm nhanh",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = TextDark
+                // Quick Suggestions với Categories và Search
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Thêm nhanh",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark
+                            )
+                        )
+                        Text(
+                            text = "${displayedFoods.size} món",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = TextGray,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                    
+                    // Search Bar
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Tìm món ăn...", fontSize = 14.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.Search, contentDescription = "Tìm kiếm", tint = TextGray)
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Xóa", tint = TextGray)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = TealPrimary,
+                            unfocusedBorderColor = Color(0xFFE5E7EB)
                         )
                     )
+                    
+                    // Category Tabs
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(quickFoods) { food ->
+                        items(foodCategories.keys.toList()) { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { 
+                                    Text(
+                                        category, 
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selectedCategory == category) FontWeight.Bold else FontWeight.Normal
+                                    ) 
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
+                                    selectedLabelColor = TealPrimary,
+                                    containerColor = Color(0xFFF3F4F6),
+                                    labelColor = TextDark
+                                ),
+                                border = if (selectedCategory == category) {
+                                    FilterChipDefaults.filterChipBorder(
+                                        borderColor = TealPrimary,
+                                        borderWidth = 1.5.dp,
+                                        selected = true,
+                                        enabled = true
+                                    )
+                                } else null
+                            )
+                        }
+                    }
+                    
+                    // Food Items Grid
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(displayedFoods) { food ->
                             QuickFoodChip(
                                 food = food,
                                 onClick = {
@@ -514,34 +650,121 @@ fun QuickFoodChip(
     food: QuickFood,
     onClick: () -> Unit
 ) {
+    var isPressed by remember { mutableStateOf(false) }
+    
     Card(
         modifier = Modifier
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD1FAE5))
+            .width(110.dp)
+            .clickable { 
+                onClick()
+                isPressed = true
+            },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPressed) TealPrimary.copy(alpha = 0.1f) else Color(0xFFF0FDF4)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isPressed) 4.dp else 2.dp
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isPressed) 1.5.dp else 1.dp, 
+            color = if (isPressed) TealPrimary else Color(0xFFD1FAE5)
+        )
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Food Icon/Emoji placeholder
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        TealPrimary.copy(alpha = 0.15f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = when {
+                        food.name.contains("Cơm") -> "🍚"
+                        food.name.contains("Phở") || food.name.contains("Bún") -> "🍜"
+                        food.name.contains("Bánh") -> "🥖"
+                        food.name.contains("Thịt") -> "🍖"
+                        food.name.contains("Cá") -> "🐟"
+                        food.name.contains("Tôm") -> "🦐"
+                        food.name.contains("Trứng") -> "🥚"
+                        food.name.contains("Rau") -> "🥬"
+                        food.name.contains("Chuối") -> "🍌"
+                        food.name.contains("Táo") -> "🍎"
+                        food.name.contains("Cam") -> "🍊"
+                        food.name.contains("Xoài") -> "🥭"
+                        food.name.contains("Canh") -> "🍲"
+                        food.name.contains("Nước") -> "💧"
+                        food.name.contains("Cà phê") -> "☕"
+                        food.name.contains("Chè") -> "🍧"
+                        food.name.contains("Kem") -> "🍦"
+                        else -> "🍽️"
+                    },
+                    fontSize = 20.sp
+                )
+            }
+            
             Text(
                 text = food.name,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = TextDark,
-                    fontSize = 12.sp
-                )
+                    fontSize = 13.sp
+                ),
+                maxLines = 2,
+                minLines = 1,
+                lineHeight = 16.sp
             )
+            
             Text(
                 text = "${food.calories.toInt()} kcal",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF10B981),
-                    fontSize = 11.sp
+                    color = TealPrimary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             )
+            
+            // Macros info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                if (food.protein > 0) {
+                    Text(
+                        text = "P:${food.protein.toInt()}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFF3B82F6),
+                            fontSize = 9.sp
+                        )
+                    )
+                }
+                if (food.carb > 0) {
+                    Text(
+                        text = "C:${food.carb.toInt()}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFF10B981),
+                            fontSize = 9.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
+    
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            kotlinx.coroutines.delay(150)
+            isPressed = false
         }
     }
 }
