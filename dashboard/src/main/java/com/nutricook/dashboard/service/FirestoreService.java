@@ -11,6 +11,10 @@ import com.nutricook.dashboard.entity.FoodItem; // Cần import FoodItem
 import com.nutricook.dashboard.entity.User;
 import com.nutricook.dashboard.entity.DailyLog;
 import com.nutricook.dashboard.entity.NutritionStats;
+import com.nutricook.dashboard.entity.Post;
+import com.nutricook.dashboard.entity.Review;
+import com.nutricook.dashboard.entity.Post;
+import com.nutricook.dashboard.entity.Review;
 import java.time.ZoneId;
 import java.util.Date;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -778,5 +782,168 @@ public class FirestoreService {
         }
         
         return statsList;
+    }
+    
+    // ==========================================================
+    // POST METHODS (Quản lý Posts)
+    // ==========================================================
+    
+    /**
+     * Lấy danh sách tất cả Posts từ Firestore
+     */
+    public List<Post> getAllPosts() {
+        List<Post> posts = new ArrayList<>();
+        try {
+            CollectionReference postsCol = firestore.collection("posts");
+            QuerySnapshot snap = postsCol.get().get();
+            
+            for (DocumentSnapshot doc : snap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                Post post = new Post();
+                post.setId(doc.getId());
+                post.setContent((String) data.get("content"));
+                
+                // Parse images
+                Object imagesObj = data.get("images");
+                if (imagesObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<String> images = (List<String>) imagesObj;
+                    post.setImages(images);
+                }
+                
+                // Parse author
+                Object authorObj = data.get("author");
+                if (authorObj instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> author = (Map<String, Object>) authorObj;
+                    post.setAuthorId((String) author.get("id"));
+                    post.setAuthorEmail((String) author.get("email"));
+                    post.setAuthorName((String) author.get("displayName"));
+                }
+                
+                // Parse timestamps
+                Object createdAtObj = data.get("createdAt");
+                if (createdAtObj instanceof Timestamp) {
+                    post.setCreatedAt(((Timestamp) createdAtObj).toDate().getTime());
+                } else if (createdAtObj instanceof Number) {
+                    post.setCreatedAt(((Number) createdAtObj).longValue());
+                }
+                
+                Object likeCountObj = data.get("likeCount");
+                if (likeCountObj instanceof Number) {
+                    post.setLikeCount(((Number) likeCountObj).intValue());
+                }
+                
+                Object commentCountObj = data.get("commentCount");
+                if (commentCountObj instanceof Number) {
+                    post.setCommentCount(((Number) commentCountObj).intValue());
+                }
+                
+                posts.add(post);
+            }
+            
+            // Sort theo createdAt giảm dần
+            posts.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+        } catch (Exception e) {
+            System.err.println("Error loading posts: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return posts;
+    }
+    
+    /**
+     * Xóa một Post (soft delete)
+     */
+    public boolean deletePost(String postId) {
+        try {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("isDeleted", true);
+            firestore.collection("posts").document(postId).update(updates).get();
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error deleting post: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    // ==========================================================
+    // REVIEW METHODS (Quản lý Reviews)
+    // ==========================================================
+    
+    /**
+     * Lấy danh sách tất cả Reviews từ Firestore
+     */
+    public List<Review> getAllReviews() {
+        List<Review> reviews = new ArrayList<>();
+        try {
+            CollectionReference reviewsCol = firestore.collection("reviews");
+            QuerySnapshot snap = reviewsCol.get().get();
+            
+            for (DocumentSnapshot doc : snap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                Review review = new Review();
+                review.setId(doc.getId());
+                review.setFoodItemId((String) data.get("foodItemId"));
+                review.setFoodItemName((String) data.get("foodItemName"));
+                review.setComment((String) data.get("comment"));
+                
+                Object ratingObj = data.get("rating");
+                if (ratingObj instanceof Number) {
+                    review.setRating(((Number) ratingObj).intValue());
+                }
+                
+                // Parse user info
+                Object userIdObj = data.get("userId");
+                if (userIdObj != null) {
+                    review.setUserId(userIdObj.toString());
+                }
+                
+                Object userNameObj = data.get("userName");
+                if (userNameObj != null) {
+                    review.setUserName(userNameObj.toString());
+                }
+                
+                Object userEmailObj = data.get("userEmail");
+                if (userEmailObj != null) {
+                    review.setUserEmail(userEmailObj.toString());
+                }
+                
+                // Parse timestamp
+                Object createdAtObj = data.get("createdAt");
+                if (createdAtObj instanceof Timestamp) {
+                    review.setCreatedAt(((Timestamp) createdAtObj).toDate().getTime());
+                } else if (createdAtObj instanceof Number) {
+                    review.setCreatedAt(((Number) createdAtObj).longValue());
+                }
+                
+                reviews.add(review);
+            }
+            
+            // Sort theo createdAt giảm dần
+            reviews.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+        } catch (Exception e) {
+            System.err.println("Error loading reviews: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return reviews;
+    }
+    
+    /**
+     * Xóa một Review (soft delete)
+     */
+    public boolean deleteReview(String reviewId) {
+        try {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("isDeleted", true);
+            firestore.collection("reviews").document(reviewId).update(updates).get();
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error deleting review: " + e.getMessage());
+            return false;
+        }
     }
 }

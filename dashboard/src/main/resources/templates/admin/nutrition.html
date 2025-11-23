@@ -28,9 +28,10 @@
         </div>
         
         <div class="flex items-center gap-3">
-            <button onclick="alert('Tính năng đang phát triển')" class="px-4 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-600 shadow-md hover:shadow-lg transition-all">
+            <a th:href="@{/admin/nutrition/export(userId=${selectedUserId != null ? selectedUserId : ''})}" 
+               class="px-4 py-2 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-600 shadow-md hover:shadow-lg transition-all">
                 <i class="fa-solid fa-download mr-2"></i> Xuất Excel
-            </button>
+            </a>
         </div>
     </div>
 

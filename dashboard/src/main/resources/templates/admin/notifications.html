@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Quản lý Notifications', 'Gửi và quản lý thông báo', 'notifications')}">
+<div th:fragment="content">
+
+    <div class="bg-white rounded-2xl shadow-xl p-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Gửi thông báo</h2>
+        
+        <form th:action="@{/admin/notifications/send}" method="post" class="space-y-6">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Tiêu đề</label>
+                <input type="text" name="title" required
+                       class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                       placeholder="Nhập tiêu đề thông báo">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Nội dung</label>
+                <textarea name="message" required rows="5"
+                          class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          placeholder="Nhập nội dung thông báo"></textarea>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Gửi đến</label>
+                <select name="target" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="all">Tất cả người dùng</option>
+                    <option value="active">Người dùng hoạt động</option>
+                    <option value="new">Người dùng mới</option>
+                </select>
+            </div>
+            
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="history.back()" 
+                        class="px-6 py-3 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-all">
+                    Hủy
+                </button>
+                <button type="submit" 
+                        class="px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600 text-white font-semibold hover:from-emerald-600 hover:to-cyan-700 transition-all shadow-md hover:shadow-lg">
+                    <i class="fa-solid fa-paper-plane mr-2"></i> Gửi thông báo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Analytics & Reports', 'Thống kê và báo cáo hệ thống', 'analytics')}">
+<div th:fragment="content">
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-xl text-white">
+            <div class="flex items-center justify-between mb-4">
+                <i class="fa-solid fa-users text-3xl opacity-80"></i>
+                <span class="text-4xl font-bold" th:text="${analytics.totalUsers}">0</span>
+            </div>
+            <p class="text-blue-100 font-semibold">Tổng người dùng</p>
+        </div>
+        
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 shadow-xl text-white">
+            <div class="flex items-center justify-between mb-4">
+                <i class="fa-solid fa-file-lines text-3xl opacity-80"></i>
+                <span class="text-4xl font-bold" th:text="${analytics.totalPosts}">0</span>
+            </div>
+            <p class="text-emerald-100 font-semibold">Tổng bài viết</p>
+        </div>
+        
+        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-6 shadow-xl text-white">
+            <div class="flex items-center justify-between mb-4">
+                <i class="fa-solid fa-star text-3xl opacity-80"></i>
+                <span class="text-4xl font-bold" th:text="${analytics.totalReviews}">0</span>
+            </div>
+            <p class="text-yellow-100 font-semibold">Tổng đánh giá</p>
+        </div>
+        
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 shadow-xl text-white">
+            <div class="flex items-center justify-between mb-4">
+                <i class="fa-solid fa-utensils text-3xl opacity-80"></i>
+                <span class="text-4xl font-bold" th:text="${analytics.totalFoodItems}">0</span>
+            </div>
+            <p class="text-purple-100 font-semibold">Tổng món ăn</p>
+        </div>
+    </div>
+
+    <!-- Additional Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-2xl p-6 shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Đánh giá trung bình</h3>
+            <div class="flex items-center gap-4">
+                <div class="text-5xl font-bold text-yellow-500" th:text="${#numbers.formatDecimal(analytics.averageRating, 1, 1)}">0.0</div>
+                <div class="text-2xl text-yellow-400">★★★★★</div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-2xl p-6 shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Tổng calories đã track</h3>
+            <div class="text-4xl font-bold text-emerald-600" th:text="${analytics.totalCaloriesTracked} + ' kcal'">0 kcal</div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="bg-white rounded-2xl p-6 shadow-xl mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Thống kê 7 ngày qua</h3>
+        <canvas id="analyticsChart" height="100"></canvas>
+    </div>
+    
+    <!-- Export Section -->
+    <div class="bg-white rounded-2xl p-6 shadow-xl">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Xuất báo cáo</h3>
+        <div class="flex gap-3">
+            <a th:href="@{/admin/nutrition/export}" 
+               class="px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600 text-white font-semibold hover:from-emerald-600 hover:to-cyan-700 transition-all shadow-md hover:shadow-lg">
+                <i class="fa-solid fa-file-excel mr-2"></i> Xuất Excel - Calories
+            </a>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var ctx = document.getElementById('analyticsChart');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{
+                            label: 'Người dùng mới',
+                            data: [0, 0, 0, 0, 0, 0, 0],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        }, {
+                            label: 'Bài viết mới',
+                            data: [0, 0, 0, 0, 0, 0, 0],
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</div>
+</html>

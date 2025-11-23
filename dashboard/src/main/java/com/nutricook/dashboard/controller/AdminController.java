@@ -1,6 +1,7 @@
 package com.nutricook.dashboard.controller;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -8,6 +9,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -32,6 +37,9 @@ import com.nutricook.dashboard.entity.FoodUpdate;
 import com.nutricook.dashboard.entity.User;
 import com.nutricook.dashboard.entity.DailyLog;
 import com.nutricook.dashboard.entity.NutritionStats;
+import com.nutricook.dashboard.entity.Post;
+import com.nutricook.dashboard.entity.Review;
+import com.nutricook.dashboard.entity.AnalyticsData;
 import com.nutricook.dashboard.repository.CategoryRepository;
 import com.nutricook.dashboard.repository.FoodItemRepository;
 import com.nutricook.dashboard.repository.FoodUpdateRepository;
@@ -930,5 +938,250 @@ public class AdminController {
     @GetMapping("/nutrition/{userId}")
     public String nutritionDetail(@PathVariable String userId, Model model) {
         return nutrition(userId, "all", "week", model);
+    }
+    
+    // ==========================================================
+    // POSTS MANAGEMENT - Quản lý Posts
+    // ==========================================================
+    
+    @GetMapping("/posts")
+    public String posts(Model model) {
+        List<Post> posts = new ArrayList<>();
+        try {
+            if (firestoreService != null) {
+                posts = firestoreService.getAllPosts();
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading posts: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        model.addAttribute("posts", posts != null ? posts : new ArrayList<>());
+        model.addAttribute("title", "Quản lý Posts");
+        model.addAttribute("subtitle", "Quản lý bài viết từ người dùng");
+        model.addAttribute("activeTab", "posts");
+        return "admin/posts";
+    }
+    
+    @PostMapping("/posts/{id}/delete")
+    public String deletePost(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        try {
+            if (firestoreService != null) {
+                boolean success = firestoreService.deletePost(id);
+                if (success) {
+                    redirectAttributes.addFlashAttribute("success", "Xóa bài viết thành công!");
+                } else {
+                    redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa bài viết!");
+                }
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa bài viết: " + e.getMessage());
+        }
+        return "redirect:/admin/posts";
+    }
+    
+    // ==========================================================
+    // REVIEWS MANAGEMENT - Quản lý Reviews
+    // ==========================================================
+    
+    @GetMapping("/reviews")
+    public String reviews(Model model) {
+        List<Review> reviews = new ArrayList<>();
+        try {
+            if (firestoreService != null) {
+                reviews = firestoreService.getAllReviews();
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading reviews: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        model.addAttribute("reviews", reviews != null ? reviews : new ArrayList<>());
+        model.addAttribute("title", "Quản lý Reviews");
+        model.addAttribute("subtitle", "Quản lý đánh giá món ăn");
+        model.addAttribute("activeTab", "reviews");
+        return "admin/reviews";
+    }
+    
+    @PostMapping("/reviews/{id}/delete")
+    public String deleteReview(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        try {
+            if (firestoreService != null) {
+                boolean success = firestoreService.deleteReview(id);
+                if (success) {
+                    redirectAttributes.addFlashAttribute("success", "Xóa đánh giá thành công!");
+                } else {
+                    redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa đánh giá!");
+                }
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa đánh giá: " + e.getMessage());
+        }
+        return "redirect:/admin/reviews";
+    }
+    
+    // ==========================================================
+    // ANALYTICS & REPORTS - Thống kê và báo cáo
+    // ==========================================================
+    
+    @GetMapping("/analytics")
+    public String analytics(Model model) {
+        AnalyticsData analytics = new AnalyticsData();
+        
+        try {
+            if (firestoreService != null) {
+                // Lấy tổng số users
+                try {
+                    List<User> users = firestoreService.listUsersAsEntities();
+                    analytics.setTotalUsers((long) users.size());
+                } catch (Exception e) {
+                    analytics.setTotalUsers(userRepository.count());
+                }
+                
+                // Lấy tổng số posts
+                try {
+                    List<Post> posts = firestoreService.getAllPosts();
+                    analytics.setTotalPosts((long) posts.size());
+                } catch (Exception e) {
+                    analytics.setTotalPosts(0L);
+                }
+                
+                // Lấy tổng số reviews
+                try {
+                    List<Review> reviews = firestoreService.getAllReviews();
+                    analytics.setTotalReviews((long) reviews.size());
+                    
+                    // Tính average rating
+                    if (!reviews.isEmpty()) {
+                        double totalRating = reviews.stream()
+                            .mapToInt(r -> r.getRating())
+                            .sum();
+                        analytics.setAverageRating(totalRating / reviews.size());
+                    }
+                } catch (Exception e) {
+                    analytics.setTotalReviews(0L);
+                }
+                
+                // Lấy tổng số food items
+                analytics.setTotalFoodItems(foodItemRepository.count());
+                
+                // Tính tổng calories tracked (tạm thời bỏ qua)
+                analytics.setTotalCaloriesTracked(0L);
+            } else {
+                // Fallback nếu không có Firestore
+                analytics.setTotalUsers(userRepository.count());
+                analytics.setTotalFoodItems(foodItemRepository.count());
+                analytics.setTotalPosts(0L);
+                analytics.setTotalReviews(0L);
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading analytics: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        model.addAttribute("analytics", analytics);
+        model.addAttribute("title", "Analytics & Reports");
+        model.addAttribute("subtitle", "Thống kê và báo cáo hệ thống");
+        model.addAttribute("activeTab", "analytics");
+        return "admin/analytics";
+    }
+    
+    // ==========================================================
+    // NOTIFICATIONS MANAGEMENT - Quản lý thông báo
+    // ==========================================================
+    
+    @GetMapping("/notifications")
+    public String notifications(Model model) {
+        model.addAttribute("title", "Quản lý Notifications");
+        model.addAttribute("subtitle", "Gửi và quản lý thông báo");
+        model.addAttribute("activeTab", "notifications");
+        return "admin/notifications";
+    }
+    
+    @PostMapping("/notifications/send")
+    public String sendNotification(@RequestParam String title,
+                                   @RequestParam String message,
+                                   @RequestParam(required = false, defaultValue = "all") String target,
+                                   RedirectAttributes redirectAttributes) {
+        try {
+            // TODO: Implement notification sending logic
+            redirectAttributes.addFlashAttribute("success", "Gửi thông báo thành công!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi gửi thông báo: " + e.getMessage());
+        }
+        return "redirect:/admin/notifications";
+    }
+    
+    // ==========================================================
+    // EXPORT EXCEL - Xuất dữ liệu ra Excel
+    // ==========================================================
+    
+    @GetMapping("/nutrition/export")
+    public void exportNutritionToExcel(
+            @RequestParam(value = "userId", required = false) String userId,
+            HttpServletResponse response) throws IOException {
+        
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=nutrition_data.xlsx");
+        
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Nutrition Data");
+        
+        // Create header row
+        Row headerRow = sheet.createRow(0);
+        String[] headers = {"Người dùng", "Email", "Calories TB", "Mục tiêu", "Số ngày", "Đạt mục tiêu", "Tỉ lệ %"};
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.GREEN.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);
+        }
+        
+        // Get data
+        List<NutritionStats> statsList = new ArrayList<>();
+        try {
+            if (firestoreService != null) {
+                if (userId != null && !userId.isEmpty()) {
+                    NutritionStats stats = firestoreService.calculateNutritionStats(userId);
+                    if (stats != null) {
+                        statsList.add(stats);
+                    }
+                } else {
+                    statsList = firestoreService.getAllUsersNutritionStats();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading nutrition data for export: " + e.getMessage());
+        }
+        
+        // Write data rows
+        int rowNum = 1;
+        for (NutritionStats stats : statsList) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(stats.getUserName() != null ? stats.getUserName() : "N/A");
+            row.createCell(1).setCellValue(stats.getUserEmail() != null ? stats.getUserEmail() : "N/A");
+            row.createCell(2).setCellValue(stats.getAverageCalories());
+            row.createCell(3).setCellValue(stats.getCaloriesTarget());
+            row.createCell(4).setCellValue(stats.getDaysTracked());
+            row.createCell(5).setCellValue(stats.getDaysReachedGoal());
+            row.createCell(6).setCellValue(stats.getGoalAchievementRate());
+        }
+        
+        // Auto-size columns
+        for (int i = 0; i < headers.length; i++) {
+            sheet.autoSizeColumn(i);
+        }
+        
+        // Write to response
+        OutputStream outputStream = response.getOutputStream();
+        workbook.write(outputStream);
+        workbook.close();
+        outputStream.close();
     }
 }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Quản lý Posts', 'Quản lý bài viết từ người dùng', 'posts')}">
+<div th:fragment="content">
+
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-6 py-4 bg-gradient-to-r from-emerald-500 to-cyan-600">
+            <h2 class="text-xl font-bold text-white">Danh sách Posts</h2>
+            <p class="text-emerald-100 text-sm mt-1" th:text="${posts != null ? #lists.size(posts) : 0} + ' bài viết'">0 bài viết</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Người đăng</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Nội dung</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Ảnh</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Likes</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Comments</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Ngày đăng</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr th:each="post : ${posts != null ? posts : []}" class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900" th:text="${post.authorName != null ? post.authorName : post.authorEmail}">Tác giả</div>
+                            <div class="text-sm text-gray-500" th:text="${post.authorEmail}">email@example.com</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900 max-w-xs truncate" th:text="${post.content != null ? post.content : 'N/A'}">Nội dung</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span th:if="${post.hasImages()}" class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Có ảnh</span>
+                            <span th:unless="${post.hasImages()}" class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">Không có</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${post.likeCount}">0</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${post.commentCount}">0</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${post.createdDateTime != null ? #temporals.format(post.createdDateTime, 'dd/MM/yyyy HH:mm') : 'N/A'}">N/A</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <form th:action="@{/admin/posts/{id}/delete(id=${post.id})}" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa bài viết này?');">
+                                <button type="submit" class="inline-flex items-center px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-all">
+                                    <i class="fa-solid fa-trash mr-2"></i> Xóa
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${posts == null or #lists.isEmpty(posts)}">
+                        <td colspan="7" class="px-6 py-12 text-center">
+                            <i class="fa-solid fa-file-lines text-5xl text-gray-400 mb-4 block"></i>
+                            <p class="text-lg font-semibold text-gray-600">Chưa có bài viết nào</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</html>
