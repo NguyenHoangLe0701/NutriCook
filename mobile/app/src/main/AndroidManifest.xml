@@ -43,6 +43,15 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="health" />
+        
+        <!-- 👇 Khai báo FirebaseMessagingService để nhận push notifications -->
+        <service
+            android:name=".service.NutriCookMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
