@@ -45,6 +45,7 @@ import com.nutricook.dashboard.repository.FoodItemRepository;
 import com.nutricook.dashboard.repository.FoodUpdateRepository;
 import com.nutricook.dashboard.repository.UserRepository;
 import com.nutricook.dashboard.service.FirestoreService;
+import com.nutricook.dashboard.service.NotificationService;
 
 @Controller
 @RequestMapping("/admin")
@@ -54,7 +55,10 @@ public class AdminController {
     private UserRepository userRepository;
 
     @Autowired(required = false)
-    private FirestoreService firestoreService; 
+    private FirestoreService firestoreService;
+    
+    @Autowired(required = false)
+    private NotificationService notificationService;
     
     @Autowired
     private CategoryRepository categoryRepository;
@@ -1104,9 +1108,42 @@ public class AdminController {
                                    @RequestParam(required = false, defaultValue = "all") String target,
                                    RedirectAttributes redirectAttributes) {
         try {
-            // TODO: Implement notification sending logic
-            redirectAttributes.addFlashAttribute("success", "Gửi thông báo thành công!");
+            if (notificationService == null) {
+                redirectAttributes.addFlashAttribute("error", "Dịch vụ thông báo chưa được kích hoạt. Vui lòng kiểm tra cấu hình Firebase.");
+                return "redirect:/admin/notifications";
+            }
+
+            int sentCount = 0;
+            String targetName = "";
+
+            switch (target) {
+                case "all":
+                    sentCount = notificationService.sendNotificationToAll(title, message);
+                    targetName = "tất cả người dùng";
+                    break;
+                case "active":
+                    sentCount = notificationService.sendNotificationToActive(title, message);
+                    targetName = "người dùng hoạt động";
+                    break;
+                case "new":
+                    sentCount = notificationService.sendNotificationToNew(title, message);
+                    targetName = "người dùng mới";
+                    break;
+                default:
+                    sentCount = notificationService.sendNotificationToAll(title, message);
+                    targetName = "tất cả người dùng";
+            }
+
+            if (sentCount > 0) {
+                redirectAttributes.addFlashAttribute("success", 
+                    String.format("Đã gửi thông báo thành công đến %d %s!", sentCount, targetName));
+            } else {
+                redirectAttributes.addFlashAttribute("error", 
+                    "Không có người dùng nào có FCM token để nhận thông báo. Vui lòng kiểm tra lại.");
+            }
         } catch (Exception e) {
+            System.err.println("Error sending notification: " + e.getMessage());
+            e.printStackTrace();
             redirectAttributes.addFlashAttribute("error", "Lỗi khi gửi thông báo: " + e.getMessage());
         }
         return "redirect:/admin/notifications";

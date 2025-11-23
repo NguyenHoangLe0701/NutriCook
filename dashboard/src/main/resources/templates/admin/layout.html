@@ -15,10 +15,46 @@
         ::-webkit-scrollbar { width: 0; height: 0; }
         ::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb { background: transparent; }
         [x-cloak] { display: none !important; }
+        
+        /* Ensure sidebar always covers full height */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        /* Fix sidebar background to always cover full viewport - no white space below */
+        @media (min-width: 1024px) {
+            /* Target the sidebar specifically */
+            .sidebar-container {
+                position: fixed !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                min-height: 100vh !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
+                background: linear-gradient(to bottom, #059669, #0d9488, #0891b2) !important;
+                background-attachment: fixed !important;
+                background-size: 100% 100% !important;
+                background-repeat: no-repeat !important;
+            }
+            
+            /* Ensure body doesn't create extra space */
+            body {
+                position: relative;
+            }
+            
+            /* Prevent any white space below sidebar */
+            html {
+                overflow-x: hidden;
+            }
+        }
     </style>
 </head>
-<body class="h-full font-sans antialiased bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-<div class="min-h-full">
+<body class="h-full font-sans antialiased bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" style="overflow-x: hidden;">
+<div class="min-h-full" style="position: relative;">
     <div x-data="{ open: false }" @keydown.window.escape="open = false">
         <div x-show="open" class="relative z-50 lg:hidden" role="dialog" aria-modal="true">
             <div x-show="open"
@@ -31,7 +67,7 @@
                  class="fixed inset-0 bg-neutral-900/80"></div>
 
             <div class="fixed inset-0 flex">
-                <div x-show="open"
+                    <div x-show="open"
                      x-transition:enter="transition ease-in-out duration-300 transform"
                      x-transition:enter-start="-translate-x-full"
                      x-transition:enter-end="translate-x-0"
@@ -39,7 +75,7 @@
                      x-transition:leave-start="translate-x-0"
                      x-transition:leave-end="-translate-x-full"
                      @click.away="open = false"
-                     class="relative mr-16 flex w-full max-w-xs flex-1 flex-col bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700">
+                     class="relative mr-16 flex w-full max-w-xs flex-1 flex-col h-screen bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700" style="min-height: 100vh; height: 100vh;">
                     <div class="absolute top-0 left-full flex w-16 justify-center pt-5">
                         <button @click="open = false" type="button" class="-m-2.5 p-2.5">
                             <span class="sr-only">Close sidebar</span>
@@ -47,8 +83,8 @@
                         </button>
                     </div>
 
-                    <div class="flex grow flex-col justify-between gap-y-5 pb-4 pt-4 relative">
-                        <div class="nav-scroll overflow-y-auto">
+                    <div class="flex grow flex-col justify-between gap-y-5 pb-4 pt-4 relative h-full">
+                        <div class="nav-scroll overflow-y-auto flex-1">
                             <div class="flex h-24 shrink-0 items-center justify-center px-8">
                                 <img class="h-24 w-auto" th:src="@{/images/logo-nutricook.png}" alt="NutriCook Logo">
                             </div>
@@ -63,7 +99,7 @@
                             </nav>
                         </div>
 
-                        <div class="mt-4">
+                        <div class="mt-4 shrink-0">
                             <form th:action="@{/logout}" method="post" class="w-full">
                                 <button type="submit" class="logout-button group">
                                     <i class="fa-solid fa-right-from-bracket logout-icon group-hover:text-white"></i>
@@ -76,9 +112,9 @@
             </div>
         </div>
 
-        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col pl-4 bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700">
-            <div class="flex grow flex-col justify-between gap-y-3 pb-4 pt-4 relative">
-                <div class="nav-scroll overflow-y-auto">
+        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col sidebar-container bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700" style="min-height: 100vh; height: 100vh; top: 0; bottom: 0; left: 0; position: fixed;">
+            <div class="flex grow flex-col justify-between gap-y-3 pb-4 pt-4 relative h-full">
+                <div class="nav-scroll overflow-y-auto flex-1">
                     <div class="flex h-20 shrink-0 items-center justify-center px-6 pl-0">
                         <img class="h-16 w-auto" th:src="@{/images/logo-nutricook.png}" alt="NutriCook Logo">
                     </div>
@@ -93,7 +129,7 @@
                     </nav>
                 </div>
 
-                <div class="mt-4">
+                <div class="mt-4 shrink-0">
                     <form th:action="@{/logout}" method="post" class="w-full">
                         <button type="submit" class="logout-button group lg:absolute lg:bottom-6 lg:left-4 lg:right-4">
                             <i class="fa-solid fa-right-from-bracket logout-icon group-hover:text-white"></i>
@@ -185,7 +221,7 @@
 <th:block th:fragment="navLinks(activeTab)">
     <style>
         .sidebar {
-            @apply flex flex-col justify-between h-full w-full bg-gradient-to-b from-green-700 to-teal-600 p-4;
+            @apply flex flex-col justify-between h-full w-full bg-gradient-to-b from-green-700 to-teal-600 p-4 min-h-full;
         }
 
         .nav-item {
