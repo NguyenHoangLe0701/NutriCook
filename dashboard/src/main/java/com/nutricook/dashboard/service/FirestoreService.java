@@ -15,6 +15,7 @@ import com.nutricook.dashboard.entity.Post;
 import com.nutricook.dashboard.entity.Review;
 import com.nutricook.dashboard.entity.Post;
 import com.nutricook.dashboard.entity.Review;
+import com.nutricook.dashboard.entity.AnalyticsData;
 import java.time.ZoneId;
 import java.util.Date;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -944,6 +945,179 @@ public class FirestoreService {
         } catch (Exception e) {
             System.err.println("Error deleting review: " + e.getMessage());
             return false;
+        }
+    }
+    
+    // ==========================================================
+    // ANALYTICS METHODS (Thống kê)
+    // ==========================================================
+    
+    /**
+     * Lấy thống kê 7 ngày qua
+     */
+    public List<AnalyticsData.DailyStats> getDailyStats(int days) {
+        List<AnalyticsData.DailyStats> stats = new ArrayList<>();
+        
+        try {
+            long now = System.currentTimeMillis();
+            java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("dd/MM");
+            
+            // Khởi tạo stats cho mỗi ngày
+            for (int i = days - 1; i >= 0; i--) {
+                long dayStart = now - (i * 24L * 60 * 60 * 1000);
+                
+                AnalyticsData.DailyStats dailyStat = new AnalyticsData.DailyStats();
+                dailyStat.setDate(dateFormat.format(new Date(dayStart)));
+                dailyStat.setNewUsers(0L);
+                dailyStat.setNewPosts(0L);
+                dailyStat.setNewReviews(0L);
+                stats.add(dailyStat);
+            }
+            
+            // Đếm users mới
+            CollectionReference usersCol = firestore.collection("users");
+            QuerySnapshot usersSnap = usersCol.get().get();
+            for (DocumentSnapshot doc : usersSnap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                Object createdAtObj = data.get("createdAt");
+                long createdAt = 0;
+                if (createdAtObj instanceof Timestamp) {
+                    createdAt = ((Timestamp) createdAtObj).toDate().getTime();
+                } else if (createdAtObj instanceof Number) {
+                    createdAt = ((Number) createdAtObj).longValue();
+                }
+                
+                if (createdAt >= now - (days * 24L * 60 * 60 * 1000) && createdAt < now) {
+                    int dayIndex = (int) ((now - createdAt) / (24L * 60 * 60 * 1000));
+                    if (dayIndex >= 0 && dayIndex < stats.size()) {
+                        stats.get(dayIndex).setNewUsers(stats.get(dayIndex).getNewUsers() + 1);
+                    }
+                }
+            }
+            
+            // Đếm posts mới
+            CollectionReference postsCol = firestore.collection("posts");
+            QuerySnapshot postsSnap = postsCol.get().get();
+            for (DocumentSnapshot doc : postsSnap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                Object createdAtObj = data.get("createdAt");
+                long createdAt = 0;
+                if (createdAtObj instanceof Timestamp) {
+                    createdAt = ((Timestamp) createdAtObj).toDate().getTime();
+                } else if (createdAtObj instanceof Number) {
+                    createdAt = ((Number) createdAtObj).longValue();
+                }
+                
+                if (createdAt >= now - (days * 24L * 60 * 60 * 1000) && createdAt < now) {
+                    int dayIndex = (int) ((now - createdAt) / (24L * 60 * 60 * 1000));
+                    if (dayIndex >= 0 && dayIndex < stats.size()) {
+                        stats.get(dayIndex).setNewPosts(stats.get(dayIndex).getNewPosts() + 1);
+                    }
+                }
+            }
+            
+            // Đếm reviews mới
+            CollectionReference reviewsCol = firestore.collection("reviews");
+            QuerySnapshot reviewsSnap = reviewsCol.get().get();
+            for (DocumentSnapshot doc : reviewsSnap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                Object createdAtObj = data.get("createdAt");
+                long createdAt = 0;
+                if (createdAtObj instanceof Timestamp) {
+                    createdAt = ((Timestamp) createdAtObj).toDate().getTime();
+                } else if (createdAtObj instanceof Number) {
+                    createdAt = ((Number) createdAtObj).longValue();
+                }
+                
+                if (createdAt >= now - (days * 24L * 60 * 60 * 1000) && createdAt < now) {
+                    int dayIndex = (int) ((now - createdAt) / (24L * 60 * 60 * 1000));
+                    if (dayIndex >= 0 && dayIndex < stats.size()) {
+                        stats.get(dayIndex).setNewReviews(stats.get(dayIndex).getNewReviews() + 1);
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error getting daily stats: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return stats;
+    }
+    
+    /**
+     * Tính tổng calories đã track từ tất cả daily logs
+     */
+    public Long getTotalCaloriesTracked() {
+        try {
+            CollectionReference dailyLogsCol = firestore.collection("dailyLogs");
+            QuerySnapshot snap = dailyLogsCol.get().get();
+            
+            long totalCalories = 0;
+            for (DocumentSnapshot doc : snap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                Object caloriesObj = data.get("totalCalories");
+                if (caloriesObj instanceof Number) {
+                    totalCalories += ((Number) caloriesObj).longValue();
+                }
+            }
+            
+            return totalCalories;
+        } catch (Exception e) {
+            System.err.println("Error calculating total calories: " + e.getMessage());
+            return 0L;
+        }
+    }
+    
+    /**
+     * Đếm số người dùng hoạt động (có hoạt động trong 30 ngày)
+     */
+    public Long getActiveUsersCount() {
+        try {
+            long thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000);
+            CollectionReference usersCol = firestore.collection("users");
+            QuerySnapshot snap = usersCol.get().get();
+            
+            long activeCount = 0;
+            for (DocumentSnapshot doc : snap.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                
+                // Kiểm tra lastActiveAt hoặc createdAt
+                Object lastActiveObj = data.get("lastActiveAt");
+                long lastActive = 0;
+                
+                if (lastActiveObj instanceof Timestamp) {
+                    lastActive = ((Timestamp) lastActiveObj).toDate().getTime();
+                } else if (lastActiveObj instanceof Number) {
+                    lastActive = ((Number) lastActiveObj).longValue();
+                } else {
+                    // Fallback to createdAt
+                    Object createdAtObj = data.get("createdAt");
+                    if (createdAtObj instanceof Timestamp) {
+                        lastActive = ((Timestamp) createdAtObj).toDate().getTime();
+                    } else if (createdAtObj instanceof Number) {
+                        lastActive = ((Number) createdAtObj).longValue();
+                    }
+                }
+                
+                if (lastActive >= thirtyDaysAgo) {
+                    activeCount++;
+                }
+            }
+            
+            return activeCount;
+        } catch (Exception e) {
+            System.err.println("Error counting active users: " + e.getMessage());
+            return 0L;
         }
     }
 }

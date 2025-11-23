@@ -2,95 +2,364 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Analytics & Reports', 'Thống kê và báo cáo hệ thống', 'analytics')}">
 <div th:fragment="content">
 
-    <!-- Stats Cards -->
+    <!-- Header với Filter -->
+    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">Dashboard Analytics</h2>
+            <p class="text-gray-500 text-sm mt-1">Tổng quan hiệu suất hệ thống</p>
+        </div>
+        <div class="flex gap-2">
+            <select id="timeRange" onchange="updateTimeRange(this.value)" class="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                <option value="7" th:selected="${days == 7}">7 ngày qua</option>
+                <option value="30" th:selected="${days == 30}">30 ngày qua</option>
+                <option value="90" th:selected="${days == 90}">90 ngày qua</option>
+            </select>
+            <button onclick="refreshData()" class="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all">
+                <i class="fa-solid fa-sync-alt mr-2"></i> Làm mới
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-xl text-white">
-            <div class="flex items-center justify-between mb-4">
-                <i class="fa-solid fa-users text-3xl opacity-80"></i>
-                <span class="text-4xl font-bold" th:text="${analytics.totalUsers}">0</span>
+        <!-- Total Users Card -->
+        <div class="bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-2xl p-6 shadow-2xl text-white transform hover:scale-105 transition-all duration-300 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="bg-white/20 rounded-xl p-4 backdrop-blur-sm">
+                        <i class="fa-solid fa-users text-4xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-5xl font-bold" th:text="${analytics != null ? analytics.totalUsers : 0}">0</div>
+                        <p class="text-blue-100 text-sm mt-1">Tổng người dùng</p>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/20 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-user-check text-sm"></i>
+                        <span class="text-sm" th:text="${analytics != null ? analytics.activeUsers : 0} + ' hoạt động'">0 hoạt động</span>
+                    </div>
+                    <div class="text-xs bg-white/20 px-2 py-1 rounded-full">
+                        <i class="fa-solid fa-arrow-up mr-1"></i>
+                        <span th:text="${analytics != null && analytics.totalUsers != null && analytics.totalUsers > 0 && analytics.activeUsers != null ? (#numbers.formatDecimal(analytics.activeUsers * 100.0 / analytics.totalUsers, 0, 0) + '%') : '0%'}">0%</span>
+                    </div>
+                </div>
             </div>
-            <p class="text-blue-100 font-semibold">Tổng người dùng</p>
         </div>
         
-        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 shadow-xl text-white">
-            <div class="flex items-center justify-between mb-4">
-                <i class="fa-solid fa-file-lines text-3xl opacity-80"></i>
-                <span class="text-4xl font-bold" th:text="${analytics.totalPosts}">0</span>
+        <!-- Total Posts Card -->
+        <div class="bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-2xl p-6 shadow-2xl text-white transform hover:scale-105 transition-all duration-300 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="bg-white/20 rounded-xl p-4 backdrop-blur-sm">
+                        <i class="fa-solid fa-file-lines text-4xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-5xl font-bold" th:text="${analytics != null ? analytics.totalPosts : 0}">0</div>
+                        <p class="text-emerald-100 text-sm mt-1">Tổng bài viết</p>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/20">
+                    <div class="flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Hoạt động tăng trưởng</span>
+                    </div>
+                </div>
             </div>
-            <p class="text-emerald-100 font-semibold">Tổng bài viết</p>
         </div>
         
-        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-6 shadow-xl text-white">
-            <div class="flex items-center justify-between mb-4">
-                <i class="fa-solid fa-star text-3xl opacity-80"></i>
-                <span class="text-4xl font-bold" th:text="${analytics.totalReviews}">0</span>
+        <!-- Total Reviews Card -->
+        <div class="bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500 rounded-2xl p-6 shadow-2xl text-white transform hover:scale-105 transition-all duration-300 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="bg-white/20 rounded-xl p-4 backdrop-blur-sm">
+                        <i class="fa-solid fa-star text-4xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-5xl font-bold" th:text="${analytics != null ? analytics.totalReviews : 0}">0</div>
+                        <p class="text-yellow-100 text-sm mt-1">Tổng đánh giá</p>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/20">
+                    <div class="flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-star-half-stroke"></i>
+                        <span th:text="${analytics != null && analytics.averageRating != null ? (#numbers.formatDecimal(analytics.averageRating, 1, 1) + ' / 5.0') : '0.0 / 5.0'}">0.0 / 5.0</span>
+                    </div>
+                </div>
             </div>
-            <p class="text-yellow-100 font-semibold">Tổng đánh giá</p>
         </div>
         
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 shadow-xl text-white">
-            <div class="flex items-center justify-between mb-4">
-                <i class="fa-solid fa-utensils text-3xl opacity-80"></i>
-                <span class="text-4xl font-bold" th:text="${analytics.totalFoodItems}">0</span>
+        <!-- Total Foods Card -->
+        <div class="bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 rounded-2xl p-6 shadow-2xl text-white transform hover:scale-105 transition-all duration-300 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="bg-white/20 rounded-xl p-4 backdrop-blur-sm">
+                        <i class="fa-solid fa-utensils text-4xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-5xl font-bold" th:text="${analytics != null ? analytics.totalFoodItems : 0}">0</div>
+                        <p class="text-purple-100 text-sm mt-1">Tổng món ăn</p>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-white/20">
+                    <div class="flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-database"></i>
+                        <span>Dữ liệu hệ thống</span>
+                    </div>
+                </div>
             </div>
-            <p class="text-purple-100 font-semibold">Tổng món ăn</p>
         </div>
     </div>
 
-    <!-- Additional Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div class="bg-white rounded-2xl p-6 shadow-xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">Đánh giá trung bình</h3>
-            <div class="flex items-center gap-4">
-                <div class="text-5xl font-bold text-yellow-500" th:text="${#numbers.formatDecimal(analytics.averageRating, 1, 1)}">0.0</div>
-                <div class="text-2xl text-yellow-400">★★★★★</div>
+    <!-- Secondary Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Average Rating Card -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl border-l-4 border-yellow-500 hover:shadow-2xl transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fa-solid fa-star text-yellow-500 mr-2"></i>
+                    Đánh giá trung bình
+                </h3>
+            </div>
+            <div class="flex items-center gap-4 mb-3">
+                <div class="text-6xl font-bold text-yellow-500" th:text="${analytics != null && analytics.averageRating != null ? #numbers.formatDecimal(analytics.averageRating, 1, 1) : '0.0'}">0.0</div>
+                <div class="flex flex-col gap-1">
+                    <div class="flex gap-1">
+                        <i th:each="starClass : ${starClasses}" th:class="${starClass}"></i>
+                    </div>
+                    <p class="text-gray-500 text-xs" th:text="'Dựa trên ' + ${analytics != null ? analytics.totalReviews : 0} + ' đánh giá'">Dựa trên 0 đánh giá</p>
+                </div>
             </div>
         </div>
         
-        <div class="bg-white rounded-2xl p-6 shadow-xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">Tổng calories đã track</h3>
-            <div class="text-4xl font-bold text-emerald-600" th:text="${analytics.totalCaloriesTracked} + ' kcal'">0 kcal</div>
+        <!-- Calories Tracked Card -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl border-l-4 border-emerald-500 hover:shadow-2xl transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fa-solid fa-fire text-emerald-500 mr-2"></i>
+                    Calories đã track
+                </h3>
+            </div>
+            <div class="text-5xl font-bold text-emerald-600 mb-2" th:text="${analytics != null && analytics.totalCaloriesTracked != null ? (#numbers.formatInteger(analytics.totalCaloriesTracked, 0, 'POINT') + ' kcal') : '0 kcal'}">0 kcal</div>
+            <p class="text-gray-500 text-sm">Từ tất cả daily logs</p>
+            <div class="mt-4 bg-emerald-50 rounded-lg p-3">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">Trung bình/ngày</span>
+                    <span class="font-semibold text-emerald-600" th:text="${analytics != null && analytics.totalCaloriesTracked != null && analytics.totalCaloriesTracked > 0 ? (#numbers.formatInteger((analytics.totalCaloriesTracked / 7), 0, 'POINT') + ' kcal') : '0 kcal'}">0 kcal</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Growth Rate Card -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl border-l-4 border-blue-500 hover:shadow-2xl transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fa-solid fa-chart-line text-blue-500 mr-2"></i>
+                    Tăng trưởng
+                </h3>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 text-sm">Người dùng mới</span>
+                    <span class="font-bold text-blue-600" th:text="${todayNewUsers != null ? todayNewUsers : 0}">0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 text-sm">Bài viết mới</span>
+                    <span class="font-bold text-emerald-600" th:text="${todayNewPosts != null ? todayNewPosts : 0}">0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 text-sm">Đánh giá mới</span>
+                    <span class="font-bold text-yellow-600" th:text="${todayNewReviews != null ? todayNewReviews : 0}">0</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="bg-white rounded-2xl p-6 shadow-xl mb-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Thống kê 7 ngày qua</h3>
-        <canvas id="analyticsChart" height="100"></canvas>
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Line Chart -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                    <i class="fa-solid fa-chart-line text-emerald-500 mr-2"></i>
+                    Xu hướng hoạt động
+                </h3>
+                <div class="flex gap-2">
+                    <button onclick="updateChartDays(7)" class="px-3 py-1 rounded-lg bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition-all">7d</button>
+                    <button onclick="updateChartDays(30)" class="px-3 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300 transition-all">30d</button>
+                </div>
+            </div>
+            <canvas id="lineChart" height="100"></canvas>
+        </div>
+        
+        <!-- Bar Chart -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-blue-500 mr-2"></i>
+                    So sánh theo ngày
+                </h3>
+            </div>
+            <canvas id="barChart" height="100"></canvas>
+        </div>
+    </div>
+
+    <!-- Additional Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Pie Chart -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fa-solid fa-chart-pie text-purple-500 mr-2"></i>
+                Phân bố nội dung
+            </h3>
+            <canvas id="pieChart" height="200"></canvas>
+        </div>
+        
+        <!-- Activity Summary -->
+        <div class="bg-white rounded-2xl p-6 shadow-xl lg:col-span-2">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fa-solid fa-list-check text-indigo-500 mr-2"></i>
+                Tóm tắt hoạt động
+            </h3>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-500 rounded-lg p-3">
+                            <i class="fa-solid fa-users text-white"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800">Người dùng</p>
+                            <p class="text-sm text-gray-500" th:text="${analytics != null ? analytics.totalUsers : 0} + ' tổng cộng'">0 tổng cộng</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-blue-600" th:text="${analytics != null ? analytics.activeUsers : 0}">0</p>
+                        <p class="text-xs text-gray-500">Hoạt động</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-emerald-50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-emerald-500 rounded-lg p-3">
+                            <i class="fa-solid fa-file-lines text-white"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800">Bài viết</p>
+                            <p class="text-sm text-gray-500" th:text="${analytics != null ? analytics.totalPosts : 0} + ' bài viết'">0 bài viết</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-emerald-600" th:text="${todayNewPosts != null ? todayNewPosts : 0}">0</p>
+                        <p class="text-xs text-gray-500">Hôm nay</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-yellow-500 rounded-lg p-3">
+                            <i class="fa-solid fa-star text-white"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800">Đánh giá</p>
+                            <p class="text-sm text-gray-500" th:text="${analytics != null ? analytics.totalReviews : 0} + ' đánh giá'">0 đánh giá</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-yellow-600" th:text="${analytics != null && analytics.averageRating != null ? #numbers.formatDecimal(analytics.averageRating, 1, 1) : '0.0'}">0.0</p>
+                        <p class="text-xs text-gray-500">Trung bình</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <!-- Export Section -->
-    <div class="bg-white rounded-2xl p-6 shadow-xl">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Xuất báo cáo</h3>
-        <div class="flex gap-3">
-            <a th:href="@{/admin/nutrition/export}" 
-               class="px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600 text-white font-semibold hover:from-emerald-600 hover:to-cyan-700 transition-all shadow-md hover:shadow-lg">
-                <i class="fa-solid fa-file-excel mr-2"></i> Xuất Excel - Calories
-            </a>
+    <div class="bg-gradient-to-r from-emerald-500 to-cyan-600 rounded-2xl p-6 shadow-xl text-white">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h3 class="text-xl font-bold mb-2 flex items-center">
+                    <i class="fa-solid fa-download mr-2"></i>
+                    Xuất báo cáo
+                </h3>
+                <p class="text-emerald-100 text-sm">Tải xuống dữ liệu analytics dưới dạng Excel hoặc PDF</p>
+            </div>
+            <div class="flex gap-3 flex-wrap">
+                <a th:href="@{/admin/nutrition/export}" 
+                   class="px-6 py-3 rounded-lg bg-white text-emerald-600 font-semibold hover:bg-emerald-50 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fa-solid fa-file-excel mr-2"></i> Excel
+                </a>
+                <button onclick="exportPDF()" 
+                        class="px-6 py-3 rounded-lg bg-white/20 backdrop-blur-sm text-white font-semibold hover:bg-white/30 transition-all shadow-md hover:shadow-lg transform hover:scale-105">
+                    <i class="fa-solid fa-file-pdf mr-2"></i> PDF
+                </button>
+            </div>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var ctx = document.getElementById('analyticsChart');
-            if (ctx) {
-                new Chart(ctx, {
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        var dailyStats = [];
+        var currentDays = 7;
+        var lineChart, barChart, pieChart;
+        
+        /*[# th:if="${analytics != null && analytics.dailyStats != null && !#lists.isEmpty(analytics.dailyStats)}"]*/
+        dailyStats = /*[[${analytics.dailyStats}]]*/ [];
+        /*[/]*/
+        
+        function initCharts() {
+            var labels = [];
+            var newUsersData = [];
+            var newPostsData = [];
+            var newReviewsData = [];
+            
+            if (dailyStats && dailyStats.length > 0) {
+                labels = dailyStats.map(function(stat) { return stat.date || ''; });
+                newUsersData = dailyStats.map(function(stat) { return stat.newUsers || 0; });
+                newPostsData = dailyStats.map(function(stat) { return stat.newPosts || 0; });
+                newReviewsData = dailyStats.map(function(stat) { return stat.newReviews || 0; });
+            } else {
+                labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                newUsersData = [0, 0, 0, 0, 0, 0, 0];
+                newPostsData = [0, 0, 0, 0, 0, 0, 0];
+                newReviewsData = [0, 0, 0, 0, 0, 0, 0];
+            }
+            
+            // Line Chart
+            var lineCtx = document.getElementById('lineChart');
+            if (lineCtx) {
+                lineChart = new Chart(lineCtx, {
                     type: 'line',
                     data: {
-                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        labels: labels,
                         datasets: [{
                             label: 'Người dùng mới',
-                            data: [0, 0, 0, 0, 0, 0, 0],
+                            data: newUsersData,
                             borderColor: 'rgb(59, 130, 246)',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            tension: 0.4
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3
                         }, {
                             label: 'Bài viết mới',
-                            data: [0, 0, 0, 0, 0, 0, 0],
+                            data: newPostsData,
                             borderColor: 'rgb(16, 185, 129)',
                             backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            tension: 0.4
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3
+                        }, {
+                            label: 'Đánh giá mới',
+                            data: newReviewsData,
+                            borderColor: 'rgb(251, 191, 36)',
+                            backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3
                         }]
                     },
                     options: {
@@ -99,18 +368,141 @@
                         plugins: {
                             legend: {
                                 display: true,
-                                position: 'top'
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15,
+                                    font: { size: 12, weight: 'bold' }
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12
                             }
                         },
                         scales: {
                             y: {
-                                beginAtZero: true
+                                beginAtZero: true,
+                                ticks: { stepSize: 1 },
+                                grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            
+            // Bar Chart
+            var barCtx = document.getElementById('barChart');
+            if (barCtx) {
+                barChart = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Tổng hoạt động',
+                            data: newUsersData.map((u, i) => u + newPostsData[i] + newReviewsData[i]),
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: 'rgb(16, 185, 129)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1 },
+                                grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            
+            // Pie Chart
+            var pieCtx = document.getElementById('pieChart');
+            if (pieCtx) {
+                var totalUsers = /*[[${analytics != null ? analytics.totalUsers : 0}]]*/ 0;
+                var totalPosts = /*[[${analytics != null ? analytics.totalPosts : 0}]]*/ 0;
+                var totalReviews = /*[[${analytics != null ? analytics.totalReviews : 0}]]*/ 0;
+                var totalFoods = /*[[${analytics != null ? analytics.totalFoodItems : 0}]]*/ 0;
+                
+                pieChart = new Chart(pieCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Người dùng', 'Bài viết', 'Đánh giá', 'Món ăn'],
+                        datasets: [{
+                            data: [totalUsers, totalPosts, totalReviews, totalFoods],
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(16, 185, 129, 0.8)',
+                                'rgba(251, 191, 36, 0.8)',
+                                'rgba(168, 85, 247, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgb(59, 130, 246)',
+                                'rgb(16, 185, 129)',
+                                'rgb(251, 191, 36)',
+                                'rgb(168, 85, 247)'
+                            ],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12
                             }
                         }
                     }
                 });
             }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
         });
+        
+        function updateChartDays(days) {
+            currentDays = days;
+            // Reload page với parameter mới
+            window.location.href = '/admin/analytics?days=' + days;
+        }
+        
+        function updateTimeRange(range) {
+            updateChartDays(parseInt(range));
+        }
+        
+        function refreshData() {
+            window.location.reload();
+        }
+        
+        function exportPDF() {
+            alert('Tính năng xuất PDF sẽ được cập nhật sớm!');
+        }
+        /*]]>*/
     </script>
 </div>
 </html>

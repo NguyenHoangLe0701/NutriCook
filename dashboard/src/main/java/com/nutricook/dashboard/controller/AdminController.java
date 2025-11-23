@@ -40,6 +40,7 @@ import com.nutricook.dashboard.entity.NutritionStats;
 import com.nutricook.dashboard.entity.Post;
 import com.nutricook.dashboard.entity.Review;
 import com.nutricook.dashboard.entity.AnalyticsData;
+import java.util.ArrayList;
 import com.nutricook.dashboard.repository.CategoryRepository;
 import com.nutricook.dashboard.repository.FoodItemRepository;
 import com.nutricook.dashboard.repository.FoodUpdateRepository;
@@ -1029,7 +1030,7 @@ public class AdminController {
     // ==========================================================
     
     @GetMapping("/analytics")
-    public String analytics(Model model) {
+    public String analytics(@RequestParam(required = false, defaultValue = "7") int days, Model model) {
         AnalyticsData analytics = new AnalyticsData();
         
         try {
@@ -1069,21 +1070,82 @@ public class AdminController {
                 // Lấy tổng số food items
                 analytics.setTotalFoodItems(foodItemRepository.count());
                 
-                // Tính tổng calories tracked (tạm thời bỏ qua)
-                analytics.setTotalCaloriesTracked(0L);
+                // Tính tổng calories tracked
+                try {
+                    Long totalCalories = firestoreService.getTotalCaloriesTracked();
+                    analytics.setTotalCaloriesTracked(totalCalories != null ? totalCalories : 0L);
+                } catch (Exception e) {
+                    analytics.setTotalCaloriesTracked(0L);
+                }
+                
+                // Lấy active users
+                try {
+                    Long activeUsers = firestoreService.getActiveUsersCount();
+                    analytics.setActiveUsers(activeUsers != null ? activeUsers : 0L);
+                } catch (Exception e) {
+                    analytics.setActiveUsers(0L);
+                }
+                
+                // Lấy thống kê theo số ngày được chọn
+                try {
+                    List<AnalyticsData.DailyStats> dailyStats = firestoreService.getDailyStats(days);
+                    analytics.setDailyStats(dailyStats);
+                    
+                    // Tính toán giá trị hôm nay (phần tử đầu tiên trong list)
+                    if (dailyStats != null && !dailyStats.isEmpty()) {
+                        AnalyticsData.DailyStats todayStats = dailyStats.get(0);
+                        model.addAttribute("todayNewUsers", todayStats.getNewUsers());
+                        model.addAttribute("todayNewPosts", todayStats.getNewPosts());
+                        model.addAttribute("todayNewReviews", todayStats.getNewReviews());
+                    } else {
+                        model.addAttribute("todayNewUsers", 0L);
+                        model.addAttribute("todayNewPosts", 0L);
+                        model.addAttribute("todayNewReviews", 0L);
+                    }
+                } catch (Exception e) {
+                    analytics.setDailyStats(new ArrayList<>());
+                    model.addAttribute("todayNewUsers", 0L);
+                    model.addAttribute("todayNewPosts", 0L);
+                    model.addAttribute("todayNewReviews", 0L);
+                }
             } else {
                 // Fallback nếu không có Firestore
                 analytics.setTotalUsers(userRepository.count());
                 analytics.setTotalFoodItems(foodItemRepository.count());
                 analytics.setTotalPosts(0L);
                 analytics.setTotalReviews(0L);
+                analytics.setDailyStats(new ArrayList<>());
+                model.addAttribute("todayNewUsers", 0L);
+                model.addAttribute("todayNewPosts", 0L);
+                model.addAttribute("todayNewReviews", 0L);
             }
+            
+            // Tính toán star classes cho rating (cho cả 2 trường hợp)
+            List<String> starClasses = new ArrayList<>();
+            if (analytics != null && analytics.getAverageRating() != null) {
+                double rating = analytics.getAverageRating();
+                for (int i = 1; i <= 5; i++) {
+                    if (i <= rating) {
+                        starClasses.add("fa-solid fa-star text-yellow-400 text-xl");
+                    } else if (i - 0.5 <= rating) {
+                        starClasses.add("fa-solid fa-star-half-stroke text-yellow-400 text-xl");
+                    } else {
+                        starClasses.add("fa-regular fa-star text-gray-300 text-xl");
+                    }
+                }
+            } else {
+                for (int i = 0; i < 5; i++) {
+                    starClasses.add("fa-regular fa-star text-gray-300 text-xl");
+                }
+            }
+            model.addAttribute("starClasses", starClasses);
         } catch (Exception e) {
             System.err.println("Error loading analytics: " + e.getMessage());
             e.printStackTrace();
         }
         
         model.addAttribute("analytics", analytics);
+        model.addAttribute("days", days);
         model.addAttribute("title", "Analytics & Reports");
         model.addAttribute("subtitle", "Thống kê và báo cáo hệ thống");
         model.addAttribute("activeTab", "analytics");
