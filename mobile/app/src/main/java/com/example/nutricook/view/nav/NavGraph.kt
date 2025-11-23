@@ -36,6 +36,10 @@ import com.example.nutricook.view.profile.SearchProfileScreen
 import com.example.nutricook.view.profile.SettingsScreen
 import com.example.nutricook.view.profile.UserActivitiesScreen
 import com.example.nutricook.view.recipes.CreateRecipeScreen
+import com.example.nutricook.view.recipes.CreateRecipeStep1Screen
+import com.example.nutricook.view.recipes.CreateRecipeStep2Screen
+import com.example.nutricook.view.recipes.CreateRecipeStep3Screen
+import com.example.nutricook.view.recipes.CreateRecipeStep4Screen
 import com.example.nutricook.view.recipes.IngredientBrowserScreen
 import com.example.nutricook.view.recipes.IngredientDetailScreen
 import com.example.nutricook.view.recipes.IngredientsFilterScreen
@@ -264,7 +268,51 @@ fun NavGraph(navController: NavHostController) {
                 bottomBar = { BottomNavigationBar(navController) }
             ) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeScreen(navController = navController)
+                    CreateRecipeStep1Screen(navController = navController)
+                }
+            }
+        }
+        
+        // ========== CREATE RECIPE STEP 1 ==========
+        composable("create_recipe_step1") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep1Screen(navController = navController)
+                }
+            }
+        }
+        
+        // ========== CREATE RECIPE STEP 2 ==========
+        composable("create_recipe_step2") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep2Screen(navController = navController)
+                }
+            }
+        }
+        
+        // ========== CREATE RECIPE STEP 3 ==========
+        composable("create_recipe_step3") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep3Screen(navController = navController)
+                }
+            }
+        }
+        
+        // ========== CREATE RECIPE STEP 4 ==========
+        composable("create_recipe_step4") {
+            Scaffold(
+                bottomBar = { BottomNavigationBar(navController) }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep4Screen(navController = navController)
                 }
             }
         }
