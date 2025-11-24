@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -25,7 +27,7 @@ import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.home.NutritionDetailScreen
 import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
-import com.example.nutricook.view.newsfeed.FeedScreen
+import com.example.nutricook.view.newsfeed.NewsfeedScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
 import com.example.nutricook.view.profile.ExerciseDetailScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
@@ -35,7 +37,6 @@ import com.example.nutricook.view.profile.RecipeGuidanceScreen
 import com.example.nutricook.view.profile.SearchProfileScreen
 import com.example.nutricook.view.profile.SettingsScreen
 import com.example.nutricook.view.profile.UserActivitiesScreen
-import com.example.nutricook.view.recipes.CreateRecipeScreen
 import com.example.nutricook.view.recipes.CreateRecipeStep1Screen
 import com.example.nutricook.view.recipes.CreateRecipeStep2Screen
 import com.example.nutricook.view.recipes.CreateRecipeStep3Screen
@@ -54,120 +55,98 @@ import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
-import com.example.nutricook.viewmodel.newsfeed.PostViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
 import com.example.nutricook.viewmodel.profile.SavesViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
-    // lấy auth ngoài cùng để quyết định start
     val authVm: AuthViewModel = hiltViewModel()
     val authState by authVm.uiState.collectAsState()
 
-    // nếu đã đăng nhập thì bỏ intro/login
     val startDestination = if (authState.currentUser != null) "home" else "intro"
 
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // ========== INTRO ==========
+        // ========== INTRO & AUTH ==========
         composable("intro") {
             if (authState.currentUser != null) {
-                LaunchedEffect(Unit) {
-                    navController.navigate("home") {
-                        popUpTo("intro") { inclusive = true }
-                    }
-                }
+                LaunchedEffect(Unit) { navController.navigate("home") { popUpTo("intro") { inclusive = true } } }
             } else {
                 IntroScreen(navController)
             }
         }
-
-        // ========== ONBOARDING ==========
         composable("onboarding") {
             if (authState.currentUser != null) {
-                LaunchedEffect(Unit) {
-                    navController.navigate("home") {
-                        popUpTo("onboarding") { inclusive = true }
-                    }
-                }
+                LaunchedEffect(Unit) { navController.navigate("home") { popUpTo("onboarding") { inclusive = true } } }
             } else {
                 OnboardingScreen(navController)
             }
         }
-
-        // ========== LOGIN ==========
         composable("login") {
-            val state = authState
-
-            LaunchedEffect(state.currentUser) {
-                if (state.currentUser != null) {
+            LaunchedEffect(authState.currentUser) {
+                if (authState.currentUser != null) {
                     navController.navigate("home") {
                         popUpTo("login") { inclusive = true }
                         launchSingleTop = true
                     }
                 }
             }
-
             LoginScreen(
                 onGoRegister = { navController.navigate("register") },
                 onBack = { navController.popBackStack() },
-                onForgotPassword = { /* TODO */ },
+                onForgotPassword = { },
                 vm = authVm
             )
         }
-
-        // ========== REGISTER ==========
         composable("register") {
             RegisterScreen(
-                onGoLogin = {
-                    navController.navigate("login") {
-                        launchSingleTop = true
-                    }
-                },
+                onGoLogin = { navController.navigate("login") { launchSingleTop = true } },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ========== HOME (BOTTOM) ==========
+        // ========== MAIN TABS ==========
+
+        // 1. HOME
         composable("home") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
                     HomeScreen(navController)
                 }
             }
         }
 
-        // ========== CATEGORIES (BOTTOM) ==========
+        // 2. NEWSFEED (CỘNG ĐỒNG) - Mới thêm
+        composable("newsfeed") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues)) {
+                    // Đây là Feed chung, hiển thị bài của tất cả mọi người
+                    NewsfeedScreen()
+                }
+            }
+        }
+
+        // 3. RECIPES
+        composable("recipes") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    RecipeDiscoveryScreen(navController)
+                }
+            }
+        }
+
+        // 4. CATEGORIES
         composable("categories") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
                     CategoriesScreen(navController)
                 }
             }
         }
 
-        // ========== RECIPES (BOTTOM) ==========
-        composable("recipes") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .padding(paddingValues)
-                        .fillMaxSize()
-                ) {
-                    RecipeDiscoveryScreen(navController)
-                }
-            }
-        }
-
-        // ========== PROFILE (BOTTOM) ==========
+        // 5. PROFILE
         composable("profile") {
             ProfileScreen(
                 onOpenSettings = { navController.navigate("settings") },
@@ -175,6 +154,7 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("recent_activity/$uid")
                 },
+                // Khi bấm vào Post(0) -> Chuyển sang màn hình xem bài của user đó
                 onOpenPosts = {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("posts/$uid")
@@ -183,37 +163,43 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("saves/$uid")
                 },
-                onOpenSearch = {
-                    navController.navigate("search_profiles")
-                },
+                onOpenSearch = { navController.navigate("search_profiles") },
                 bottomBar = { BottomNavigationBar(navController) }
             )
         }
 
-        // ========== SEARCH PROFILES ==========
+        // ========== FEATURE DETAILS ==========
+
+        // Màn hình xem danh sách bài viết của 1 User cụ thể (Ví dụ: bấm vào Post(0) trong Profile)
+        composable(
+            route = "posts/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues)) {
+                    // Tạm thời dùng chung NewsfeedScreen, sau này bạn có thể truyền userId vào để filter
+                    NewsfeedScreen()
+                }
+            }
+        }
+
         composable("search_profiles") {
             SearchProfileScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToProfile = { uid ->
-                    navController.navigate("public_profile/$uid")
-                }
+                onNavigateToProfile = { uid -> navController.navigate("public_profile/$uid") }
             )
         }
 
-        // ========== PUBLIC PROFILE ==========
         composable(
             route = "public_profile/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
             PublicProfileScreen(
                 onBack = { navController.popBackStack() },
-                onPostClick = { post ->
-                    // TODO: Navigate to post detail
-                }
+                onPostClick = { }
             )
         }
 
-        // ========== SETTINGS ==========
         composable("settings") {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
@@ -229,192 +215,74 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // ========== INGREDIENTS ==========
-        composable("ingredients") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    IngredientsFilterScreen(navController = navController)
-                }
-            }
-        }
-
-        // ========== INGREDIENT BROWSER ==========
-        composable("ingredient_browser") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    IngredientBrowserScreen(navController = navController)
-                }
-            }
-        }
-
-        // ========== NUTRITION DETAIL ==========
-        composable("nutrition_detail") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    NutritionDetailScreen(navController = navController)
-                }
-            }
-        }
-
-        // ========== CREATE RECIPE ==========
-        composable("create_recipe") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep1Screen(navController = navController)
-                }
-            }
-        }
-        
-        // ========== CREATE RECIPE STEP 1 ==========
-        composable("create_recipe_step1") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep1Screen(navController = navController)
-                }
-            }
-        }
-        
-        // ========== CREATE RECIPE STEP 2 ==========
-        composable("create_recipe_step2") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep2Screen(navController = navController)
-                }
-            }
-        }
-        
-        // ========== CREATE RECIPE STEP 3 ==========
-        composable("create_recipe_step3") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep3Screen(navController = navController)
-                }
-            }
-        }
-        
-        // ========== CREATE RECIPE STEP 4 ==========
-        composable("create_recipe_step4") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep4Screen(navController = navController)
-                }
-            }
-        }
-
-        // ========== NOTIFICATIONS ==========
-        composable("notifications") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    NotificationsScreen(navController)
-                }
-            }
-        }
-
-        // ========== RECENT ACTIVITY ==========
         composable(
             route = "recent_activity/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
             val vm: ActivitiesViewModel = hiltViewModel()
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    UserActivitiesScreen(
-                        onBack = { navController.popBackStack() },
-                        vm = vm
-                    )
+                    UserActivitiesScreen(onBack = { navController.popBackStack() }, vm = vm)
                 }
             }
         }
 
-        // ========== POSTS (NEWS FEED) ==========
         composable(
-            route = "posts/{userId}",
+            route = "saves/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
-            val vm: PostViewModel = hiltViewModel()
-
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    FeedScreen(
-                        vm = vm,
-                        onBack = { navController.popBackStack() }
-                    )
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Bài viết đã lưu (Đang phát triển)")
                 }
             }
         }
 
-        // ========== SAVES ==========
-
-        // ========== EDIT PROFILE ==========
-        composable("edit_profile") {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }
-            ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues)) {
-                    // TODO: Edit Profile UI
+        // ========== RECIPE CREATION & DETAILS ==========
+        composable("create_recipe") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep1Screen(navController = navController)
                 }
             }
         }
+        composable("create_recipe_step1") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep1Screen(navController = navController)
+                }
+            }
+        }
+        composable("create_recipe_step2") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep2Screen(navController = navController)
+                }
+            }
+        }
+        composable("create_recipe_step3") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep3Screen(navController = navController)
+                }
+            }
+        }
+        composable("create_recipe_step4") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateRecipeStep4Screen(navController = navController)
+                }
+            }
+        }
+        composable("upload_success") { RecipeUploadSuccessScreen(navController) }
 
-        // ========== DETAIL SCREENS ==========
         composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
-            val imageRes =
-                backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
             RecipeDetailScreen(navController, recipeTitle, imageRes)
         }
-
-        composable("ingredient_detail/{ingredientName}") { backStackEntry ->
-            val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
-            IngredientDetailScreen(navController, ingredientName)
-        }
-
-        composable("upload_success") { RecipeUploadSuccessScreen(navController) }
-        composable("recipe_direction") { RecipeDirectionsScreen(navController) }
-        composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
-        composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
-        
-        composable("exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}") { backStackEntry ->
-            val exerciseName = backStackEntry.arguments?.getString("exerciseName") ?: "Unknown"
-            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.baseball
-            val duration = backStackEntry.arguments?.getString("duration") ?: "15 phút"
-            val calories = backStackEntry.arguments?.getString("calories")?.toIntOrNull() ?: 100
-            val difficulty = backStackEntry.arguments?.getString("difficulty") ?: "Trung bình"
-            ExerciseDetailScreen(
-                navController = navController,
-                exerciseName = exerciseName,
-                exerciseImageRes = imageRes,
-                exerciseDuration = duration,
-                exerciseCalories = calories,
-                exerciseDifficulty = difficulty
-            )
-        }
-
-        // ========== RECIPE STEPS ==========
         composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->
-            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown Recipe"
+            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown"
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
             RecipeInfoScreen(navController, recipeTitle, imageRes)
         }
@@ -422,17 +290,65 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_step") { RecipeStepScreen(navController) }
         composable("recipe_step2") { RecipeStep2Screen(navController) }
         composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
-
+        composable("recipe_direction") { RecipeDirectionsScreen(navController) }
+        composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
         composable("nutrition_facts") { NutritionFactsScreen(navController) }
         composable("review_screen") { ReviewScreen(navController) }
 
-        // ========== DEBUG ==========
+        // ========== INGREDIENTS & EXERCISES ==========
+        composable("ingredients") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    IngredientsFilterScreen(navController = navController)
+                }
+            }
+        }
+        composable("ingredient_browser") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    IngredientBrowserScreen(navController = navController)
+                }
+            }
+        }
+        composable("ingredient_detail/{ingredientName}") { backStackEntry ->
+            val ingredientName = backStackEntry.arguments?.getString("ingredientName") ?: ""
+            IngredientDetailScreen(navController, ingredientName)
+        }
+        composable("nutrition_detail") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    NutritionDetailScreen(navController = navController)
+                }
+            }
+        }
+
+        composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
+        composable("exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}") { backStackEntry ->
+            val exerciseName = backStackEntry.arguments?.getString("exerciseName") ?: "Unknown"
+            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.baseball
+            val duration = backStackEntry.arguments?.getString("duration") ?: "15 phút"
+            val calories = backStackEntry.arguments?.getString("calories")?.toIntOrNull() ?: 100
+            val difficulty = backStackEntry.arguments?.getString("difficulty") ?: "Trung bình"
+            ExerciseDetailScreen(navController, exerciseName, imageRes, duration, calories, difficulty)
+        }
+        composable("article_detail") { ArticleDetailScreen(navController) }
+
+        // ========== NOTIFICATIONS & SEED ==========
+        composable("notifications") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    NotificationsScreen(navController)
+                }
+            }
+        }
         composable("seed_data") { DataSeedScreen(navController) }
 
-        // ========== ARTICLES ==========
-        composable("article_detail") { ArticleDetailScreen(navController) }
+        composable("edit_profile") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Màn hình Chỉnh sửa hồ sơ")
+                }
+            }
+        }
     }
 }
-
-// ĐÃ XÓA: Phần BottomNavigationBar trùng lặp ở đây
-// Nó sẽ tự động dùng BottomNavigationBar từ file BottomNavigationBar.kt
