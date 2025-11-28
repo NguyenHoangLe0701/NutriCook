@@ -242,53 +242,32 @@ fun CreateRecipeStep4Screen(
             }
         }
         
-        /** 🔹 Nút Hoàn thành */
+        /** 🔹 Nút Xem thông tin dinh dưỡng */
         item {
             Button(
                 onClick = {
-                    isSubmitting = true
-                    // TODO: Upload công thức lên server
-                    // Simulate upload
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        isSubmitting = false
-                        Toast.makeText(context, "Đăng công thức thành công!", Toast.LENGTH_SHORT).show()
-                        // Navigate back to home or recipe list
-                        navController.navigate("recipes") {
-                            popUpTo("create_recipe") { inclusive = true }
-                        }
-                    }, 2000)
+                    // Chuyển sang màn hình thông tin dinh dưỡng
+                    navController.navigate("nutrition_facts")
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(56.dp)
                     .padding(vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF00BFA5),
                     contentColor = Color.White
                 ),
-                enabled = !isSubmitting
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 4.dp,
+                    pressedElevation = 6.dp
+                )
             ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Đang đăng...", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Hoàn thành",
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Hoàn thành & Đăng",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Text(
+                    text = "Xem thông tin dinh dưỡng",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
         

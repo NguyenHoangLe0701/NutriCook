@@ -17,7 +17,14 @@ data class FoodItemUI(
     val id: Long,
     val name: String,
     val calories: String,
-    val imageUrl: String
+    val imageUrl: String,
+    // Thông tin dinh dưỡng (tính trên 100g)
+    val fat: Double = 0.0, // g
+    val carbs: Double = 0.0, // g
+    val protein: Double = 0.0, // g
+    val cholesterol: Double = 0.0, // mg
+    val sodium: Double = 0.0, // mg
+    val vitamin: Double = 0.0 // % daily value
 )
 
 data class CategoryUI(
@@ -73,6 +80,15 @@ class CategoriesViewModel @Inject constructor(
             } catch (e: Exception) {
                 e.printStackTrace() // Xử lý lỗi
             }
+        }
+    }
+    
+    suspend fun getFoodById(foodId: Long): FoodItemUI? {
+        return try {
+            repository.getFoodById(foodId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 }

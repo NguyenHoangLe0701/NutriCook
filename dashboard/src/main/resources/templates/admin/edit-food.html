@@ -1,36 +1,137 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: layout(~{::content}, 'Chỉnh sửa món ăn', 'Cập nhật thông tin món ăn', 'foods')}">
 <div th:fragment="content">
-    <div class="max-w-4xl mx-auto">
-        <div class="bg-white shadow sm:rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <form th:action="@{/admin/foods/{id}/edit(id=${foodItem.id})}" th:object="${foodItem}" method="post" enctype="multipart/form-data" class="mt-6">
-                    <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                        <div class="sm:col-span-6">
-                            <label for="name" class="block text-sm font-medium text-gray-700">Tên món ăn *</label>
-                            <input type="text" th:field="*{name}" id="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
+    <div class="max-w-5xl mx-auto">
+        <div class="bg-gradient-to-br from-white to-orange-50 rounded-2xl shadow-2xl border border-orange-100 overflow-hidden">
+            <form th:action="@{/admin/foods/{id}/edit(id=${foodItem.id})}" th:object="${foodItem}" method="post" enctype="multipart/form-data">
+                <div class="bg-gradient-to-r from-orange-600 to-amber-600 px-6 pt-5 pb-3">
+                    <h3 class="text-2xl font-bold text-white">Chỉnh sửa món ăn</h3>
+                </div>
+                <div class="px-6 pt-5 pb-5 sm:p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Cột trái - Thông tin cơ bản -->
+                        <div class="space-y-5">
+                            <div class="bg-white/60 rounded-xl p-4 border border-orange-100">
+                                <h4 class="text-base font-bold text-orange-800 mb-4 flex items-center">
+                                    <span class="mr-2">📝</span> Thông tin cơ bản
+                                </h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="name" class="block text-sm font-semibold text-gray-700 mb-1.5">Tên món ăn *</label>
+                                        <input type="text" th:field="*{name}" id="name" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" required>
+                                    </div>
+                                    <div>
+                                        <label for="category" class="block text-sm font-semibold text-gray-700 mb-1.5">Danh mục *</label>
+                                        <select th:field="*{category}" id="category" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" required>
+                                            <option value="">-- Chọn danh mục --</option>
+                                            <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.icon + ' ' + cat.name}" th:selected="${cat.id == foodItem.category.id}"></option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="calories" class="block text-sm font-semibold text-gray-700 mb-1.5">Calories *</label>
+                                        <div class="relative">
+                                            <input type="number" id="calories-input" step="0.1" min="0" class="block w-full px-4 py-2.5 pr-16 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="52" required>
+                                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">kcal</span>
+                                            <input type="hidden" th:field="*{calories}" id="calories">
+                                        </div>
+                                        <p class="mt-1 text-xs text-gray-500">Chỉ cần nhập số, hệ thống tự động thêm đơn vị kcal</p>
+                                    </div>
+                                    <div>
+                                        <label for="description" class="block text-sm font-semibold text-gray-700 mb-1.5">Mô tả</label>
+                                        <textarea th:field="*{description}" id="description" rows="4" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all resize-none"></textarea>
+                                    </div>
+                                    <div>
+                                        <label for="imageFile" class="block text-sm font-semibold text-gray-700 mb-1.5">Hình ảnh</label>
+                                        <input type="file" name="imageFile" id="imageFile" accept="image/*" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm text-gray-700 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 transition-all">
+                                        <p class="mt-1.5 text-xs text-gray-500">Để trống nếu không muốn thay đổi hình ảnh</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
-                        <div class="sm:col-span-3">
-                            <label for="category" class="block text-sm font-medium text-gray-700">Danh mục *</label>
-                            <select th:field="*{category}" id="category" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm" required>
-                                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.icon + ' ' + cat.name}" th:selected="${cat.id == foodItem.category.id}"></option>
-                            </select>
+                        
+                        <!-- Cột phải - Thông tin dinh dưỡng -->
+                        <div class="space-y-5">
+                            <div class="bg-white/60 rounded-xl p-4 border border-orange-100">
+                                <h4 class="text-base font-bold text-orange-800 mb-4 flex items-center">
+                                    <span class="mr-2">📊</span> Thông tin dinh dưỡng (trên 100g)
+                                </h4>
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label for="fat" class="block text-sm font-semibold text-gray-700 mb-1.5">Fat (g)</label>
+                                            <input type="number" th:field="*{fat}" id="fat" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
+                                        </div>
+                                        <div>
+                                            <label for="carbs" class="block text-sm font-semibold text-gray-700 mb-1.5">Carbs (g)</label>
+                                            <input type="number" th:field="*{carbs}" id="carbs" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label for="protein" class="block text-sm font-semibold text-gray-700 mb-1.5">Protein (g)</label>
+                                            <input type="number" th:field="*{protein}" id="protein" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
+                                        </div>
+                                        <div>
+                                            <label for="cholesterol" class="block text-sm font-semibold text-gray-700 mb-1.5">Cholesterol (mg)</label>
+                                            <input type="number" th:field="*{cholesterol}" id="cholesterol" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label for="sodium" class="block text-sm font-semibold text-gray-700 mb-1.5">Sodium (mg)</label>
+                                            <input type="number" th:field="*{sodium}" id="sodium" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
+                                        </div>
+                                        <div>
+                                            <label for="vitamin" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin (%)</label>
+                                            <input type="number" th:field="*{vitamin}" id="vitamin" step="0.1" min="0" max="100" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
-                        <div class="sm:col-span-3"> <label for="calories" class="block text-sm font-medium text-gray-700">Calories *</label>
-                            <input type="text" th:field="*{calories}" id="calories" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" required>
-                        </div>
-
-                        </div>
-
-                    <div class="mt-8 flex justify-end">
-                        <a th:href="@{/admin/foods}" class="rounded-lg border border-gray-300 bg-white py-3 px-6 text-base font-bold text-gray-700 shadow-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl">Hủy</a>
-                        <button type="submit" class="ml-3 inline-flex justify-center rounded-lg border border-transparent bg-gradient-to-r from-primary-500 to-orange-500 py-3 px-6 text-base font-bold text-white shadow-xl hover:from-primary-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl">Lưu thay đổi</button>
                     </div>
-                </form>
-            </div>
+                </div>
+                <div class="bg-gradient-to-r from-orange-50 to-amber-50 px-6 py-4 sm:flex sm:flex-row-reverse sm:gap-3 border-t border-orange-200">
+                    <button type="submit" class="inline-flex w-full justify-center items-center rounded-xl border border-transparent bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 px-8 py-3 text-base font-bold text-white shadow-lg hover:from-orange-600 hover:via-amber-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 hover:shadow-xl sm:w-auto">
+                        <span class="mr-2">✓</span> Lưu thay đổi
+                    </button>
+                    <a th:href="@{/admin/foods}" class="mt-3 inline-flex w-full justify-center items-center rounded-xl border-2 border-orange-300 bg-white px-8 py-3 text-base font-bold text-orange-700 shadow-md hover:bg-orange-50 hover:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 transition-all duration-300 sm:mt-0 sm:w-auto">
+                        <span class="mr-2">✕</span> Hủy
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
-    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Extract number from calories value (e.g., "52 kcal" -> "52")
+        const caloriesField = document.getElementById('calories');
+        const caloriesInput = document.getElementById('calories-input');
+        if (caloriesField && caloriesInput && caloriesField.value) {
+            const caloriesNumber = caloriesField.value.replace(/\s*kcal\s*/i, '').trim();
+            caloriesInput.value = caloriesNumber;
+        }
+        
+        // Update hidden field when input changes
+        if (caloriesInput) {
+            caloriesInput.addEventListener('input', function() {
+                if (caloriesField && this.value) {
+                    caloriesField.value = this.value + ' kcal';
+                }
+            });
+        }
+        
+        // Update on form submit
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (caloriesInput && caloriesField && caloriesInput.value) {
+                    caloriesField.value = caloriesInput.value + ' kcal';
+                }
+            });
+        }
+    });
+</script>
 </html>

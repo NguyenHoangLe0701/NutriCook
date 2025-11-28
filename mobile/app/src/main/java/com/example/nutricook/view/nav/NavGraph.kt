@@ -22,6 +22,7 @@ import com.example.nutricook.view.articles.ArticleDetailScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
 import com.example.nutricook.view.categories.CategoriesScreen
+import com.example.nutricook.view.categories.FoodDetailScreen
 import com.example.nutricook.view.debug.DataSeedScreen
 import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.home.NutritionDetailScreen
@@ -142,6 +143,14 @@ fun NavGraph(navController: NavHostController) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
                     CategoriesScreen(navController)
+                }
+            }
+        }
+        composable("food_detail/{foodId}") { backStackEntry ->
+            val foodId = backStackEntry.arguments?.getString("foodId")?.toLongOrNull() ?: 0L
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    FoodDetailScreen(navController = navController, foodId = foodId)
                 }
             }
         }
@@ -271,6 +280,13 @@ fun NavGraph(navController: NavHostController) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     CreateRecipeStep4Screen(navController = navController)
+                }
+            }
+        }
+        composable("nutrition_facts") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    NutritionFactsScreen(navController = navController)
                 }
             }
         }

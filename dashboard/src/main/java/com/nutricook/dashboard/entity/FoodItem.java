@@ -44,6 +44,14 @@ public class FoodItem {
     private Double rating = 0.0; // Điểm đánh giá từ 0-5
     private Integer reviews = 0; // Số lượt đánh giá
     
+    // Thông tin dinh dưỡng (tính trên 100g)
+    private Double fat = 0.0; // g
+    private Double carbs = 0.0; // g
+    private Double protein = 0.0; // g
+    private Double cholesterol = 0.0; // mg
+    private Double sodium = 0.0; // mg
+    private Double vitamin = 0.0; // % daily value
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -102,4 +110,23 @@ public class FoodItem {
     
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    
+    // Getters and Setters for nutrition fields
+    public Double getFat() { return fat; }
+    public void setFat(Double fat) { this.fat = fat != null ? fat : 0.0; }
+    
+    public Double getCarbs() { return carbs; }
+    public void setCarbs(Double carbs) { this.carbs = carbs != null ? carbs : 0.0; }
+    
+    public Double getProtein() { return protein; }
+    public void setProtein(Double protein) { this.protein = protein != null ? protein : 0.0; }
+    
+    public Double getCholesterol() { return cholesterol; }
+    public void setCholesterol(Double cholesterol) { this.cholesterol = cholesterol != null ? cholesterol : 0.0; }
+    
+    public Double getSodium() { return sodium; }
+    public void setSodium(Double sodium) { this.sodium = sodium != null ? sodium : 0.0; }
+    
+    public Double getVitamin() { return vitamin; }
+    public void setVitamin(Double vitamin) { this.vitamin = vitamin != null ? vitamin : 0.0; }
 }

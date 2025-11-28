@@ -1,4 +1,4 @@
-package com.example.nutricook.view.categories
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    package com.example.nutricook.view.categories
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -92,7 +92,12 @@ fun CategoriesScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(foodItems) { food ->
-                    FoodItemCard(food = food)
+                    FoodItemCard(
+                        food = food,
+                        onClick = {
+                            navController.navigate("food_detail/${food.id}")
+                        }
+                    )
                 }
             }
         }
@@ -141,11 +146,15 @@ fun CategoryTabItem(
 }
 
 @Composable
-fun FoodItemCard(food: FoodItemUI) {
+fun FoodItemCard(
+    food: FoodItemUI,
+    onClick: () -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.8f),
+            .aspectRatio(0.8f)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

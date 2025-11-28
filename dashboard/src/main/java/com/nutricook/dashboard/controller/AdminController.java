@@ -611,6 +611,13 @@ public class AdminController {
                 existingFood.setDescription(foodItem.getDescription());
                 existingFood.setCategory(categoryFromDb); // <-- SỬA LỖI: Dùng category đầy đủ
                 existingFood.setAvailable(foodItem.getAvailable());
+                // Cập nhật thông tin dinh dưỡng
+                existingFood.setFat(foodItem.getFat());
+                existingFood.setCarbs(foodItem.getCarbs());
+                existingFood.setProtein(foodItem.getProtein());
+                existingFood.setCholesterol(foodItem.getCholesterol());
+                existingFood.setSodium(foodItem.getSodium());
+                existingFood.setVitamin(foodItem.getVitamin());
                 existingFood.setUpdatedAt(LocalDateTime.now());
                 
                 if (imageFile != null && !imageFile.isEmpty()) {

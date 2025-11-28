@@ -1,31 +1,30 @@
 package com.nutricook.dashboard.service;
 
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty; // Cần import Category
+import org.springframework.stereotype.Service; // Cần import FoodItem
+
+import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QuerySnapshot;
-import com.google.api.core.ApiFuture;
-import com.google.cloud.Timestamp;
-import com.nutricook.dashboard.entity.Category; // Cần import Category
-import com.nutricook.dashboard.entity.FoodItem; // Cần import FoodItem
-import com.nutricook.dashboard.entity.User;
+import com.google.cloud.firestore.WriteResult;
+import com.nutricook.dashboard.entity.AnalyticsData;
+import com.nutricook.dashboard.entity.Category;
 import com.nutricook.dashboard.entity.DailyLog;
+import com.nutricook.dashboard.entity.FoodItem;
 import com.nutricook.dashboard.entity.NutritionStats;
 import com.nutricook.dashboard.entity.Post;
 import com.nutricook.dashboard.entity.Review;
-import com.nutricook.dashboard.entity.Post;
-import com.nutricook.dashboard.entity.Review;
-import com.nutricook.dashboard.entity.AnalyticsData;
-import java.time.ZoneId;
-import java.util.Date;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
-import com.google.cloud.firestore.WriteResult;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import com.nutricook.dashboard.entity.User;
 
 @Service
 @ConditionalOnProperty(name = "firebase.enabled", havingValue = "true")
@@ -284,6 +283,49 @@ public class FirestoreService {
                 f.setCategory(cat);
             }
             
+            // Đọc thông tin dinh dưỡng
+            Object fatObj = data.get("fat");
+            if (fatObj instanceof Number) {
+                f.setFat(((Number) fatObj).doubleValue());
+            } else {
+                f.setFat(0.0);
+            }
+            
+            Object carbsObj = data.get("carbs");
+            if (carbsObj instanceof Number) {
+                f.setCarbs(((Number) carbsObj).doubleValue());
+            } else {
+                f.setCarbs(0.0);
+            }
+            
+            Object proteinObj = data.get("protein");
+            if (proteinObj instanceof Number) {
+                f.setProtein(((Number) proteinObj).doubleValue());
+            } else {
+                f.setProtein(0.0);
+            }
+            
+            Object cholesterolObj = data.get("cholesterol");
+            if (cholesterolObj instanceof Number) {
+                f.setCholesterol(((Number) cholesterolObj).doubleValue());
+            } else {
+                f.setCholesterol(0.0);
+            }
+            
+            Object sodiumObj = data.get("sodium");
+            if (sodiumObj instanceof Number) {
+                f.setSodium(((Number) sodiumObj).doubleValue());
+            } else {
+                f.setSodium(0.0);
+            }
+            
+            Object vitaminObj = data.get("vitamin");
+            if (vitaminObj instanceof Number) {
+                f.setVitamin(((Number) vitaminObj).doubleValue());
+            } else {
+                f.setVitamin(0.0);
+            }
+            
             out.add(f);
         }
         return out;
@@ -306,6 +348,13 @@ public class FirestoreService {
         data.put("imageUrl", food.getImageUrl());
         data.put("rating", food.getRating() != null ? food.getRating() : 0.0);
         data.put("reviews", food.getReviews() != null ? food.getReviews() : 0);
+        // Thông tin dinh dưỡng
+        data.put("fat", food.getFat() != null ? food.getFat() : 0.0);
+        data.put("carbs", food.getCarbs() != null ? food.getCarbs() : 0.0);
+        data.put("protein", food.getProtein() != null ? food.getProtein() : 0.0);
+        data.put("cholesterol", food.getCholesterol() != null ? food.getCholesterol() : 0.0);
+        data.put("sodium", food.getSodium() != null ? food.getSodium() : 0.0);
+        data.put("vitamin", food.getVitamin() != null ? food.getVitamin() : 0.0);
         
         if (food.getCategory() != null) {
             data.put("categoryId", food.getCategory().getId());
