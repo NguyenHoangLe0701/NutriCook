@@ -37,19 +37,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.nutricook.viewmodel.CategoriesViewModel
+import com.example.nutricook.utils.CookingMethod
+import com.example.nutricook.utils.IngredientUnit
 import java.io.File
 
 data class IngredientItem(
     val name: String = "",
-    val quantity: String = ""
+    val quantity: String = "", // Số lượng
+    val unit: com.example.nutricook.utils.IngredientUnit = com.example.nutricook.utils.IngredientUnit.GRAMS, // Đơn vị
+    val foodItemId: Long? = null, // ID của foodItem từ database
+    val categoryId: Long? = null, // ID của category
+    val cookingMethod: com.example.nutricook.utils.CookingMethod? = null // Phương pháp nấu
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRecipeStep1Screen(
-    navController: NavController
+    navController: NavController,
+    categoriesViewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     
@@ -59,6 +68,15 @@ fun CreateRecipeStep1Screen(
     var servings by remember { mutableStateOf("") }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var ingredients by remember { mutableStateOf<List<IngredientItem>>(listOf(IngredientItem())) }
+    
+    // Categories và FoodItems từ ViewModel
+    val categories by categoriesViewModel.categories.collectAsState()
+    val foodItems by categoriesViewModel.foodItems.collectAsState()
+    
+    // Map để tìm foodItem theo ID
+    val foodItemsMap = remember(foodItems) {
+        foodItems.associateBy { it.id }
+    }
     
     // Multiple image picker launcher (Android 13+)
     val multipleImagePickerLauncher = rememberLauncherForActivityResult(
@@ -504,6 +522,16 @@ fun CreateRecipeStep1Screen(
                     
                     // Danh sách nguyên liệu
                     ingredients.forEachIndexed { index, ingredient ->
+                        var expandedFoodItem by remember { mutableStateOf(false) }
+                        var expandedCookingMethod by remember { mutableStateOf(false) }
+                        var expandedUnit by remember { mutableStateOf(false) }
+                        var expandedCategory by remember { mutableStateOf(false) }
+                        
+                        // Lấy danh sách foodItems theo category đã chọn của ingredient này
+                        val availableFoodItems = remember(ingredient.categoryId, foodItems) {
+                            foodItems // foodItems đã được lọc theo category trong ViewModel
+                        }
+                        
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -511,76 +539,445 @@ fun CreateRecipeStep1Screen(
                             color = Color(0xFFF8F9FA),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Tên nguyên liệu
-                                OutlinedTextField(
-                                    value = ingredient.name,
-                                    onValueChange = { newName ->
-                                        ingredients = ingredients.mapIndexed { i, item ->
-                                            if (i == index) item.copy(name = newName) else item
-                                        }
-                                    },
-                                    modifier = Modifier.weight(2f),
-                                    placeholder = { Text("Tên nguyên liệu", fontSize = 13.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF00BFA5),
-                                        unfocusedBorderColor = Color(0xFFE5E7EB),
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White
-                                    )
-                                )
-                                
-                                // Số lượng
-                                OutlinedTextField(
-                                    value = ingredient.quantity,
-                                    onValueChange = { newQuantity ->
-                                        ingredients = ingredients.mapIndexed { i, item ->
-                                            if (i == index) item.copy(quantity = newQuantity) else item
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    placeholder = { Text("Số lượng", fontSize = 13.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF00BFA5),
-                                        unfocusedBorderColor = Color(0xFFE5E7EB),
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White
-                                    )
-                                )
-                                
-                                // Nút xóa
-                                IconButton(
-                                    onClick = {
-                                        if (ingredients.size > 1) {
-                                            ingredients = ingredients.filterIndexed { i, _ -> i != index }
-                                        } else {
-                                            // Nếu chỉ còn 1 item, reset về rỗng
-                                            ingredients = listOf(IngredientItem())
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(
-                                            Color(0xFFFEE2E2),
-                                            RoundedCornerShape(10.dp)
-                                        )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Xóa",
-                                        tint = Color(0xFFDC2626),
-                                        modifier = Modifier.size(18.dp)
+                                    // Dropdown chọn danh mục
+                                    ExposedDropdownMenuBox(
+                                        expanded = expandedCategory,
+                                        onExpandedChange = { expandedCategory = !expandedCategory },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = categories.find { it.id == ingredient.categoryId }?.name ?: "Chọn danh mục",
+                                            onValueChange = {},
+                                            readOnly = true,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .menuAnchor(),
+                                            placeholder = { Text("Danh mục", fontSize = 13.sp) },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color(0xFF00BFA5),
+                                                unfocusedBorderColor = Color(0xFFE5E7EB),
+                                                focusedContainerColor = Color.White,
+                                                unfocusedContainerColor = Color.White
+                                            )
+                                        )
+                                        ExposedDropdownMenu(
+                                            expanded = expandedCategory,
+                                            onDismissRequest = { expandedCategory = false }
+                                        ) {
+                                            categories.forEach { category ->
+                                                DropdownMenuItem(
+                                                    text = { Text("${category.icon} ${category.name}") },
+                                                    onClick = {
+                                                        categoriesViewModel.selectCategory(category.id)
+                                                        ingredients = ingredients.mapIndexed { i, item ->
+                                                            if (i == index) {
+                                                                item.copy(
+                                                                    categoryId = category.id,
+                                                                    foodItemId = null, // Reset foodItem khi đổi category
+                                                                    name = ""
+                                                                )
+                                                            } else item
+                                                        }
+                                                        expandedCategory = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Nút xóa
+                                    IconButton(
+                                        onClick = {
+                                            if (ingredients.size > 1) {
+                                                ingredients = ingredients.filterIndexed { i, _ -> i != index }
+                                            } else {
+                                                ingredients = listOf(IngredientItem())
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(
+                                                Color(0xFFFEE2E2),
+                                                RoundedCornerShape(10.dp)
+                                            )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Xóa",
+                                            tint = Color(0xFFDC2626),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                
+                                // TextField với autocomplete để chọn hoặc nhập nguyên liệu
+                                var searchQuery by remember(ingredient.name) { mutableStateOf(ingredient.name) }
+                                
+                                // Đồng bộ searchQuery khi ingredient.name thay đổi từ bên ngoài
+                                LaunchedEffect(ingredient.name) {
+                                    if (searchQuery != ingredient.name) {
+                                        searchQuery = ingredient.name
+                                    }
+                                }
+                                
+                                // Lọc danh sách foodItems dựa trên search query
+                                val filteredFoodItems = remember(searchQuery, foodItems) {
+                                    if (searchQuery.isBlank()) {
+                                        foodItems
+                                    } else {
+                                        foodItems.filter { 
+                                            it.name.contains(searchQuery, ignoreCase = true) 
+                                        }
+                                    }
+                                }
+                                
+                                ExposedDropdownMenuBox(
+                                    expanded = expandedFoodItem && filteredFoodItems.isNotEmpty(),
+                                    onExpandedChange = { expandedFoodItem = it },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    OutlinedTextField(
+                                        value = searchQuery,
+                                        onValueChange = { newValue ->
+                                            searchQuery = newValue
+                                            expandedFoodItem = newValue.isNotBlank() && filteredFoodItems.isNotEmpty()
+                                            // Cập nhật ingredient name khi gõ
+                                            val matchedFoodItem = filteredFoodItems.firstOrNull { it.name.equals(newValue, ignoreCase = true) }
+                                            val suggestedUnit = if (newValue.isNotBlank()) {
+                                                IngredientUnit.getDefaultUnit(newValue)
+                                            } else {
+                                                ingredient.unit
+                                            }
+                                            ingredients = ingredients.mapIndexed { i, item ->
+                                                if (i == index) {
+                                                    item.copy(
+                                                        name = newValue,
+                                                        foodItemId = matchedFoodItem?.id,
+                                                        unit = if (matchedFoodItem != null) suggestedUnit else item.unit
+                                                    )
+                                                } else item
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .menuAnchor(),
+                                        placeholder = { Text("Tên nguyên liệu (gõ để tìm kiếm)", fontSize = 13.sp) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color(0xFF00BFA5),
+                                            unfocusedBorderColor = Color(0xFFE5E7EB),
+                                            focusedContainerColor = Color.White,
+                                            unfocusedContainerColor = Color.White
+                                        ),
+                                        enabled = ingredient.categoryId != null,
+                                        trailingIcon = {
+                                            if (searchQuery.isNotBlank()) {
+                                                IconButton(
+                                                    onClick = {
+                                                        searchQuery = ""
+                                                        ingredients = ingredients.mapIndexed { i, item ->
+                                                            if (i == index) item.copy(name = "", foodItemId = null) else item
+                                                        }
+                                                        expandedFoodItem = false
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Xóa",
+                                                        modifier = Modifier.size(18.dp),
+                                                        tint = Color(0xFF6B7280)
+                                                    )
+                                                }
+                                            } else {
+                                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFoodItem)
+                                            }
+                                        }
                                     )
+                                    ExposedDropdownMenu(
+                                        expanded = expandedFoodItem && filteredFoodItems.isNotEmpty(),
+                                        onDismissRequest = { expandedFoodItem = false }
+                                    ) {
+                                        if (ingredient.categoryId != null) {
+                                            // Hiển thị tối đa 5 kết quả đề xuất
+                                            filteredFoodItems.take(5).forEach { foodItem ->
+                                                DropdownMenuItem(
+                                                    text = { Text(foodItem.name) },
+                                                    onClick = {
+                                                        searchQuery = foodItem.name
+                                                        // Sử dụng unit từ foodItem, nếu không có thì đề xuất dựa trên tên
+                                                        val unitFromFood = try {
+                                                            IngredientUnit.entries.firstOrNull { 
+                                                                it.abbreviation.equals(foodItem.unit, ignoreCase = true) 
+                                                            } ?: IngredientUnit.getDefaultUnit(foodItem.name)
+                                                        } catch (e: Exception) {
+                                                            IngredientUnit.getDefaultUnit(foodItem.name)
+                                                        }
+                                                        ingredients = ingredients.mapIndexed { i, item ->
+                                                            if (i == index) {
+                                                                item.copy(
+                                                                    name = foodItem.name,
+                                                                    foodItemId = foodItem.id,
+                                                                    unit = unitFromFood
+                                                                )
+                                                            } else item
+                                                        }
+                                                        expandedFoodItem = false
+                                                    }
+                                                )
+                                            }
+                                            // Nếu có nhiều hơn 5 kết quả, hiển thị thông báo
+                                            if (filteredFoodItems.size > 5) {
+                                                DropdownMenuItem(
+                                                    text = { 
+                                                        Text(
+                                                            "... và ${filteredFoodItems.size - 5} kết quả khác. Gõ thêm để lọc",
+                                                            fontSize = 12.sp,
+                                                            color = Color(0xFF6B7280)
+                                                        ) 
+                                                    },
+                                                    onClick = { },
+                                                    enabled = false
+                                                )
+                                            }
+                                        } else {
+                                            DropdownMenuItem(
+                                                text = { Text("Vui lòng chọn danh mục trước", fontSize = 12.sp) },
+                                                onClick = { expandedFoodItem = false },
+                                                enabled = false
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                // Hàng 1: Số lượng và Đơn vị
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Số lượng
+                                    OutlinedTextField(
+                                        value = ingredient.quantity,
+                                        onValueChange = { newQuantity ->
+                                            ingredients = ingredients.mapIndexed { i, item ->
+                                                if (i == index) item.copy(quantity = newQuantity) else item
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1.2f),
+                                        placeholder = { Text("Số lượng", fontSize = 13.sp) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color(0xFF00BFA5),
+                                            unfocusedBorderColor = Color(0xFFE5E7EB),
+                                            focusedContainerColor = Color.White,
+                                            unfocusedContainerColor = Color.White
+                                        )
+                                    )
+                                    
+                                    // Autocomplete chọn đơn vị
+                                    var unitSearchQuery by remember(ingredient.unit.abbreviation) { mutableStateOf(ingredient.unit.abbreviation) }
+                                    
+                                    // Đồng bộ unitSearchQuery khi ingredient.unit thay đổi
+                                    LaunchedEffect(ingredient.unit.abbreviation) {
+                                        if (unitSearchQuery != ingredient.unit.abbreviation) {
+                                            unitSearchQuery = ingredient.unit.abbreviation
+                                        }
+                                    }
+                                    
+                                    val filteredUnits = remember(unitSearchQuery) {
+                                        if (unitSearchQuery.isBlank()) {
+                                            IngredientUnit.entries
+                                        } else {
+                                            IngredientUnit.entries.filter { 
+                                                it.abbreviation.contains(unitSearchQuery, ignoreCase = true) ||
+                                                it.displayName.contains(unitSearchQuery, ignoreCase = true)
+                                            }
+                                        }
+                                    }
+                                    
+                                    ExposedDropdownMenuBox(
+                                        expanded = expandedUnit && filteredUnits.isNotEmpty(),
+                                        onExpandedChange = { expandedUnit = it },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = unitSearchQuery,
+                                            onValueChange = { newValue ->
+                                                unitSearchQuery = newValue
+                                                expandedUnit = newValue.isNotBlank() && filteredUnits.isNotEmpty()
+                                                // Tìm unit khớp
+                                                val matchedUnit = filteredUnits.firstOrNull { 
+                                                    it.abbreviation.equals(newValue, ignoreCase = true) ||
+                                                    it.displayName.equals(newValue, ignoreCase = true)
+                                                }
+                                                if (matchedUnit != null) {
+                                                    ingredients = ingredients.mapIndexed { i, item ->
+                                                        if (i == index) item.copy(unit = matchedUnit) else item
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .menuAnchor(),
+                                            placeholder = { Text("Đơn vị (gõ để tìm)", fontSize = 13.sp) },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color(0xFF00BFA5),
+                                                unfocusedBorderColor = Color(0xFFE5E7EB),
+                                                focusedContainerColor = Color.White,
+                                                unfocusedContainerColor = Color.White
+                                            ),
+                                            trailingIcon = {
+                                                if (unitSearchQuery.isNotBlank()) {
+                                                    IconButton(
+                                                        onClick = {
+                                                            unitSearchQuery = ingredient.unit.abbreviation
+                                                            expandedUnit = false
+                                                        }
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Close,
+                                                            contentDescription = "Xóa",
+                                                            modifier = Modifier.size(18.dp),
+                                                            tint = Color(0xFF6B7280)
+                                                        )
+                                                    }
+                                                } else {
+                                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedUnit)
+                                                }
+                                            }
+                                        )
+                                        ExposedDropdownMenu(
+                                            expanded = expandedUnit && filteredUnits.isNotEmpty(),
+                                            onDismissRequest = { expandedUnit = false }
+                                        ) {
+                                            filteredUnits.take(5).forEach { unit ->
+                                                DropdownMenuItem(
+                                                    text = { Text("${unit.abbreviation} - ${unit.displayName}") },
+                                                    onClick = {
+                                                        unitSearchQuery = unit.abbreviation
+                                                        ingredients = ingredients.mapIndexed { i, item ->
+                                                            if (i == index) item.copy(unit = unit) else item
+                                                        }
+                                                        expandedUnit = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Hàng 2: Phương pháp nấu
+                                var cookingMethodSearchQuery by remember(ingredient.cookingMethod?.displayName) { 
+                                    mutableStateOf(ingredient.cookingMethod?.displayName ?: "") 
+                                }
+                                
+                                // Đồng bộ cookingMethodSearchQuery khi ingredient.cookingMethod thay đổi
+                                LaunchedEffect(ingredient.cookingMethod?.displayName) {
+                                    val newValue = ingredient.cookingMethod?.displayName ?: ""
+                                    if (cookingMethodSearchQuery != newValue) {
+                                        cookingMethodSearchQuery = newValue
+                                    }
+                                }
+                                
+                                val filteredCookingMethods = remember(cookingMethodSearchQuery) {
+                                    if (cookingMethodSearchQuery.isBlank()) {
+                                        CookingMethod.entries
+                                    } else {
+                                        CookingMethod.entries.filter { 
+                                            it.displayName.contains(cookingMethodSearchQuery, ignoreCase = true)
+                                        }
+                                    }
+                                }
+                                
+                                ExposedDropdownMenuBox(
+                                    expanded = expandedCookingMethod && filteredCookingMethods.isNotEmpty(),
+                                    onExpandedChange = { expandedCookingMethod = it },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    OutlinedTextField(
+                                        value = cookingMethodSearchQuery.ifBlank { "Phương pháp nấu" },
+                                        onValueChange = { newValue ->
+                                            cookingMethodSearchQuery = newValue
+                                            expandedCookingMethod = newValue.isNotBlank() && filteredCookingMethods.isNotEmpty()
+                                            // Tìm method khớp
+                                            val matchedMethod = filteredCookingMethods.firstOrNull { 
+                                                it.displayName.equals(newValue, ignoreCase = true)
+                                            }
+                                            if (matchedMethod != null) {
+                                                ingredients = ingredients.mapIndexed { i, item ->
+                                                    if (i == index) item.copy(cookingMethod = matchedMethod) else item
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .menuAnchor(),
+                                        placeholder = { Text("Phương pháp nấu (gõ để tìm)", fontSize = 13.sp) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color(0xFF00BFA5),
+                                            unfocusedBorderColor = Color(0xFFE5E7EB),
+                                            focusedContainerColor = Color.White,
+                                            unfocusedContainerColor = Color.White
+                                        ),
+                                        trailingIcon = {
+                                            if (cookingMethodSearchQuery.isNotBlank()) {
+                                                IconButton(
+                                                    onClick = {
+                                                        cookingMethodSearchQuery = ""
+                                                        ingredients = ingredients.mapIndexed { i, item ->
+                                                            if (i == index) item.copy(cookingMethod = null) else item
+                                                        }
+                                                        expandedCookingMethod = false
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Xóa",
+                                                        modifier = Modifier.size(18.dp),
+                                                        tint = Color(0xFF6B7280)
+                                                    )
+                                                }
+                                            } else {
+                                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCookingMethod)
+                                            }
+                                        }
+                                    )
+                                    ExposedDropdownMenu(
+                                        expanded = expandedCookingMethod && filteredCookingMethods.isNotEmpty(),
+                                        onDismissRequest = { expandedCookingMethod = false }
+                                    ) {
+                                        filteredCookingMethods.take(5).forEach { method ->
+                                            DropdownMenuItem(
+                                                text = { Text(method.displayName) },
+                                                onClick = {
+                                                    cookingMethodSearchQuery = method.displayName
+                                                    ingredients = ingredients.mapIndexed { i, item ->
+                                                        if (i == index) item.copy(cookingMethod = method) else item
+                                                    }
+                                                    expandedCookingMethod = false
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

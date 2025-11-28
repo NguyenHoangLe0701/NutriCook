@@ -28,6 +28,22 @@
                                         </select>
                                     </div>
                                     <div>
+                                        <label for="unit" class="block text-sm font-semibold text-gray-700 mb-1.5">Đơn vị mặc định *</label>
+                                        <select th:field="*{unit}" id="unit" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" required>
+                                            <option value="g" th:selected="${foodItem.unit == 'g'}">g - Gram</option>
+                                            <option value="kg" th:selected="${foodItem.unit == 'kg'}">kg - Kilogram</option>
+                                            <option value="ml" th:selected="${foodItem.unit == 'ml'}">ml - Milliliter</option>
+                                            <option value="l" th:selected="${foodItem.unit == 'l'}">l - Liter</option>
+                                            <option value="quả" th:selected="${foodItem.unit == 'quả'}">quả - Quả/Cái</option>
+                                            <option value="cốc" th:selected="${foodItem.unit == 'cốc'}">cốc - Cốc</option>
+                                            <option value="thìa canh" th:selected="${foodItem.unit == 'thìa canh'}">thìa canh - Thìa canh</option>
+                                            <option value="thìa cà phê" th:selected="${foodItem.unit == 'thìa cà phê'}">thìa cà phê - Thìa cà phê</option>
+                                            <option value="lát" th:selected="${foodItem.unit == 'lát'}">lát - Lát</option>
+                                            <option value="tép" th:selected="${foodItem.unit == 'tép'}">tép - Tép</option>
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500">Đơn vị đo lường mặc định cho nguyên liệu này</p>
+                                    </div>
+                                    <div>
                                         <label for="calories" class="block text-sm font-semibold text-gray-700 mb-1.5">Calories *</label>
                                         <div class="relative">
                                             <input type="number" id="calories-input" step="0.1" min="0" class="block w-full px-4 py-2.5 pr-16 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="52" required>

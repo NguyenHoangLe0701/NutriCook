@@ -611,6 +611,7 @@ public class AdminController {
                 existingFood.setDescription(foodItem.getDescription());
                 existingFood.setCategory(categoryFromDb); // <-- SỬA LỖI: Dùng category đầy đủ
                 existingFood.setAvailable(foodItem.getAvailable());
+                existingFood.setUnit(foodItem.getUnit()); // Cập nhật đơn vị
                 // Cập nhật thông tin dinh dưỡng
                 existingFood.setFat(foodItem.getFat());
                 existingFood.setCarbs(foodItem.getCarbs());

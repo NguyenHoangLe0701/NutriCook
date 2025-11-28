@@ -11,13 +11,13 @@ object NutritionCalculator {
     /**
      * Tính toán tổng dinh dưỡng từ danh sách nguyên liệu
      * @param ingredients Danh sách nguyên liệu với tên và số lượng
-     * @param foodItemsMap Map từ tên nguyên liệu đến FoodItemUI (từ database)
+     * @param foodItemsMap Map từ foodItemId đến FoodItemUI (từ database)
      * @param servings Số phần ăn (để chia đều dinh dưỡng)
-     * @return NutritionData chứa tổng dinh dưỡng
+     * @return NutritionData chứa tổng dinh dưỡng (sau khi áp dụng độ tiêu hao)
      */
     fun calculateNutrition(
         ingredients: List<IngredientItem>,
-        foodItemsMap: Map<String, FoodItemUI>,
+        foodItemsMap: Map<Long, FoodItemUI>,
         servings: Int = 1
     ): NutritionData {
         var totalCalories = 0.0
@@ -29,26 +29,59 @@ object NutritionCalculator {
         var totalVitamin = 0.0
         
         ingredients.forEach { ingredient ->
-            if (ingredient.name.isNotBlank() && ingredient.quantity.isNotBlank()) {
-                val foodItem = foodItemsMap[ingredient.name.lowercase().trim()]
+            if (ingredient.name.isNotBlank() && ingredient.quantity.isNotBlank() && ingredient.foodItemId != null) {
+                val foodItem = foodItemsMap[ingredient.foodItemId]
                 if (foodItem != null) {
-                    // Parse số lượng (ví dụ: "200g" -> 200.0)
-                    val quantity = parseQuantity(ingredient.quantity)
+                    // Parse số lượng từ string
+                    val quantityInUnits = parseQuantity(ingredient.quantity)
                     
-                    // Tính dinh dưỡng dựa trên số lượng
-                    // Giả sử giá trị trong FoodItemUI là trên 100g
-                    val multiplier = quantity / 100.0
+                    // Chuyển đổi từ đơn vị của nguyên liệu sang gram
+                    // Ví dụ: 2 quả trứng = 2 * 100g = 200g, 500ml nước = 500g
+                    val quantityInGrams = ingredient.unit.toGrams(quantityInUnits)
+                    
+                    // Tính dinh dưỡng dựa trên số lượng (giá trị trong FoodItemUI là trên 100g)
+                    val multiplier = quantityInGrams / 100.0
                     
                     // Parse calories từ string (ví dụ: "100 kcal" -> 100.0)
                     val caloriesValue = parseCalories(foodItem.calories)
                     
-                    totalCalories += caloriesValue * multiplier
-                    totalFat += foodItem.fat * multiplier
-                    totalCarbs += foodItem.carbs * multiplier
-                    totalProtein += foodItem.protein * multiplier
-                    totalCholesterol += foodItem.cholesterol * multiplier
-                    totalSodium += foodItem.sodium * multiplier
-                    totalVitamin += foodItem.vitamin * multiplier
+                    // Tính dinh dưỡng ban đầu
+                    var calories = caloriesValue * multiplier
+                    var fat = foodItem.fat * multiplier
+                    var carbs = foodItem.carbs * multiplier
+                    var protein = foodItem.protein * multiplier
+                    var cholesterol = foodItem.cholesterol * multiplier
+                    var sodium = foodItem.sodium * multiplier
+                    var vitamin = foodItem.vitamin * multiplier
+                    
+                    // Áp dụng độ tiêu hao dinh dưỡng dựa trên phương pháp nấu
+                    val cookingMethod = ingredient.cookingMethod
+                    if (cookingMethod != null) {
+                        // Tính toán dinh dưỡng sau khi nấu
+                        // Vitamin và khoáng chất bị ảnh hưởng nhiều nhất
+                        vitamin = cookingMethod.calculateAfterCooking(vitamin, NutrientType.VITAMIN)
+                        
+                        // Protein, carbs, fat cũng bị ảnh hưởng
+                        protein = cookingMethod.calculateAfterCooking(protein, NutrientType.PROTEIN)
+                        carbs = cookingMethod.calculateAfterCooking(carbs, NutrientType.CARBS)
+                        fat = cookingMethod.calculateAfterCooking(fat, NutrientType.FAT)
+                        
+                        // Sodium và cholesterol ít bị ảnh hưởng, nhưng có thể mất một phần
+                        sodium = cookingMethod.calculateAfterCooking(sodium, NutrientType.MINERAL)
+                        cholesterol = cookingMethod.calculateAfterCooking(cholesterol, NutrientType.FAT)
+                        
+                        // Calories được tính lại dựa trên các thành phần còn lại
+                        // 1g protein = 4 kcal, 1g carbs = 4 kcal, 1g fat = 9 kcal
+                        calories = (protein * 4.0) + (carbs * 4.0) + (fat * 9.0)
+                    }
+                    
+                    totalCalories += calories
+                    totalFat += fat
+                    totalCarbs += carbs
+                    totalProtein += protein
+                    totalCholesterol += cholesterol
+                    totalSodium += sodium
+                    totalVitamin += vitamin
                 }
             }
         }
@@ -76,21 +109,17 @@ object NutritionCalculator {
     }
     
     /**
-     * Parse số lượng từ string (ví dụ: "200g" -> 200.0, "1.5kg" -> 1500.0)
+     * Parse số lượng từ string (chỉ lấy số, không xử lý đơn vị)
+     * Ví dụ: "2" -> 2.0, "1.5" -> 1.5, "200" -> 200.0
+     * Đơn vị được xử lý riêng thông qua IngredientUnit
      */
     private fun parseQuantity(quantityStr: String): Double {
-        val cleaned = quantityStr.lowercase().trim()
+        val cleaned = quantityStr.trim()
         val numberPart = cleaned.filter { it.isDigit() || it == '.' || it == ',' }
             .replace(',', '.')
             .toDoubleOrNull() ?: 0.0
         
-        return when {
-            cleaned.contains("kg") -> numberPart * 1000.0
-            cleaned.contains("g") -> numberPart
-            cleaned.contains("ml") -> numberPart // Giả sử 1ml = 1g cho nước
-            cleaned.contains("l") -> numberPart * 1000.0
-            else -> numberPart // Mặc định là gram
-        }
+        return numberPart
     }
     
     /**

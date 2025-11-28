@@ -18,6 +18,7 @@ data class FoodItemUI(
     val name: String,
     val calories: String,
     val imageUrl: String,
+    val unit: String = "g", // Đơn vị mặc định (g, ml, quả, etc.)
     // Thông tin dinh dưỡng (tính trên 100g)
     val fat: Double = 0.0, // g
     val carbs: Double = 0.0, // g

@@ -53,11 +53,51 @@ public class SchemaInitializer {
                     "category_id BIGINT NOT NULL, " +
                     "user_id BIGINT, " +
                     "available BOOLEAN, " +
+                    "rating DOUBLE DEFAULT 0.0, " +
+                    "reviews INT DEFAULT 0, " +
+                    "unit VARCHAR(20) DEFAULT 'g', " +
+                    "fat DOUBLE DEFAULT 0.0, " +
+                    "carbs DOUBLE DEFAULT 0.0, " +
+                    "protein DOUBLE DEFAULT 0.0, " +
+                    "cholesterol DOUBLE DEFAULT 0.0, " +
+                    "sodium DOUBLE DEFAULT 0.0, " +
+                    "vitamin DOUBLE DEFAULT 0.0, " +
                     "created_at DATETIME, " +
                     "updated_at DATETIME, " +
                     "FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE, " +
                     "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL" +
                     ") ENGINE=InnoDB");
+            
+            // Thêm các cột mới nếu chưa tồn tại (migration)
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS unit VARCHAR(20) DEFAULT 'g'");
+            } catch (Exception e) {
+                // Column đã tồn tại, bỏ qua
+            }
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS fat DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS carbs DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS protein DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS cholesterol DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS sodium DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS vitamin DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS rating DOUBLE DEFAULT 0.0");
+            } catch (Exception e) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS reviews INT DEFAULT 0");
+            } catch (Exception e) {}
 
             // Food updates
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS food_updates (" +
