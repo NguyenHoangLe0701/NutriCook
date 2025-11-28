@@ -35,8 +35,7 @@ fun RecipeUploadSuccessScreen(
             .padding(horizontal = 20.dp, vertical = 10.dp) 
     ) {
         /** 🔹 Nút quay lại đặt sát trên cùng */
-        IconButton(
-            onClick = { navController.popBackStack() },
+        Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(top = 8.dp)
@@ -44,12 +43,17 @@ fun RecipeUploadSuccessScreen(
                 .background(Color(0xFFF4F6FA))
                 .size(46.dp) // 👉 to hơn nhẹ
         ) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Quay lại",
-                tint = Color(0xFF1E1E1E),
-                modifier = Modifier.size(26.dp) 
-            )
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Quay lại",
+                    tint = Color(0xFF1E1E1E),
+                    modifier = Modifier.size(26.dp) 
+                )
+            }
         }
 
         /** 🔹 Nội dung chính căn giữa */

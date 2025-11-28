@@ -100,19 +100,25 @@ fun CreateRecipeStep1Screen(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { navController.popBackStack() },
-                        modifier = Modifier.background(
-                            Color(0xFF00BFA5).copy(alpha = 0.1f),
-                            RoundedCornerShape(12.dp)
-                        )
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                Color(0xFF00BFA5).copy(alpha = 0.1f),
+                                RoundedCornerShape(12.dp)
+                            )
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Quay lại",
-                            modifier = Modifier.size(24.dp),
-                            tint = Color(0xFF00BFA5)
-                        )
+                        IconButton(
+                            onClick = { navController.popBackStack() },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Quay lại",
+                                modifier = Modifier.size(24.dp),
+                                tint = Color(0xFF00BFA5)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {

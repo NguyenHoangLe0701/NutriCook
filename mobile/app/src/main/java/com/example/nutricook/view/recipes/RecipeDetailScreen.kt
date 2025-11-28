@@ -174,33 +174,41 @@ fun RecipeDetailScreen(navController: NavController, recipeTitle: String, imageR
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Nút Back
-            IconButton(
-                onClick = { navController.popBackStack() },
+            Box(
                 modifier = Modifier
                     .size(42.dp)
                     .background(Color.White.copy(alpha = 0.85f), CircleShape)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black,
-                    modifier = Modifier.size(22.dp)
-                )
+                IconButton(
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
             // Nút Tim (Favorite)
-            IconButton(
-                onClick = { isFavorite = !isFavorite },
+            Box(
                 modifier = Modifier
                     .size(42.dp)
                     .background(Color.White.copy(alpha = 0.85f), CircleShape)
             ) {
-                Icon(
-                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (isFavorite) Color(0xFFFF4F4F) else Color.Black,
-                    modifier = Modifier.size(22.dp)
-                )
+                IconButton(
+                    onClick = { isFavorite = !isFavorite },
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color(0xFFFF4F4F) else Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }

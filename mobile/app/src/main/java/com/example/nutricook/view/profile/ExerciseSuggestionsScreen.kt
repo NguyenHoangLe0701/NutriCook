@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nutricook.R
+import kotlin.math.abs
 
 data class Exercise(
     val name: String,
@@ -31,17 +32,56 @@ data class Exercise(
 
 @Composable
 fun ExerciseSuggestionsScreen(navController: NavController) {
-    val exercises = listOf(
-        Exercise("Bóng chày", "15 phút", 120, R.drawable.baseball, "Trung bình"),
-        Exercise("Bóng rổ", "15 phút", 150, R.drawable.basketball, "Cao"),
-        Exercise("Leo núi", "15 phút", 200, R.drawable.mountain, "Cao"),
-        Exercise("Đạp xe", "15 phút", 100, R.drawable.cycling, "Trung bình"),
-        Exercise("Đá banh", "45 phút", 400, R.drawable.football, "Thấp"),
-        Exercise("Chạy bộ", "15 phút", 180, R.drawable.run, "Cao"),
-        Exercise("Quần vợt", "15 phút", 180, R.drawable.tenis, "Cao")
-    )
+    val allExercises = remember {
+        listOf(
+            // ~100 kcal exercises
+            Exercise("Đạp xe", "15 phút", 100, R.drawable.cycling, "Trung bình"),
+            Exercise("Đi bộ nhanh", "20 phút", 100, R.drawable.run, "Thấp"),
+            Exercise("Yoga nhẹ", "30 phút", 100, R.drawable.baseball, "Thấp"),
+            Exercise("Bơi lội nhẹ", "15 phút", 100, R.drawable.cycling, "Trung bình"),
+            
+            // ~150 kcal exercises
+            Exercise("Bóng rổ", "15 phút", 150, R.drawable.basketball, "Cao"),
+            Exercise("Chạy bộ nhẹ", "15 phút", 150, R.drawable.run, "Trung bình"),
+            Exercise("Nhảy dây", "15 phút", 150, R.drawable.tenis, "Cao"),
+            Exercise("Aerobic", "20 phút", 150, R.drawable.baseball, "Trung bình"),
+            
+            // ~200 kcal exercises
+            Exercise("Leo núi", "15 phút", 200, R.drawable.mountain, "Cao"),
+            Exercise("Chạy bộ", "20 phút", 200, R.drawable.run, "Cao"),
+            Exercise("Bóng chày", "20 phút", 200, R.drawable.baseball, "Trung bình"),
+            Exercise("Quần vợt", "20 phút", 200, R.drawable.tenis, "Cao"),
+            Exercise("Bơi lội", "20 phút", 200, R.drawable.cycling, "Cao"),
+            
+            // ~300 kcal exercises
+            Exercise("Chạy bộ cường độ cao", "30 phút", 300, R.drawable.run, "Cao"),
+            Exercise("Đạp xe địa hình", "30 phút", 300, R.drawable.cycling, "Cao"),
+            Exercise("Bóng đá", "30 phút", 300, R.drawable.football, "Cao"),
+            Exercise("Bơi lội cường độ cao", "25 phút", 300, R.drawable.cycling, "Cao"),
+            Exercise("HIIT", "25 phút", 300, R.drawable.mountain, "Cao")
+        )
+    }
 
     var selectedCalories by remember { mutableStateOf(150) }
+    
+    // Lọc bài tập theo calories đã chọn (cho phép sai số ±25%)
+    val filteredExercises = remember(selectedCalories) {
+        val tolerance = (selectedCalories * 0.25).toInt() // 25% dung sai
+        val minCalories = (selectedCalories - tolerance).coerceAtLeast(0)
+        val maxCalories = selectedCalories + tolerance
+        
+        val exactMatches = allExercises.filter { exercise ->
+            exercise.caloriesBurned in minCalories..maxCalories
+        }
+        
+        if (exactMatches.isNotEmpty()) {
+            // Sắp xếp theo độ gần với mục tiêu
+            exactMatches.sortedBy { abs(it.caloriesBurned - selectedCalories) }
+        } else {
+            // Nếu không tìm thấy trong khoảng, lấy 4 bài tập gần nhất
+            allExercises.sortedBy { abs(it.caloriesBurned - selectedCalories) }.take(4)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -118,41 +158,88 @@ fun ExerciseSuggestionsScreen(navController: NavController) {
         item { Spacer(modifier = Modifier.height(24.dp)) }
 
         item {
-            Text(
-                text = "Bài tập đề xuất",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        }
-
-        item { Spacer(modifier = Modifier.height(12.dp)) }
-
-        // --- Danh sách bài tập ---
-        items(exercises.chunked(2)) { rowExercises ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                rowExercises.forEach { exercise ->
-                    ExerciseCard(
-                        exercise = exercise,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            navController.navigate(
-                                "exercise_detail/${exercise.name}/${exercise.imageRes}/${exercise.duration}/${exercise.caloriesBurned}/${exercise.difficulty}"
-                            )
-                        }
+                Text(
+                    text = "Bài tập đề xuất",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                if (filteredExercises.isNotEmpty()) {
+                    Text(
+                        text = "${filteredExercises.size} bài tập",
+                        fontSize = 13.sp,
+                        color = Color(0xFF20B2AA),
+                        fontWeight = FontWeight.Medium
                     )
                 }
-                if (rowExercises.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(12.dp)) }
+
+        // --- Danh sách bài tập đã lọc ---
+        if (filteredExercises.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "😔",
+                            fontSize = 48.sp
+                        )
+                        Text(
+                            text = "Không tìm thấy bài tập phù hợp",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "Vui lòng chọn mức calories khác",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+        } else {
+            items(filteredExercises.chunked(2)) { rowExercises ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowExercises.forEach { exercise ->
+                        ExerciseCard(
+                            exercise = exercise,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                navController.navigate(
+                                    "exercise_detail/${exercise.name}/${exercise.imageRes}/${exercise.duration}/${exercise.caloriesBurned}/${exercise.difficulty}"
+                                )
+                            }
+                        )
+                    }
+                    if (rowExercises.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
     }
 }

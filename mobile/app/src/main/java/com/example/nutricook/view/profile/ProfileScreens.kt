@@ -626,19 +626,84 @@ fun ProfessionalNutritionDialog(
                 QuickFood("Cơm trắng", 130f, 3f, 0.3f, 28f),
                 QuickFood("Bánh mì", 265f, 9f, 3.2f, 49f),
                 QuickFood("Phở bò", 350f, 20f, 8f, 45f),
-                QuickFood("Trứng ốp la", 155f, 13f, 11f, 1.1f)
+                QuickFood("Trứng ốp la", 155f, 13f, 11f, 1.1f),
+                QuickFood("Bún chả", 320f, 18f, 12f, 35f),
+                QuickFood("Bánh cuốn", 180f, 6f, 2f, 35f),
+                QuickFood("Cháo gà", 150f, 12f, 4f, 18f),
+                QuickFood("Xôi gấc", 240f, 4f, 1f, 52f)
             ),
             "Thịt & Cá" to listOf(
                 QuickFood("Thịt gà", 165f, 31f, 3.6f, 0f),
                 QuickFood("Thịt heo", 242f, 27f, 14f, 0f),
                 QuickFood("Thịt bò", 250f, 26f, 17f, 0f),
-                QuickFood("Cá hồi", 208f, 20f, 12f, 0f)
+                QuickFood("Cá hồi", 208f, 20f, 12f, 0f),
+                QuickFood("Cá basa", 180f, 18f, 10f, 0f),
+                QuickFood("Tôm", 99f, 24f, 0.3f, 0f),
+                QuickFood("Thịt vịt", 337f, 19f, 28f, 0f),
+                QuickFood("Thịt ngan", 200f, 22f, 11f, 0f)
+            ),
+            "Món nước" to listOf(
+                QuickFood("Bún bò Huế", 380f, 22f, 10f, 45f),
+                QuickFood("Hủ tiếu", 320f, 15f, 8f, 42f),
+                QuickFood("Bánh canh", 280f, 12f, 6f, 38f),
+                QuickFood("Mì Quảng", 350f, 18f, 9f, 40f),
+                QuickFood("Bún riêu", 290f, 14f, 7f, 36f),
+                QuickFood("Cháo lòng", 220f, 15f, 8f, 20f),
+                QuickFood("Súp cua", 180f, 10f, 5f, 22f)
+            ),
+            "Món xào" to listOf(
+                QuickFood("Cơm rang", 280f, 8f, 10f, 42f),
+                QuickFood("Mì xào", 320f, 12f, 12f, 38f),
+                QuickFood("Bún xào", 250f, 10f, 8f, 35f),
+                QuickFood("Rau muống xào", 85f, 3f, 4f, 10f),
+                QuickFood("Thịt bò xào", 220f, 20f, 12f, 8f),
+                QuickFood("Gà xào sả ớt", 195f, 22f, 8f, 5f)
+            ),
+            "Món chiên" to listOf(
+                QuickFood("Nem rán", 180f, 8f, 10f, 15f),
+                QuickFood("Chả giò", 200f, 6f, 12f, 18f),
+                QuickFood("Gà rán", 280f, 25f, 18f, 5f),
+                QuickFood("Cá chiên", 220f, 20f, 14f, 2f),
+                QuickFood("Tôm chiên", 195f, 18f, 10f, 8f),
+                QuickFood("Đậu phụ chiên", 120f, 8f, 7f, 3f)
+            ),
+            "Món nướng" to listOf(
+                QuickFood("Thịt nướng", 250f, 28f, 14f, 2f),
+                QuickFood("Chả cá", 180f, 20f, 9f, 1f),
+                QuickFood("Nem nướng", 220f, 15f, 12f, 8f),
+                QuickFood("Gà nướng", 240f, 26f, 12f, 3f),
+                QuickFood("Cá nướng", 200f, 22f, 10f, 1f)
+            ),
+            "Món canh" to listOf(
+                QuickFood("Canh chua cá", 120f, 15f, 4f, 8f),
+                QuickFood("Canh khổ qua", 85f, 8f, 3f, 6f),
+                QuickFood("Canh rau củ", 60f, 2f, 1f, 12f),
+                QuickFood("Canh bí đỏ", 75f, 2f, 0.5f, 18f),
+                QuickFood("Canh măng", 95f, 5f, 2f, 10f)
+            ),
+            "Tráng miệng" to listOf(
+                QuickFood("Chè đậu xanh", 180f, 5f, 2f, 38f),
+                QuickFood("Chè thái", 220f, 2f, 8f, 42f),
+                QuickFood("Bánh flan", 150f, 4f, 5f, 24f),
+                QuickFood("Kem", 200f, 3f, 11f, 25f),
+                QuickFood("Sữa chua", 100f, 5f, 3f, 15f)
             )
         )
     }
 
     var selectedCategory by remember { mutableStateOf("Phổ biến") }
-    val displayedFoods = foodCategories[selectedCategory] ?: emptyList()
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val displayedFoods = remember(selectedCategory, searchQuery) {
+        val categoryFoods = foodCategories[selectedCategory] ?: emptyList()
+        if (searchQuery.isBlank()) {
+            categoryFoods
+        } else {
+            categoryFoods.filter { 
+                it.name.contains(searchQuery, ignoreCase = true) 
+            }
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -674,25 +739,104 @@ fun ProfessionalNutritionDialog(
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Gợi ý nhanh", fontWeight = FontWeight.Bold, color = TextDark)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(foodCategories.keys.toList()) { cat ->
-                            FilterChip(
-                                selected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
-                                label = { Text(cat) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = TealLight, selectedLabelColor = TealPrimary)
+                // Search bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("🔍 Tìm kiếm món ăn...", fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "Tìm kiếm", tint = TextGray) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Xóa", tint = TextGray, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealPrimary,
+                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                    ),
+                    singleLine = true
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Gợi ý nhanh", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)
+                        if (displayedFoods.isNotEmpty()) {
+                            Text(
+                                "${displayedFoods.size} món",
+                                fontSize = 12.sp,
+                                color = TextGray,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(displayedFoods) { food ->
-                            QuickFoodChip(food) {
-                                cal = (currentCalories + food.calories).toString()
-                                pro = ((pro.toFloatOrNull() ?: 0f) + food.protein).toString()
-                                fat = ((fat.toFloatOrNull() ?: 0f) + food.fat).toString()
-                                carb = ((carb.toFloatOrNull() ?: 0f) + food.carb).toString()
+                    
+                    // Categories
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 0.dp)
+                    ) {
+                        items(foodCategories.keys.toList()) { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat,
+                                onClick = { 
+                                    selectedCategory = cat
+                                    searchQuery = ""
+                                },
+                                label = { Text(cat, fontSize = 13.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = TealPrimary,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color(0xFFF3F4F6),
+                                    labelColor = TextDark
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = selectedCategory == cat,
+                                    selectedBorderColor = TealPrimary,
+                                    borderColor = Color(0xFFE5E7EB),
+                                    selectedBorderWidth = 1.5.dp,
+                                    borderWidth = 1.dp
+                                )
+                            )
+                        }
+                    }
+                    
+                    // Food grid - scrollable
+                    if (displayedFoods.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Outlined.SearchOff, contentDescription = null, tint = TextGray, modifier = Modifier.size(40.dp))
+                                Text("Không tìm thấy món ăn", color = TextGray, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(horizontal = 0.dp)
+                        ) {
+                            items(displayedFoods) { food ->
+                                QuickFoodChip(food) {
+                                    cal = (currentCalories + food.calories).toString()
+                                    pro = ((pro.toFloatOrNull() ?: 0f) + food.protein).toString()
+                                    fat = ((fat.toFloatOrNull() ?: 0f) + food.fat).toString()
+                                    carb = ((carb.toFloatOrNull() ?: 0f) + food.carb).toString()
+                                }
                             }
                         }
                     }
@@ -732,13 +876,74 @@ data class QuickFood(val name: String, val calories: Float, val protein: Float, 
 @Composable
 fun QuickFoodChip(food: QuickFood, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD1FAE5))
+        modifier = Modifier
+            .width(110.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, TealPrimary.copy(alpha = 0.3f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(14.dp)
     ) {
-        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(food.name, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text("${food.calories.toInt()} kcal", fontSize = 10.sp, color = TealPrimary)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Food name
+            Text(
+                text = food.name,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDark,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                lineHeight = 16.sp
+            )
+            
+            // Calories badge
+            Surface(
+                color = TealPrimary.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "${food.calories.toInt()} kcal",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TealPrimary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+            
+            // Macro info (small)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Text(
+                    text = "P:${food.protein.toInt()}",
+                    fontSize = 9.sp,
+                    color = Color(0xFF3B82F6),
+                    fontWeight = FontWeight.Medium
+                )
+                Text("•", fontSize = 9.sp, color = TextGray)
+                Text(
+                    text = "F:${food.fat.toInt()}",
+                    fontSize = 9.sp,
+                    color = Color(0xFFF59E0B),
+                    fontWeight = FontWeight.Medium
+                )
+                Text("•", fontSize = 9.sp, color = TextGray)
+                Text(
+                    text = "C:${food.carb.toInt()}",
+                    fontSize = 9.sp,
+                    color = Color(0xFF10B981),
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
