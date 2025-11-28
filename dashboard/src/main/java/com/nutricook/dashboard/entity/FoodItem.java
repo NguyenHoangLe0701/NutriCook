@@ -44,6 +44,9 @@ public class FoodItem {
     private Double rating = 0.0; // Điểm đánh giá từ 0-5
     private Integer reviews = 0; // Số lượt đánh giá
     
+    // Đơn vị đo lường mặc định cho nguyên liệu
+    private String unit = "g"; // g, ml, quả, lát, tép, etc.
+    
     // Thông tin dinh dưỡng (tính trên 100g)
     private Double fat = 0.0; // g
     private Double carbs = 0.0; // g
@@ -129,4 +132,8 @@ public class FoodItem {
     
     public Double getVitamin() { return vitamin; }
     public void setVitamin(Double vitamin) { this.vitamin = vitamin != null ? vitamin : 0.0; }
+    
+    // Getter and Setter for unit
+    public String getUnit() { return unit; }
+    public void setUnit(String unit) { this.unit = unit != null && !unit.isEmpty() ? unit : "g"; }
 }

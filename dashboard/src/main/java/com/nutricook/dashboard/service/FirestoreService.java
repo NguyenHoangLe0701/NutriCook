@@ -326,6 +326,14 @@ public class FirestoreService {
                 f.setVitamin(0.0);
             }
             
+            // Đọc đơn vị đo lường
+            Object unitObj = data.get("unit");
+            if (unitObj != null) {
+                f.setUnit(String.valueOf(unitObj));
+            } else {
+                f.setUnit("g"); // Mặc định là gram
+            }
+            
             out.add(f);
         }
         return out;
@@ -348,6 +356,8 @@ public class FirestoreService {
         data.put("imageUrl", food.getImageUrl());
         data.put("rating", food.getRating() != null ? food.getRating() : 0.0);
         data.put("reviews", food.getReviews() != null ? food.getReviews() : 0);
+        // Đơn vị đo lường
+        data.put("unit", food.getUnit() != null && !food.getUnit().isEmpty() ? food.getUnit() : "g");
         // Thông tin dinh dưỡng
         data.put("fat", food.getFat() != null ? food.getFat() : 0.0);
         data.put("carbs", food.getCarbs() != null ? food.getCarbs() : 0.0);
