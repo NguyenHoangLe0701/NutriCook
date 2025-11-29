@@ -25,6 +25,7 @@ import com.nutricook.dashboard.entity.NutritionStats;
 import com.nutricook.dashboard.entity.Post;
 import com.nutricook.dashboard.entity.Review;
 import com.nutricook.dashboard.entity.User;
+import com.nutricook.dashboard.entity.UserRecipe;
 
 @Service
 @ConditionalOnProperty(name = "firebase.enabled", havingValue = "true")
@@ -1178,5 +1179,210 @@ public class FirestoreService {
             System.err.println("Error counting active users: " + e.getMessage());
             return 0L;
         }
+    }
+    
+    // ==========================================================
+    // USER RECIPE METHODS (Quản lý recipes từ mobile app)
+    // ==========================================================
+    
+    /**
+     * Lấy danh sách UserRecipe từ collection "userRecipes" trong Firestore
+     */
+    public List<UserRecipe> listUserRecipes() throws Exception {
+        System.out.println("🔍 FirestoreService.listUserRecipes() - Starting...");
+        CollectionReference userRecipesCol = firestore.collection("userRecipes");
+        System.out.println("🔍 Querying collection: userRecipes");
+        
+        QuerySnapshot snap;
+        try {
+            snap = userRecipesCol.orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING).get().get();
+            System.out.println("✅ Found " + snap.size() + " documents in userRecipes collection");
+        } catch (Exception e) {
+            System.err.println("⚠️ Error ordering by createdAt, trying without orderBy: " + e.getMessage());
+            // Thử không orderBy nếu có lỗi index
+            snap = userRecipesCol.get().get();
+            System.out.println("✅ Found " + snap.size() + " documents (without orderBy)");
+        }
+        
+        List<UserRecipe> out = new ArrayList<>();
+        
+        for (DocumentSnapshot doc : snap.getDocuments()) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+            
+            UserRecipe recipe = new UserRecipe();
+            recipe.setDocId(doc.getId());
+            recipe.setRecipeName((String) data.get("recipeName"));
+            recipe.setDescription((String) data.get("description"));
+            recipe.setEstimatedTime((String) data.get("estimatedTime"));
+            recipe.setServings((String) data.get("servings"));
+            recipe.setNotes((String) data.get("notes"));
+            recipe.setTips((String) data.get("tips"));
+            recipe.setUserId((String) data.get("userId"));
+            recipe.setUserEmail((String) data.get("userEmail"));
+            
+            // Parse imageUrls
+            Object imageUrlsObj = data.get("imageUrls");
+            System.out.println("🔍 Parsing imageUrls for recipe: " + recipe.getRecipeName());
+            System.out.println("   imageUrlsObj type: " + (imageUrlsObj != null ? imageUrlsObj.getClass().getName() : "null"));
+            System.out.println("   imageUrlsObj value: " + imageUrlsObj);
+            
+            if (imageUrlsObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Object> imageUrlsRaw = (List<Object>) imageUrlsObj;
+                List<String> imageUrls = new ArrayList<>();
+                
+                System.out.println("   📦 List size: " + imageUrlsRaw.size());
+                
+                for (int i = 0; i < imageUrlsRaw.size(); i++) {
+                    Object item = imageUrlsRaw.get(i);
+                    System.out.println("   Item[" + i + "] type: " + (item != null ? item.getClass().getName() : "null"));
+                    System.out.println("   Item[" + i + "] value: " + item);
+                    
+                    if (item instanceof String) {
+                        String url = (String) item;
+                        if (url != null && !url.trim().isEmpty()) {
+                            imageUrls.add(url.trim());
+                            System.out.println("   ✅ Added image URL[" + i + "]: " + url.trim());
+                        } else {
+                            System.out.println("   ⚠️ URL[" + i + "] is empty or null");
+                        }
+                    } else if (item != null) {
+                        // Convert to string if not null
+                        String url = item.toString().trim();
+                        if (!url.isEmpty()) {
+                            imageUrls.add(url);
+                            System.out.println("   ✅ Converted and added image URL[" + i + "]: " + url);
+                        } else {
+                            System.out.println("   ⚠️ Converted URL[" + i + "] is empty");
+                        }
+                    } else {
+                        System.out.println("   ⚠️ Item[" + i + "] is null, skipping");
+                    }
+                }
+                
+                recipe.setImageUrls(imageUrls);
+                System.out.println("   ✅ Total image URLs parsed: " + imageUrls.size());
+                if (!imageUrls.isEmpty()) {
+                    System.out.println("   🖼️ First image URL: " + imageUrls.get(0));
+                }
+            } else if (imageUrlsObj != null) {
+                System.out.println("   ⚠️ imageUrls is not a List, it's: " + imageUrlsObj.getClass().getName());
+                System.out.println("   ⚠️ Trying to convert to string: " + imageUrlsObj.toString());
+            } else {
+                System.out.println("   ⚠️ imageUrls is null or missing");
+            }
+            
+            // Parse ingredients
+            Object ingredientsObj = data.get("ingredients");
+            if (ingredientsObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> ingredients = (List<Map<String, Object>>) ingredientsObj;
+                recipe.setIngredients(ingredients);
+            }
+            
+            // Parse cookingSteps
+            Object cookingStepsObj = data.get("cookingSteps");
+            if (cookingStepsObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> cookingSteps = (List<Map<String, Object>>) cookingStepsObj;
+                recipe.setCookingSteps(cookingSteps);
+            }
+            
+            // Parse nutritionData
+            Object nutritionDataObj = data.get("nutritionData");
+            if (nutritionDataObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nutritionData = (Map<String, Object>) nutritionDataObj;
+                recipe.setNutritionData(nutritionData);
+            }
+            
+            // Parse rating và reviewCount
+            Object ratingObj = data.get("rating");
+            if (ratingObj instanceof Number) {
+                recipe.setRating(((Number) ratingObj).doubleValue());
+            } else {
+                recipe.setRating(0.0);
+            }
+            
+            Object reviewCountObj = data.get("reviewCount");
+            if (reviewCountObj instanceof Number) {
+                recipe.setReviewCount(((Number) reviewCountObj).intValue());
+            } else {
+                recipe.setReviewCount(0);
+            }
+            
+            // Parse approved và available (mặc định true nếu không có)
+            Object approvedObj = data.get("approved");
+            if (approvedObj instanceof Boolean) {
+                recipe.setApproved((Boolean) approvedObj);
+            } else {
+                recipe.setApproved(true);
+            }
+            
+            Object availableObj = data.get("available");
+            if (availableObj instanceof Boolean) {
+                recipe.setAvailable((Boolean) availableObj);
+            } else {
+                recipe.setAvailable(true);
+            }
+            
+            // Parse timestamps
+            Object createdAtObj = data.get("createdAt");
+            if (createdAtObj instanceof Timestamp) {
+                Timestamp ts = (Timestamp) createdAtObj;
+                recipe.setCreatedAt(ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
+            } else if (createdAtObj instanceof Date) {
+                Date d = (Date) createdAtObj;
+                recipe.setCreatedAt(d.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
+            }
+            
+            Object updatedAtObj = data.get("updatedAt");
+            if (updatedAtObj instanceof Timestamp) {
+                Timestamp ts = (Timestamp) updatedAtObj;
+                recipe.setUpdatedAt(ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
+            } else if (updatedAtObj instanceof Date) {
+                Date d = (Date) updatedAtObj;
+                recipe.setUpdatedAt(d.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
+            }
+            
+            out.add(recipe);
+        }
+        
+        System.out.println("✅ Successfully parsed " + out.size() + " UserRecipe objects");
+        return out;
+    }
+    
+    /**
+     * Xóa một UserRecipe khỏi Firestore
+     */
+    public boolean deleteUserRecipe(String docId) throws Exception {
+        if (docId == null || docId.isEmpty()) return false;
+        firestore.collection("userRecipes").document(docId).delete().get();
+        return true;
+    }
+    
+    /**
+     * Cập nhật trạng thái approved của UserRecipe
+     */
+    public boolean updateUserRecipeApproval(String docId, boolean approved) throws Exception {
+        if (docId == null || docId.isEmpty()) return false;
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("approved", approved);
+        updates.put("updatedAt", new Date());
+        firestore.collection("userRecipes").document(docId).update(updates).get();
+        return true;
+    }
+    
+    /**
+     * Cập nhật trạng thái available của UserRecipe
+     */
+    public boolean updateUserRecipeAvailability(String docId, boolean available) throws Exception {
+        if (docId == null || docId.isEmpty()) return false;
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("available", available);
+        updates.put("updatedAt", new Date());
+        firestore.collection("userRecipes").document(docId).update(updates).get();
+        return true;
     }
 }

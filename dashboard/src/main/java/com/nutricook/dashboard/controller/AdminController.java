@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.apache.poi.ss.usermodel.*;
@@ -40,7 +41,6 @@ import com.nutricook.dashboard.entity.NutritionStats;
 import com.nutricook.dashboard.entity.Post;
 import com.nutricook.dashboard.entity.Review;
 import com.nutricook.dashboard.entity.AnalyticsData;
-import java.util.ArrayList;
 import com.nutricook.dashboard.repository.CategoryRepository;
 import com.nutricook.dashboard.repository.FoodItemRepository;
 import com.nutricook.dashboard.repository.FoodUpdateRepository;
@@ -725,33 +725,206 @@ public class AdminController {
     
     // User Uploaded Foods Management - Quản lý món ăn người dùng upload
     @GetMapping("/user-uploaded-foods")
-    public String userUploadedFoods(Model model) {
-        List<FoodItem> userUploadedFoods;
-        try {
-            if (firestoreService != null) {
-                userUploadedFoods = firestoreService.listFoodsAsEntities();
-            } else {
-                userUploadedFoods = foodItemRepository.findAll();
+    public String userUploadedFoods(
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "filter", required = false) String filter,
+            Model model) {
+        List<com.nutricook.dashboard.entity.UserRecipe> userRecipes = new ArrayList<>();
+        
+        // Debug: Kiểm tra FirestoreService
+        if (firestoreService == null) {
+            System.err.println("⚠️ WARNING: FirestoreService is NULL! Firebase may not be enabled or configured.");
+            model.addAttribute("error", "Firestore service không khả dụng. Vui lòng kiểm tra cấu hình Firebase trong application.properties (firebase.enabled=true)");
+        } else {
+            System.out.println("✅ FirestoreService is available. Loading user recipes...");
+            try {
+                userRecipes = firestoreService.listUserRecipes();
+                System.out.println("✅ Loaded " + userRecipes.size() + " user recipes from Firestore");
+                
+                // Debug: In ra một vài recipe để kiểm tra
+                if (!userRecipes.isEmpty()) {
+                    com.nutricook.dashboard.entity.UserRecipe sample = userRecipes.get(0);
+                    System.out.println("📋 Sample recipe: " + sample.getRecipeName() + " by " + sample.getUserEmail());
+                    System.out.println("   ImageUrls: " + (sample.getImageUrls() != null ? sample.getImageUrls().size() + " items" : "null"));
+                    if (sample.getImageUrls() != null && !sample.getImageUrls().isEmpty()) {
+                        System.out.println("   First image URL: " + sample.getFirstImageUrl());
+                    } else {
+                        System.out.println("   ⚠️ No image URLs found!");
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("❌ Error loading user recipes: " + e.getMessage());
+                e.printStackTrace();
+                model.addAttribute("error", "Lỗi khi tải dữ liệu từ Firestore: " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println("Error loading foods: " + e.getMessage());
-            userUploadedFoods = foodItemRepository.findAll();
         }
         
-        // Lọc chỉ các món ăn do người dùng upload (có user không null)
-        userUploadedFoods = userUploadedFoods.stream()
-            .filter(food -> food.getUser() != null)
-            .sorted((a, b) -> {
-                if (a.getCreatedAt() == null || b.getCreatedAt() == null) return 0;
-                return b.getCreatedAt().compareTo(a.getCreatedAt());
-            })
-            .toList();
+        // Lọc theo search query
+        if (search != null && !search.trim().isEmpty()) {
+            String searchLower = search.toLowerCase();
+            userRecipes = userRecipes.stream()
+                .filter(recipe -> 
+                    (recipe.getRecipeName() != null && recipe.getRecipeName().toLowerCase().contains(searchLower)) ||
+                    (recipe.getUserEmail() != null && recipe.getUserEmail().toLowerCase().contains(searchLower)) ||
+                    (recipe.getDescription() != null && recipe.getDescription().toLowerCase().contains(searchLower))
+                )
+                .toList();
+        }
         
-        model.addAttribute("foods", userUploadedFoods);
+        // Lọc theo filter (approved, pending, hidden)
+        if (filter != null && !filter.isEmpty()) {
+            switch (filter) {
+                case "approved":
+                    userRecipes = userRecipes.stream()
+                        .filter(recipe -> recipe.getApproved() != null && recipe.getApproved())
+                        .toList();
+                    break;
+                case "pending":
+                    userRecipes = userRecipes.stream()
+                        .filter(recipe -> recipe.getApproved() == null || !recipe.getApproved())
+                        .toList();
+                    break;
+                case "hidden":
+                    userRecipes = userRecipes.stream()
+                        .filter(recipe -> recipe.getAvailable() != null && !recipe.getAvailable())
+                        .toList();
+                    break;
+            }
+        }
+        
+        model.addAttribute("recipes", userRecipes);
+        model.addAttribute("search", search != null ? search : "");
+        model.addAttribute("filter", filter != null ? filter : "");
         model.addAttribute("title", "Món ăn người dùng upload");
         model.addAttribute("subtitle", "Quản lý các món ăn được người dùng đăng tải");
         model.addAttribute("activeTab", "userUploadedFoods");
         return "admin/user-uploaded-foods";
+    }
+    
+    // Xóa user recipe
+    @PostMapping("/user-recipes/{docId}/delete")
+    public String deleteUserRecipe(
+            @PathVariable String docId,
+            RedirectAttributes redirectAttributes) {
+        try {
+            if (firestoreService != null) {
+                firestoreService.deleteUserRecipe(docId);
+                redirectAttributes.addFlashAttribute("success", "Xóa công thức thành công!");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Firestore service không khả dụng!");
+            }
+        } catch (Exception e) {
+            System.err.println("Error deleting user recipe: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa công thức: " + e.getMessage());
+        }
+        return "redirect:/admin/user-uploaded-foods";
+    }
+    
+    // Duyệt/không duyệt user recipe
+    @PostMapping("/user-recipes/{docId}/toggle-approval")
+    public String toggleUserRecipeApproval(
+            @PathVariable String docId,
+            RedirectAttributes redirectAttributes) {
+        try {
+            if (firestoreService != null) {
+                // Lấy recipe hiện tại để xem trạng thái
+                List<com.nutricook.dashboard.entity.UserRecipe> recipes = firestoreService.listUserRecipes();
+                com.nutricook.dashboard.entity.UserRecipe recipe = recipes.stream()
+                    .filter(r -> r.getDocId().equals(docId))
+                    .findFirst()
+                    .orElse(null);
+                
+                if (recipe != null) {
+                    boolean newApproved = !(recipe.getApproved() != null && recipe.getApproved());
+                    firestoreService.updateUserRecipeApproval(docId, newApproved);
+                    redirectAttributes.addFlashAttribute("success", 
+                        newApproved ? "Đã duyệt công thức!" : "Đã hủy duyệt công thức!");
+                } else {
+                    redirectAttributes.addFlashAttribute("error", "Không tìm thấy công thức!");
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Firestore service không khả dụng!");
+            }
+        } catch (Exception e) {
+            System.err.println("Error toggling approval: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi cập nhật trạng thái: " + e.getMessage());
+        }
+        return "redirect:/admin/user-uploaded-foods";
+    }
+    
+    // Ẩn/hiện user recipe
+    @PostMapping("/user-recipes/{docId}/toggle-availability")
+    public String toggleUserRecipeAvailability(
+            @PathVariable String docId,
+            RedirectAttributes redirectAttributes) {
+        try {
+            if (firestoreService != null) {
+                // Lấy recipe hiện tại để xem trạng thái
+                List<com.nutricook.dashboard.entity.UserRecipe> recipes = firestoreService.listUserRecipes();
+                com.nutricook.dashboard.entity.UserRecipe recipe = recipes.stream()
+                    .filter(r -> r.getDocId().equals(docId))
+                    .findFirst()
+                    .orElse(null);
+                
+                if (recipe != null) {
+                    boolean newAvailable = !(recipe.getAvailable() != null && recipe.getAvailable());
+                    firestoreService.updateUserRecipeAvailability(docId, newAvailable);
+                    redirectAttributes.addFlashAttribute("success", 
+                        newAvailable ? "Đã hiển thị công thức!" : "Đã ẩn công thức!");
+                } else {
+                    redirectAttributes.addFlashAttribute("error", "Không tìm thấy công thức!");
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Firestore service không khả dụng!");
+            }
+        } catch (Exception e) {
+            System.err.println("Error toggling availability: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi cập nhật trạng thái: " + e.getMessage());
+        }
+        return "redirect:/admin/user-uploaded-foods";
+    }
+    
+    // Debug endpoint để kiểm tra userRecipes
+    @GetMapping("/admin/debug/user-recipes")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> debugUserRecipes() {
+        Map<String, Object> result = new java.util.HashMap<>();
+        
+        result.put("firestoreServiceAvailable", firestoreService != null);
+        
+        if (firestoreService == null) {
+            result.put("error", "FirestoreService is null. Check firebase.enabled in application.properties");
+            return ResponseEntity.ok(result);
+        }
+        
+        try {
+            List<com.nutricook.dashboard.entity.UserRecipe> recipes = firestoreService.listUserRecipes();
+            result.put("count", recipes.size());
+            result.put("recipes", recipes.stream().map(r -> {
+                Map<String, Object> recipeMap = new java.util.HashMap<>();
+                recipeMap.put("docId", r.getDocId());
+                recipeMap.put("recipeName", r.getRecipeName());
+                recipeMap.put("userEmail", r.getUserEmail());
+                recipeMap.put("createdAt", r.getCreatedAt());
+                recipeMap.put("approved", r.getApproved());
+                recipeMap.put("available", r.getAvailable());
+                // Debug imageUrls
+                recipeMap.put("imageUrlsCount", r.getImageUrls() != null ? r.getImageUrls().size() : 0);
+                recipeMap.put("imageUrls", r.getImageUrls());
+                recipeMap.put("firstImageUrl", r.getFirstImageUrl());
+                return recipeMap;
+            }).toList());
+            result.put("success", true);
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("stackTrace", java.util.Arrays.toString(e.getStackTrace()));
+            e.printStackTrace();
+        }
+        
+        return ResponseEntity.ok(result);
     }
     
     // Search functionality - Tìm kiếm
