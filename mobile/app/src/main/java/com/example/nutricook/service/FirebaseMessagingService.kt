@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.nutricook.MainActivity
 import com.example.nutricook.R
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -87,8 +88,13 @@ class NutriCookMessagingService : FirebaseMessagingService() {
      * Gửi notification đến người dùng
      */
     private fun sendNotification(title: String, messageBody: String) {
+        // Intent để mở MainActivity khi click vào notification
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            // Thêm flags để đảm bảo mở đúng màn hình chính
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            // Truyền thông tin notification nếu cần
             putExtra("notification", true)
             putExtra("title", title)
             putExtra("message", messageBody)
@@ -101,18 +107,54 @@ class NutriCookMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Load logo từ drawable và convert sang Bitmap với kích thước lớn hơn
+        val logoBitmap = try {
+            val drawable = ContextCompat.getDrawable(this, R.drawable.logonutricook)
+            if (drawable != null) {
+                // Tăng kích thước logo lên 1.5x hoặc 2x để hiển thị lớn hơn
+                // Kích thước lớn icon trong notification thường là 256x256dp
+                // Nhân với density để có pixel thực tế
+                val scaleFactor = 2.0f // Tăng gấp đôi kích thước
+                val originalWidth = drawable.intrinsicWidth
+                val originalHeight = drawable.intrinsicHeight
+                
+                val newWidth = (originalWidth * scaleFactor).toInt()
+                val newHeight = (originalHeight * scaleFactor).toInt()
+                
+                // Tạo bitmap với kích thước mới
+                val bitmap = android.graphics.Bitmap.createBitmap(
+                    newWidth,
+                    newHeight,
+                    android.graphics.Bitmap.Config.ARGB_8888
+                )
+                val canvas = android.graphics.Canvas(bitmap)
+                
+                // Vẽ logo với kích thước mới
+                drawable.setBounds(0, 0, newWidth, newHeight)
+                drawable.draw(canvas)
+                
+                bitmap
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading logo for notification", e)
+            null
+        }
+
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // Icon nhỏ ở góc
+            .setLargeIcon(logoBitmap) // Logo lớn trong notification - QUAN TRỌNG
             .setContentTitle(title)
             .setContentText(messageBody)
-            .setAutoCancel(true)
+            .setAutoCancel(true) // Tự động đóng khi click
             .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(pendingIntent) // Mở app khi click
             .setPriority(NotificationCompat.PRIORITY_HIGH) // High priority để hiển thị trên lock screen
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // QUAN TRỌNG: Hiển thị trên lock screen
-            .setStyle(NotificationCompat.BigTextStyle().bigText(messageBody))
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(messageBody)) // Style cho text dài
+            .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound, vibration, lights
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
