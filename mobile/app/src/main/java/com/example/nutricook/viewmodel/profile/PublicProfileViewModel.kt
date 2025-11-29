@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
-import com.example.nutricook.model.profile.Post
+import com.example.nutricook.model.newsfeed.Post // IMPORT QUAN TRỌNG: Sử dụng Model thống nhất
 import com.example.nutricook.model.profile.Profile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,12 +13,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// State riêng cho màn hình Public Profile
+// State cho màn hình Public Profile
 data class PublicProfileState(
     val loading: Boolean = true,
     val profile: Profile? = null,
     val isFollowing: Boolean = false, // Trạng thái nút Follow
-    val posts: List<Post> = emptyList(), // Danh sách bài viết (Recipes)
+    val posts: List<Post> = emptyList(), // Danh sách bài viết (Model thống nhất)
     val error: String? = null
 )
 
@@ -31,7 +31,7 @@ class PublicProfileViewModel @Inject constructor(
     private val _state = MutableStateFlow(PublicProfileState())
     val state = _state.asStateFlow()
 
-    // Giả sử khi navigate bạn truyền tham số tên là "userId"
+    // Lấy tham số "userId" được truyền từ NavGraph
     private val targetUserId: String? = savedStateHandle["userId"]
 
     init {
@@ -39,8 +39,9 @@ class PublicProfileViewModel @Inject constructor(
     }
 
     fun loadData() {
-        if (targetUserId == null) {
-            _state.update { it.copy(loading = false, error = "User ID not found") }
+        val uid = targetUserId
+        if (uid == null) {
+            _state.update { it.copy(loading = false, error = "Không tìm thấy User ID") }
             return
         }
 
@@ -48,13 +49,15 @@ class PublicProfileViewModel @Inject constructor(
             _state.update { it.copy(loading = true, error = null) }
             try {
                 // 1. Lấy thông tin Profile
-                val profile = repo.getProfileByUid(targetUserId)
+                val profile = repo.getProfileByUid(uid)
 
                 // 2. Kiểm tra mình đã follow người này chưa
-                val isFollowing = repo.isFollowing(targetUserId)
+                val isFollowing = repo.isFollowing(uid)
 
-                // 3. Lấy danh sách bài viết (Recipes)
-                val postsPaged = repo.getUserPosts(targetUserId)
+                // 3. Lấy danh sách bài viết
+                // Vì Repo trả về Paged<Post> (model newsfeed) và State cũng dùng model newsfeed
+                // nên ta gán trực tiếp .items mà không cần map lại.
+                val postsPaged = repo.getUserPosts(uid)
 
                 _state.update {
                     it.copy(
@@ -72,23 +75,42 @@ class PublicProfileViewModel @Inject constructor(
 
     fun toggleFollow() {
         val uid = targetUserId ?: return
+        val currentProfile = _state.value.profile ?: return
         val currentFollowState = _state.value.isFollowing
+        val newFollowState = !currentFollowState
 
         viewModelScope.launch {
-            // Cập nhật UI lạc quan (Optimistic update) để app mượt hơn
-            _state.update { it.copy(isFollowing = !currentFollowState) }
+            // --- OPTIMISTIC UPDATE (Cập nhật giao diện trước khi gọi API) ---
+
+            // 1. Tính toán số follower mới giả định
+            // Nếu follow -> +1, nếu unfollow -> -1 (nhưng không nhỏ hơn 0)
+            val currentCount = currentProfile.followers
+            val newCount = if (newFollowState) currentCount + 1 else (currentCount - 1).coerceAtLeast(0)
+
+            // 2. Tạo profile object mới với số follower đã cập nhật
+            val updatedProfile = currentProfile.copy(followers = newCount)
+
+            // 3. Cập nhật UI ngay lập tức
+            _state.update {
+                it.copy(
+                    isFollowing = newFollowState,
+                    profile = updatedProfile
+                )
+            }
 
             try {
-                // Gọi xuống Firebase
-                repo.setFollow(uid, !currentFollowState)
-
-                // Tùy chọn: Load lại profile để cập nhật số lượng Follower chính xác
-                val updatedProfile = repo.getProfileByUid(uid)
-                _state.update { it.copy(profile = updatedProfile) }
+                // --- GỌI API ---
+                repo.setFollow(uid, newFollowState)
 
             } catch (e: Exception) {
-                // Nếu lỗi thì revert lại trạng thái cũ
-                _state.update { it.copy(isFollowing = currentFollowState, error = "Lỗi follow: ${e.message}") }
+                // --- ROLLBACK (Nếu API lỗi thì trả về trạng thái cũ) ---
+                _state.update {
+                    it.copy(
+                        isFollowing = currentFollowState, // Trả về trạng thái cũ
+                        profile = currentProfile,         // Trả về profile cũ (số follower cũ)
+                        error = "Lỗi thao tác: ${e.message}"
+                    )
+                }
             }
         }
     }

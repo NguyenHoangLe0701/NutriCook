@@ -8,18 +8,18 @@ interface IPostRepository {
     // Lấy danh sách bài viết
     suspend fun getNewsFeed(cursor: String?): Page<Post>
 
-    // Tạo bài viết (Lưu data vào Firestore)
-    suspend fun createPost(content: String, imageUrl: String?): Post
+    // [CẬP NHẬT] Thêm tham số title
+    suspend fun createPost(title: String, content: String, imageUrl: String?): Post
 
     // Xóa bài viết
     suspend fun deletePost(postId: String)
 
-    // [MỚI] Upload ảnh lên Storage -> Trả về URL
+    // Upload ảnh lên Storage -> Trả về URL
     suspend fun uploadImageToStorage(imageUri: Uri): String?
 
-    // [MỚI] Thả tim / Bỏ tim
+    // Thả tim / Bỏ tim
     suspend fun toggleLike(postId: String, currentUserId: String)
 
-    // [MỚI] Lưu bài / Bỏ lưu
+    // Lưu bài / Bỏ lưu
     suspend fun toggleSave(postId: String, currentUserId: String)
 }

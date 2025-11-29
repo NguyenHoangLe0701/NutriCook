@@ -6,6 +6,7 @@ import com.example.nutricook.data.Page
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.user.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
@@ -20,10 +21,7 @@ class PostRepository @Inject constructor(
     override suspend fun getNewsFeed(cursor: String?): Page<Post> {
         val currentUser = auth.currentUser
         if (currentUser == null) {
-            Log.e("DEBUG_FEED", "Repository: User is NULL. Không thể tải bài viết do Rules chặn!")
             return Page(emptyList(), null)
-        } else {
-            Log.d("DEBUG_FEED", "Repository: User OK (${currentUser.email}). Bắt đầu query Firestore...")
         }
 
         return try {
@@ -42,73 +40,65 @@ class PostRepository @Inject constructor(
 
             val snapshot = query.get().await()
             val items = snapshot.toObjects(Post::class.java)
-
-            Log.d("DEBUG_FEED", "Repository: Tải thành công ${items.size} bài viết.")
-
             val nextCursor = if (items.size >= pageSize) items.last().id else null
 
             Page(items = items, nextCursor = nextCursor)
         } catch (e: Exception) {
-            Log.e("DEBUG_FEED", "Repository Lỗi: ${e.message}")
             e.printStackTrace()
             Page(emptyList(), null)
         }
     }
 
-    override suspend fun createPost(content: String, imageUrl: String?): Post {
+    // [CẬP NHẬT] Nhận title và lưu vào object Post
+    override suspend fun createPost(title: String, content: String, imageUrl: String?): Post {
         val currentUser = auth.currentUser ?: throw Exception("Bạn chưa đăng nhập")
-
-        // Tạo Document Reference trước để lấy ID
         val docRef = firestore.collection("posts").document()
 
         val newPost = Post(
             id = docRef.id,
+            title = title, // Lưu title
             content = content,
             imageUrl = imageUrl,
             author = User(
                 id = currentUser.uid,
-                email = currentUser.email ?: "Anonymous"
+                email = currentUser.email ?: "Anonymous",
+                displayName = currentUser.displayName,
+                avatarUrl = currentUser.photoUrl?.toString()
             ),
             createdAt = System.currentTimeMillis(),
-            likes = emptyList(), // Khởi tạo rỗng
-            saves = emptyList(), // Khởi tạo rỗng
+            likes = emptyList(),
+            saves = emptyList(),
             commentCount = 0
         )
 
-        // Lưu lên Firestore
         docRef.set(newPost).await()
-        Log.d("DEBUG_FEED", "Repository: Đã đăng bài mới thành công (ID: ${docRef.id})")
+
+        // Tăng số lượng bài viết trong Profile
+        firestore.collection("users").document(currentUser.uid)
+            .update("posts", FieldValue.increment(1))
 
         return newPost
     }
 
     override suspend fun deletePost(postId: String) {
         try {
+            val currentUser = auth.currentUser ?: return
             firestore.collection("posts").document(postId).delete().await()
-            Log.d("DEBUG_FEED", "Repository: Đã xóa bài viết $postId")
+
+            firestore.collection("users").document(currentUser.uid)
+                .update("posts", FieldValue.increment(-1))
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    // --- CÁC HÀM BỔ SUNG MỚI ---
-
     override suspend fun uploadImageToStorage(imageUri: Uri): String? {
         return try {
-            // Lưu ý: Dùng getInstance() trực tiếp để tránh lỗi Hilt nếu chưa config module Storage
             val storageRef = FirebaseStorage.getInstance().reference
-            // Tạo tên file ngẫu nhiên: images/posts/UUID.jpg
             val imageRef = storageRef.child("images/posts/${java.util.UUID.randomUUID()}.jpg")
-
-            // Upload
             imageRef.putFile(imageUri).await()
-
-            // Lấy link download
-            val url = imageRef.downloadUrl.await().toString()
-            Log.d("DEBUG_FEED", "Upload ảnh thành công: $url")
-            url
+            imageRef.downloadUrl.await().toString()
         } catch (e: Exception) {
-            Log.e("DEBUG_FEED", "Lỗi upload ảnh: ${e.message}")
             e.printStackTrace()
             null
         }
@@ -121,13 +111,11 @@ class PostRepository @Inject constructor(
                 val snapshot = transaction.get(postRef)
                 val currentLikes = snapshot.get("likes") as? List<String> ?: emptyList()
 
-                val newLikes = if (currentLikes.contains(currentUserId)) {
-                    currentLikes - currentUserId // Bỏ like
+                if (currentLikes.contains(currentUserId)) {
+                    transaction.update(postRef, "likes", FieldValue.arrayRemove(currentUserId))
                 } else {
-                    currentLikes + currentUserId // Thêm like
+                    transaction.update(postRef, "likes", FieldValue.arrayUnion(currentUserId))
                 }
-
-                transaction.update(postRef, "likes", newLikes)
             }.await()
         } catch (e: Exception) {
             Log.e("DEBUG_FEED", "Lỗi toggle like: ${e.message}")
@@ -135,18 +123,28 @@ class PostRepository @Inject constructor(
     }
 
     override suspend fun toggleSave(postId: String, currentUserId: String) {
-        val postRef = firestore.collection("posts").document(postId)
+        val db = firestore
+        val postRef = db.collection("posts").document(postId)
+        val userSaveRef = db.collection("users").document(currentUserId)
+            .collection("saves").document(postId)
+
         try {
-            firestore.runTransaction { transaction ->
+            db.runTransaction { transaction ->
                 val snapshot = transaction.get(postRef)
+                @Suppress("UNCHECKED_CAST")
                 val currentSaves = snapshot.get("saves") as? List<String> ?: emptyList()
 
-                val newSaves = if (currentSaves.contains(currentUserId)) {
-                    currentSaves - currentUserId
+                if (currentSaves.contains(currentUserId)) {
+                    transaction.update(postRef, "saves", FieldValue.arrayRemove(currentUserId))
+                    transaction.delete(userSaveRef)
                 } else {
-                    currentSaves + currentUserId
+                    transaction.update(postRef, "saves", FieldValue.arrayUnion(currentUserId))
+                    val saveData = mapOf(
+                        "postId" to postId,
+                        "at" to FieldValue.serverTimestamp()
+                    )
+                    transaction.set(userSaveRef, saveData)
                 }
-                transaction.update(postRef, "saves", newSaves)
             }.await()
         } catch (e: Exception) {
             Log.e("DEBUG_FEED", "Lỗi toggle save: ${e.message}")

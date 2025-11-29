@@ -28,13 +28,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.nutricook.model.profile.Post
+// [QUAN TRỌNG] Import đúng Model Post thống nhất để khớp với ViewModel
+import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.user.bestName
 import com.example.nutricook.viewmodel.profile.PublicProfileViewModel
 
 // --- MÀU SẮC CHUẨN FIGMA ---
 private val TealPrimary = Color(0xFF2BB6AD)
-private val TealLight = Color(0xFFE0F7F6) // Màu nền cho avatar mặc định
+private val TealLight = Color(0xFFE0F7F6)
 private val TextDark = Color(0xFF1F2937)
 private val TextGray = Color(0xFF9CA3AF)
 private val DividerColor = Color(0xFFF3F4F6)
@@ -99,33 +100,30 @@ fun PublicProfileScreen(
                         ) {
                             Spacer(Modifier.height(20.dp))
 
-                            // --- LOGIC AVATAR MỚI ---
+                            // --- LOGIC AVATAR ---
                             val avatarUrl = profile.user.avatarUrl
-                            // Lấy chữ cái đầu, viết hoa, nếu không có thì hiện "?"
                             val initial = remember(profile.user) {
                                 profile.user.bestName().firstOrNull()?.uppercase() ?: "?"
                             }
 
                             if (avatarUrl.isNullOrBlank()) {
-                                // 1. Nếu KHÔNG có ảnh -> Hiện Initials
                                 Box(
                                     modifier = Modifier
                                         .size(110.dp)
                                         .clip(CircleShape)
-                                        .background(TealLight), // Nền xanh nhạt
+                                        .background(TealLight),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = initial,
                                         style = MaterialTheme.typography.headlineLarge.copy(
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 40.sp, // Chữ to
-                                            color = TealPrimary // Chữ xanh đậm
+                                            fontSize = 40.sp,
+                                            color = TealPrimary
                                         )
                                     )
                                 }
                             } else {
-                                // 2. Nếu CÓ ảnh -> Hiện AsyncImage
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data(avatarUrl)
@@ -175,19 +173,17 @@ fun PublicProfileScreen(
                                 StatItem(count = profile.posts.toString(), label = "Post")
 
                                 VerticalDivider(
-                                    modifier = Modifier
-                                        .height(30.dp)
-                                        .width(1.dp)
-                                        .background(Color(0xFFE5E7EB))
+                                    modifier = Modifier.height(30.dp),
+                                    thickness = 1.dp,
+                                    color = Color(0xFFE5E7EB)
                                 )
 
                                 StatItem(count = profile.following.toString(), label = "Following")
 
                                 VerticalDivider(
-                                    modifier = Modifier
-                                        .height(30.dp)
-                                        .width(1.dp)
-                                        .background(Color(0xFFE5E7EB))
+                                    modifier = Modifier.height(30.dp),
+                                    thickness = 1.dp,
+                                    color = Color(0xFFE5E7EB)
                                 )
 
                                 StatItem(count = profile.followers.toString(), label = "Follower")
@@ -387,7 +383,7 @@ fun SimplePostCard(post: Post, onClick: () -> Unit) {
 
             Column(Modifier.padding(16.dp)) {
                 Text(
-                    text = post.title ?: "Món ngon mỗi ngày",
+                    text = if (post.title.isNotBlank()) post.title else "Món ngon mỗi ngày",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -396,8 +392,9 @@ fun SimplePostCard(post: Post, onClick: () -> Unit) {
                     maxLines = 1
                 )
                 Spacer(Modifier.height(6.dp))
+                // Dùng thẳng post.content vì trong model mới nó non-null
                 Text(
-                    text = post.content ?: "",
+                    text = post.content,
                     style = MaterialTheme.typography.bodyMedium.copy(color = TextGray),
                     maxLines = 2
                 )

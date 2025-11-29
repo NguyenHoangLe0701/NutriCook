@@ -56,7 +56,6 @@ import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
-import com.example.nutricook.viewmodel.profile.SavesViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -118,11 +117,10 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        // 2. NEWSFEED (CỘNG ĐỒNG) - Mới thêm
+        // 2. NEWSFEED (CỘNG ĐỒNG)
         composable("newsfeed") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    // Đây là Feed chung, hiển thị bài của tất cả mọi người
                     NewsfeedScreen()
                 }
             }
@@ -154,7 +152,10 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("recent_activity/$uid")
                 },
-                // Khi bấm vào Post(0) -> Chuyển sang màn hình xem bài của user đó
+                onEditAvatar = {
+                    // [SỬA ĐỔI]: Thêm navigation đến màn hình chỉnh sửa
+                    navController.navigate("edit_profile")
+                },
                 onOpenPosts = {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("posts/$uid")
@@ -170,15 +171,13 @@ fun NavGraph(navController: NavHostController) {
 
         // ========== FEATURE DETAILS ==========
 
-        // Màn hình xem danh sách bài viết của 1 User cụ thể (Ví dụ: bấm vào Post(0) trong Profile)
         composable(
             route = "posts/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    // Tạm thời dùng chung NewsfeedScreen, sau này bạn có thể truyền userId vào để filter
-                    NewsfeedScreen()
+                    NewsfeedScreen() // Có thể custom để filter theo userId sau này
                 }
             }
         }
@@ -233,7 +232,7 @@ fun NavGraph(navController: NavHostController) {
         ) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Bài viết đã lưu (Đang phát triển)")
+                    Text("Bài viết đã lưu (Chi tiết)")
                 }
             }
         }
@@ -346,7 +345,7 @@ fun NavGraph(navController: NavHostController) {
         composable("edit_profile") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Màn hình Chỉnh sửa hồ sơ")
+                    Text("Màn hình Chỉnh sửa hồ sơ (Edit Profile Screen)")
                 }
             }
         }

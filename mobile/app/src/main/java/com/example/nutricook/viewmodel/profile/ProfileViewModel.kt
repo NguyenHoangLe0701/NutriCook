@@ -3,6 +3,7 @@ package com.example.nutricook.viewmodel.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
+import com.example.nutricook.model.newsfeed.Post // Import đúng
 import com.example.nutricook.model.profile.Profile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +26,10 @@ class ProfileViewModel @Inject constructor(
     private val _ui = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _ui.asStateFlow()
 
+    private val _savedPosts = MutableStateFlow<List<Post>>(emptyList())
+    val savedPosts: StateFlow<List<Post>> = _savedPosts.asStateFlow()
+
     init {
-        // Lắng nghe realtime; distinctUntilChanged để tránh render lại khi data không đổi
         repo.myProfileFlow()
             .distinctUntilChanged()
             .onEach { p ->
@@ -44,10 +47,22 @@ class ProfileViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
-        // Kéo 1 lần để chắc chắn/tạo doc nếu chưa có
         viewModelScope.launch {
             if (_ui.value.profile == null) refreshOnce()
         }
+    }
+
+    fun loadSavedPosts() = viewModelScope.launch {
+        val uid = _ui.value.profile?.user?.id ?: return@launch
+        runCatching {
+            repo.getUserSaves(uid)
+        }
+            .onSuccess { pagedResult ->
+                _savedPosts.value = pagedResult.items
+            }
+            .onFailure { e ->
+                e.printStackTrace()
+            }
     }
 
     fun refreshOnce() = viewModelScope.launch {
@@ -73,27 +88,18 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    /**
-     * Hàm helper: Tạo dữ liệu biểu đồ lịch sử Calo (7 ngày)
-     * Dựa trên Calories Target và biến thiên ngẫu nhiên cố định (Deterministic Random)
-     */
     private fun generateChartData(p: Profile?): List<Float> {
         if (p?.nutrition != null && p.nutrition.caloriesTarget > 0) {
             val target = p.nutrition.caloriesTarget
-            // Tạo 7 điểm dữ liệu
             return List(7) { index ->
-                // Dùng ID user + index làm seed để biểu đồ không bị nhảy lung tung mỗi lần load
                 val seed = (p.user.id.hashCode() + index).toLong()
-                // Random biến thiên từ -20% đến +20% quanh target
                 val randomFactor = Random(seed).nextFloat() * 0.4f - 0.2f
                 target + (target * randomFactor)
             }
         }
-        // Dữ liệu mặc định nếu chưa có nutrition
         return listOf(1500f, 1800f, 1600f, 1900f, 1700f, 2000f, 1800f)
     }
 
-    /** Dùng ở các màn chỉnh profile đơn giản (không phải settings) */
     fun updateProfile(fullName: String?, bio: String?) = viewModelScope.launch {
         _ui.update { it.copy(updating = true, message = null) }
         runCatching {
@@ -106,7 +112,6 @@ class ProfileViewModel @Inject constructor(
             )
         }
             .onSuccess {
-                // Nếu backend có stream, onEach sẽ bắn về; vẫn refresh để chắc đồng bộ
                 refreshOnce()
                 _ui.update { it.copy(updating = false, message = "Đã lưu hồ sơ") }
             }
@@ -120,12 +125,10 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    /** Đổi ảnh đại diện */
     fun updateAvatar(localUri: String) = viewModelScope.launch {
         _ui.update { it.copy(updating = true, message = null) }
         runCatching { repo.updateAvatar(localUri) }
             .onSuccess { url ->
-                // Cập nhật lạc quan để UI phản hồi tức thì
                 _ui.update { st ->
                     val newProfile = st.profile?.copy(
                         user = st.profile.user.copy(avatarUrl = url)
@@ -136,7 +139,6 @@ class ProfileViewModel @Inject constructor(
                         message = "Đã cập nhật ảnh đại diện"
                     )
                 }
-                // Đồng bộ lại với server
                 refreshOnce()
             }
             .onFailure { e ->
@@ -149,7 +151,6 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    /** Follow/Unfollow */
     fun setFollow(targetUid: String, follow: Boolean) = viewModelScope.launch {
         runCatching { repo.setFollow(targetUid, follow) }
             .onFailure { e ->
@@ -159,11 +160,9 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    /** Kiểm tra trạng thái follow */
     suspend fun isFollowing(targetUid: String): Boolean =
         runCatching { repo.isFollowing(targetUid) }.getOrElse { false }
 
-    /** Đổi mật khẩu */
     fun changePassword(oldPassword: String, newPassword: String) = viewModelScope.launch {
         _ui.update { it.copy(updating = true, message = null) }
         runCatching { repo.changePassword(oldPassword, newPassword) }
