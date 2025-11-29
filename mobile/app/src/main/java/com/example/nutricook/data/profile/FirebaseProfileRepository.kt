@@ -144,6 +144,18 @@ class FirebaseProfileRepository @Inject constructor(
         return url
     }
 
+    // ===================== UPDATE CALORIES TARGET =====================
+    override suspend fun updateCaloriesTarget(caloriesTarget: Float) {
+        val uid = requireUid()
+        userDoc(uid).set(
+            mapOf(
+                "nutrition.caloriesTarget" to caloriesTarget,
+                "updatedAt" to FieldValue.serverTimestamp()
+            ),
+            SetOptions.merge()
+        ).await()
+    }
+
     // ===================== FOLLOW =====================
     override suspend fun setFollow(targetUid: String, follow: Boolean) {
         val me = requireUid()

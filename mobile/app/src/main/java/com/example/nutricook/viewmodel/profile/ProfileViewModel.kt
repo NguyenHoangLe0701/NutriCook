@@ -183,4 +183,24 @@ class ProfileViewModel @Inject constructor(
     fun consumeMessage() {
         _ui.update { it.copy(message = null) }
     }
+
+    /** Cập nhật mục tiêu calories */
+    fun updateCaloriesTarget(target: Float) = viewModelScope.launch {
+        _ui.update { it.copy(updating = true, message = null) }
+        runCatching {
+            repo.updateCaloriesTarget(target)
+        }
+            .onSuccess {
+                refreshOnce()
+                _ui.update { it.copy(updating = false, message = "Đã cập nhật mục tiêu calories") }
+            }
+            .onFailure { e ->
+                _ui.update {
+                    it.copy(
+                        updating = false,
+                        message = e.message ?: "Không thể cập nhật mục tiêu"
+                    )
+                }
+            }
+    }
 }

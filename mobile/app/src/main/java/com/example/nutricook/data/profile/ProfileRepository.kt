@@ -38,6 +38,9 @@ interface ProfileRepository {
     /** Đổi mật khẩu (đòi hỏi re-auth). */
     suspend fun changePassword(oldPassword: String, newPassword: String)
 
+    /** Cập nhật mục tiêu calories. */
+    suspend fun updateCaloriesTarget(caloriesTarget: Float)
+
     // ---------- Bổ sung cho các màn danh sách ----------
     /** Lấy danh sách bài viết của một user (phân trang qua cursor). */
     suspend fun getUserPosts(uid: String, cursor: String? = null): Paged<Post>
