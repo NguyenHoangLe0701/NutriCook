@@ -339,10 +339,126 @@ public class AdminController {
         }
         model.addAttribute("categories", categories);
         model.addAttribute("category", new Category());
-        model.addAttribute("title", "Danh mục món ăn");
-        model.addAttribute("subtitle", "Quản lý danh mục món ăn");
+        model.addAttribute("title", "Danh mục nguyên liệu");
+        model.addAttribute("subtitle", "Quản lý danh mục nguyên liệu");
         model.addAttribute("activeTab", "categories");
         return "admin/categories";
+    }
+    
+    // Lấy nguyên liệu theo category
+    @GetMapping("/categories/{id}/ingredients")
+    public String getIngredientsByCategory(@PathVariable Long id, 
+                                           @RequestParam(value = "search", required = false) String search,
+                                           @RequestParam(value = "filterCalories", required = false) String filterCalories,
+                                           Model model) {
+        Category category = categoryRepository.findById(id).orElse(null);
+        if (category == null) {
+            return "redirect:/admin/categories";
+        }
+        
+        List<FoodItem> ingredients;
+        try {
+            if (firestoreService != null) {
+                // Lấy tất cả foods từ Firestore và lọc theo category
+                List<FoodItem> allFoods = firestoreService.listFoodsAsEntities();
+                ingredients = allFoods.stream()
+                    .filter(food -> food.getCategory() != null && food.getCategory().getId().equals(category.getId()))
+                    .sorted((a, b) -> a.getName().compareToIgnoreCase(b.getName()))
+                    .toList();
+            } else {
+                ingredients = foodItemRepository.findByCategoryOrderByNameAsc(category);
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading ingredients: " + e.getMessage());
+            ingredients = foodItemRepository.findByCategoryOrderByNameAsc(category);
+        }
+        
+        // Apply filters
+        List<FoodItem> filteredIngredients = new ArrayList<>(ingredients);
+        
+        // Filter by search
+        if (search != null && !search.trim().isEmpty()) {
+            String searchLower = search.toLowerCase().trim();
+            filteredIngredients = filteredIngredients.stream()
+                .filter(food -> 
+                    (food.getName() != null && food.getName().toLowerCase().contains(searchLower)) ||
+                    (food.getDescription() != null && food.getDescription().toLowerCase().contains(searchLower))
+                )
+                .toList();
+        }
+        
+        // Filter by calories
+        if (filterCalories != null && !filterCalories.isEmpty()) {
+            if ("low".equals(filterCalories)) {
+                filteredIngredients = filteredIngredients.stream()
+                    .filter(food -> {
+                        try {
+                            String calStr = food.getCalories();
+                            if (calStr != null && calStr.contains("kcal")) {
+                                double cal = Double.parseDouble(calStr.replaceAll("[^0-9.]", ""));
+                                return cal < 50;
+                            }
+                            return false;
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            } else if ("medium".equals(filterCalories)) {
+                filteredIngredients = filteredIngredients.stream()
+                    .filter(food -> {
+                        try {
+                            String calStr = food.getCalories();
+                            if (calStr != null && calStr.contains("kcal")) {
+                                double cal = Double.parseDouble(calStr.replaceAll("[^0-9.]", ""));
+                                return cal >= 50 && cal <= 150;
+                            }
+                            return false;
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            } else if ("high".equals(filterCalories)) {
+                filteredIngredients = filteredIngredients.stream()
+                    .filter(food -> {
+                        try {
+                            String calStr = food.getCalories();
+                            if (calStr != null && calStr.contains("kcal")) {
+                                double cal = Double.parseDouble(calStr.replaceAll("[^0-9.]", ""));
+                                return cal > 150;
+                            }
+                            return false;
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            }
+        }
+        
+        // Lấy tất cả categories để hiển thị trong form thêm nguyên liệu
+        List<Category> allCategories;
+        try {
+            if (firestoreService != null) {
+                allCategories = firestoreService.listCategoriesAsEntities();
+            } else {
+                allCategories = categoryRepository.findAll();
+            }
+        } catch (Exception e) {
+            allCategories = categoryRepository.findAll();
+        }
+        
+        model.addAttribute("category", category);
+        model.addAttribute("ingredients", filteredIngredients);
+        model.addAttribute("categories", allCategories);
+        model.addAttribute("foodItem", new FoodItem());
+        model.addAttribute("search", search != null ? search : "");
+        model.addAttribute("filterCalories", filterCalories != null ? filterCalories : "");
+        model.addAttribute("title", "Nguyên liệu: " + category.getName());
+        model.addAttribute("subtitle", "Danh sách nguyên liệu trong danh mục " + category.getName());
+        model.addAttribute("activeTab", "categories");
+        return "admin/category-ingredients";
     }
     
     @PostMapping("/categories")
@@ -491,10 +607,14 @@ public class AdminController {
     @PostMapping("/foods")
     public String createFood(@ModelAttribute FoodItem foodItem, 
                            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
+                           @RequestParam(value = "returnToCategory", required = false) Long returnToCategory,
                            RedirectAttributes redirectAttributes) {
         try {
             if (foodItemRepository.existsByName(foodItem.getName())) {
                 redirectAttributes.addFlashAttribute("error", "Tên món ăn đã tồn tại!");
+                if (returnToCategory != null) {
+                    return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                }
                 return "redirect:/admin/foods";
             }
             if (imageFile != null && !imageFile.isEmpty()) {
@@ -513,7 +633,10 @@ public class AdminController {
                 System.err.println("Failed to sync new food to Firestore: " + e.getMessage());
             }
             logFoodUpdate(null, savedFood, "CREATE");
-            redirectAttributes.addFlashAttribute("success", "Thêm món ăn thành công!");
+            redirectAttributes.addFlashAttribute("success", "Thêm nguyên liệu thành công!");
+            if (returnToCategory != null) {
+                return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+            }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Lỗi khi thêm món ăn: " + e.getMessage());
         }
@@ -586,6 +709,7 @@ public class AdminController {
     public String updateFood(@PathVariable Long id, 
                            @ModelAttribute FoodItem foodItem, // Đây là foodItem chỉ có ID category
                            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
+                           @RequestParam(value = "returnToCategory", required = false) Long returnToCategory,
                            RedirectAttributes redirectAttributes) {
         try {
             FoodItem existingFood = foodItemRepository.findById(id).orElse(null);
@@ -641,7 +765,10 @@ public class AdminController {
                 }
                 
                 logFoodUpdate(oldFood, existingFood, "UPDATE");
-                redirectAttributes.addFlashAttribute("success", "Cập nhật món ăn thành công!");
+                redirectAttributes.addFlashAttribute("success", "Cập nhật nguyên liệu thành công!");
+                if (returnToCategory != null) {
+                    return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                }
             }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Lỗi khi cập nhật món ăn: " + e.getMessage());

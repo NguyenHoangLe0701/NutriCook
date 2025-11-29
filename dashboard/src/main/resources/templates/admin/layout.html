@@ -24,37 +24,149 @@
             overflow-x: hidden;
         }
         
+        /* Remove all bottom spacing */
+        * {
+            box-sizing: border-box;
+        }
+        
         /* Fix sidebar background to always cover full viewport - no white space below */
         @media (min-width: 1024px) {
             /* Target the sidebar specifically */
             .sidebar-container {
                 position: fixed !important;
                 top: 0 !important;
-                bottom: 0 !important;
                 left: 0 !important;
-                min-height: 100vh !important;
                 height: 100vh !important;
                 max-height: 100vh !important;
+                overflow-y: auto !important;
                 background: linear-gradient(to bottom, #059669, #0d9488, #0891b2) !important;
-                background-attachment: fixed !important;
-                background-size: 100% 100% !important;
-                background-repeat: no-repeat !important;
+                margin-bottom: 0 !important;
+                padding-bottom: 0 !important;
             }
-            
-            /* Ensure body doesn't create extra space */
-            body {
-                position: relative;
-            }
-            
-            /* Prevent any white space below sidebar */
-            html {
-                overflow-x: hidden;
-            }
+        }
+        
+        /* Ensure body doesn't create extra space */
+        body {
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Prevent any white space below sidebar */
+        html {
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Remove extra space at bottom of page */
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        body > div {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        .lg\:pl-64 {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .lg\:pl-64 > main {
+            flex: 1;
+        }
+        
+        main {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Remove padding from last content div */
+        main > div > div:last-child {
+            padding-bottom: 0 !important;
+        }
+        
+        /* Ensure no white space at very bottom */
+        body > div:last-child {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Fix sidebar to not extend beyond viewport */
+        .sidebar-container {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        .sidebar-container > div {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Ensure sidebar content doesn't create extra space */
+        .sidebar > div:last-child {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        
+        /* Hide any sidebar that appears outside sidebar-container */
+        body > div > .sidebar:not(.sidebar-container .sidebar),
+        .sidebar:not(.sidebar-container .sidebar) {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+        
+        /* Hide fragment block itself */
+        th\:block[th\:fragment="navLinks"] {
+            display: none !important;
+        }
+        
+        /* Only show sidebar when inside sidebar-container */
+        .sidebar-container .sidebar {
+            display: flex !important;
+        }
+        
+        /* Footer styling - có khoảng cách với nội dung */
+        footer {
+            margin-top: 2rem;
+            margin-bottom: 0 !important;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            width: 100%;
+            position: relative;
+        }
+        
+        /* Ensure main content area uses flexbox */
+        .lg\:pl-64 {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        .lg\:pl-64 > main {
+            flex: 1 0 auto;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .lg\:pl-64 > footer {
+            flex-shrink: 0;
+            margin-top: 2rem;
+        }
         }
     </style>
 </head>
-<body class="h-full font-sans antialiased bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" style="overflow-x: hidden;">
-<div class="min-h-full" style="position: relative;">
+<body class="font-sans antialiased bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50" style="overflow-x: hidden; margin: 0; padding: 0;">
+<div style="position: relative;">
     <div x-data="{ open: false }" @keydown.window.escape="open = false">
         <div x-show="open" class="relative z-50 lg:hidden" role="dialog" aria-modal="true">
             <div x-show="open"
@@ -112,8 +224,8 @@
             </div>
         </div>
 
-        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col sidebar-container bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700" style="min-height: 100vh; height: 100vh; top: 0; bottom: 0; left: 0; position: fixed;">
-            <div class="flex grow flex-col justify-between gap-y-3 pb-4 pt-4 relative h-full">
+        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col sidebar-container bg-gradient-to-b from-emerald-600 via-teal-600 to-cyan-700" style="height: 100vh; top: 0; left: 0; position: fixed; overflow-y: auto; margin-bottom: 0; padding-bottom: 0;">
+            <div class="flex grow flex-col justify-between gap-y-3 pb-4 pt-4 relative" style="height: 100%; margin-bottom: 0; padding-bottom: 0;">
                 <div class="nav-scroll overflow-y-auto flex-1">
                     <div class="flex h-20 shrink-0 items-center justify-center px-6 pl-0">
                         <img class="h-16 w-auto" th:src="@{/images/logo-nutricook.png}" alt="NutriCook Logo">
@@ -129,9 +241,9 @@
                     </nav>
                 </div>
 
-                <div class="mt-4 shrink-0">
-                    <form th:action="@{/logout}" method="post" class="w-full">
-                        <button type="submit" class="logout-button group lg:absolute lg:bottom-6 lg:left-4 lg:right-4">
+                <div class="mt-4 shrink-0" style="margin-bottom: 0; padding-bottom: 0;">
+                    <form th:action="@{/logout}" method="post" class="w-full" style="margin-bottom: 0; padding-bottom: 0;">
+                        <button type="submit" class="logout-button group lg:absolute lg:bottom-6 lg:left-4 lg:right-4" style="margin-bottom: 0; padding-bottom: 0;">
                             <i class="fa-solid fa-right-from-bracket logout-icon group-hover:text-white"></i>
                             <span class="pl-2">Đăng xuất</span>
                         </button>
@@ -179,8 +291,8 @@
                 </div>
             </div>
 
-            <main class="py-10">
-                <div class="px-4 sm:px-6 lg:px-8">
+            <main class="py-10" style="margin-bottom: 0; padding-bottom: 0;">
+                <div class="px-4 sm:px-6 lg:px-8" style="margin-bottom: 0; padding-bottom: 0;">
                     <div class="pb-5 sm:flex sm:items-center sm:justify-between">
                         <div>
                             <h1 class="text-4xl font-bold leading-tight tracking-tight bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent" th:text="${title}">Page Title</h1>
@@ -209,19 +321,39 @@
                         </div>
                     </div>
 
-                    <div class="py-4">
-                        <div th:replace="${content}"></div>
+                    <div class="py-4" style="margin-bottom: 0; padding-bottom: 0;">
+                        <div th:replace="${content}" style="margin-bottom: 0; padding-bottom: 0;"></div>
                     </div>
                 </div>
             </main>
+            
+            <!-- Footer Bar - sát đáy màn hình -->
+            <footer class="mt-8 border-t-4 border-emerald-500 bg-gradient-to-r from-emerald-50 to-teal-50 py-3 px-4 sm:px-6 lg:px-8" style="margin-top: 2rem; margin-bottom: 0;">
+                <div class="flex items-center justify-between">
+                    <div class="text-xs sm:text-sm text-emerald-700 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i>
+                        NutriCook Admin Dashboard
+                    </div>
+                    <div class="text-xs sm:text-sm text-emerald-600">
+                        <span class="hidden sm:inline">© 2024 NutriCook. </span>Tất cả quyền được bảo lưu.
+                    </div>
+                </div>
+            </footer>
         </div>  
     </div>
 </div>
 
-<th:block th:fragment="navLinks(activeTab)">
+<!-- Fragment definition - must be inside body but will only render when inserted -->
+<th:block th:fragment="navLinks(activeTab)" style="display: none;">
     <style>
         .sidebar {
-            @apply flex flex-col justify-between h-full w-full bg-gradient-to-b from-green-700 to-teal-600 p-4 min-h-full;
+            @apply flex flex-col justify-between w-full bg-gradient-to-b from-green-700 to-teal-600 p-4;
+            height: 100%;
+            min-height: 0;
+            margin-bottom: 0;
+            padding-bottom: 0;
+            max-height: 100%;
+            overflow-y: auto;
         }
 
         .nav-item {
@@ -314,9 +446,8 @@
                      <span>Lịch sử</span>
                 </a>
         </div>
-
-        
     </div>
 </th:block>
+</div>
 </body>
 </html>
