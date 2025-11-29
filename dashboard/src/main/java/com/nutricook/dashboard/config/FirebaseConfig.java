@@ -83,6 +83,7 @@ public class FirebaseConfig {
 
     // Provide a Firestore bean for injection
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "firebase.enabled", havingValue = "true")
     public Firestore firestore() {
         System.out.println("🔥 Creating Firestore bean");
         // If emulator env present, return a Firestore client pointed at emulator
@@ -94,8 +95,9 @@ public class FirebaseConfig {
         }
 
         if (FirebaseApp.getApps().isEmpty()) {
-            System.out.println("❌ FirebaseApp not initialized");
-            return null;
+            System.out.println("❌ FirebaseApp not initialized - Firestore bean will not be created");
+            System.out.println("⚠️  This will cause FirestoreService to fail. Please check Firebase credentials.");
+            throw new IllegalStateException("FirebaseApp not initialized. Cannot create Firestore bean. Please check Firebase credentials and ensure FIREBASE_SERVICE_ACCOUNT_KEY or GOOGLE_APPLICATION_CREDENTIALS is set correctly.");
         }
         
         Firestore fs = FirestoreClient.getFirestore();

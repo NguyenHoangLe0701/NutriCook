@@ -21,6 +21,8 @@ services:
         value: production
       - key: FIREBASE_SERVICE_ACCOUNT_KEY
         sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
       - key: FIREBASE_ENABLED
         value: "true"
     healthCheckPath: /

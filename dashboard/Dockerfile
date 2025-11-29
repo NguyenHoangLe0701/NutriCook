@@ -35,11 +35,23 @@ COPY --from=build /app/target/dashboard-0.0.1-SNAPSHOT.jar app.jar
 # Tạo entrypoint script để xử lý Firebase credentials từ env
 RUN echo '#!/bin/sh' > /entrypoint.sh && \
     echo 'set -e' >> /entrypoint.sh && \
-    echo 'if [ -n "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then' >> /entrypoint.sh && \
-    echo '  echo "$FIREBASE_SERVICE_ACCOUNT_KEY" > /app/serviceAccountKey.json' >> /entrypoint.sh && \
+    echo 'echo "🔍 Checking environment variables..."' >> /entrypoint.sh && \
+    echo '# Support both FIREBASE_SERVICE_ACCOUNT_KEY and FIREBASE_SERVICE_ACCOUNT' >> /entrypoint.sh && \
+    echo 'FIREBASE_KEY="${FIREBASE_SERVICE_ACCOUNT_KEY:-${FIREBASE_SERVICE_ACCOUNT}}"' >> /entrypoint.sh && \
+    echo 'echo "FIREBASE_SERVICE_ACCOUNT_KEY is set: $([ -n "$FIREBASE_SERVICE_ACCOUNT_KEY" ] && echo "YES" || echo "NO")"' >> /entrypoint.sh && \
+    echo 'echo "FIREBASE_SERVICE_ACCOUNT is set: $([ -n "$FIREBASE_SERVICE_ACCOUNT" ] && echo "YES" || echo "NO")"' >> /entrypoint.sh && \
+    echo 'if [ -n "$FIREBASE_KEY" ]; then' >> /entrypoint.sh && \
+    echo '  echo "📝 Writing Firebase credentials to file..."' >> /entrypoint.sh && \
+    echo '  echo "$FIREBASE_KEY" > /app/serviceAccountKey.json' >> /entrypoint.sh && \
+    echo '  chmod 600 /app/serviceAccountKey.json' >> /entrypoint.sh && \
     echo '  export GOOGLE_APPLICATION_CREDENTIALS=/app/serviceAccountKey.json' >> /entrypoint.sh && \
-    echo '  echo "✅ Firebase credentials loaded from environment variable"' >> /entrypoint.sh && \
+    echo '  echo "✅ Firebase credentials file created at: $GOOGLE_APPLICATION_CREDENTIALS"' >> /entrypoint.sh && \
+    echo '  echo "📄 File exists: $([ -f "$GOOGLE_APPLICATION_CREDENTIALS" ] && echo "YES" || echo "NO")"' >> /entrypoint.sh && \
+    echo '  echo "📏 File size: $(wc -c < "$GOOGLE_APPLICATION_CREDENTIALS") bytes"' >> /entrypoint.sh && \
+    echo 'else' >> /entrypoint.sh && \
+    echo '  echo "⚠️  FIREBASE_SERVICE_ACCOUNT_KEY/FIREBASE_SERVICE_ACCOUNT not set, skipping Firebase credentials setup"' >> /entrypoint.sh && \
     echo 'fi' >> /entrypoint.sh && \
+    echo 'echo "🚀 Starting application..."' >> /entrypoint.sh && \
     echo 'exec java -jar app.jar "$@"' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
