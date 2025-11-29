@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,30 +28,57 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.runtime.collectAsState
 import com.example.nutricook.utils.NutritionData
-import com.example.nutricook.viewmodel.CreateRecipeViewModel
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NutritionFactsScreen(
+fun UserRecipeNutritionFactsScreen(
     navController: NavController,
-    createRecipeViewModel: CreateRecipeViewModel = hiltViewModel()
+    recipeId: String
 ) {
-    // Lấy nutritionData từ ViewModel
-    val recipeState by createRecipeViewModel.state.collectAsState()
-    val nutritionData = recipeState.nutritionData ?: NutritionData(
-        calories = 473.0,
-        fat = 20.0,
-        carbs = 50.0,
-        protein = 24.0,
-        cholesterol = 100.0,
-        sodium = 1281.0,
-        vitamin = 45.0
-    )
     val context = LocalContext.current
+    var recipeData by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(recipeId) {
+        try {
+            val doc = FirebaseFirestore.getInstance()
+                .collection("userRecipes")
+                .document(recipeId)
+                .get()
+                .await()
+            
+            if (doc.exists()) {
+                recipeData = doc.data
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("UserRecipeNutrition", "Error loading recipe: ${e.message}", e)
+            Toast.makeText(context, "Lỗi tải dữ liệu: ${e.message}", Toast.LENGTH_SHORT).show()
+        } finally {
+            isLoading = false
+        }
+    }
+    
+    // Parse nutrition data from Firestore
+    val nutritionData = remember(recipeData) {
+        if (recipeData != null) {
+            val nutrition = recipeData!!["nutritionData"] as? Map<String, Any> ?: emptyMap()
+            NutritionData(
+                calories = (nutrition["calories"] as? Number)?.toDouble() ?: 0.0,
+                fat = (nutrition["fat"] as? Number)?.toDouble() ?: 0.0,
+                carbs = (nutrition["carbs"] as? Number)?.toDouble() ?: 0.0,
+                protein = (nutrition["protein"] as? Number)?.toDouble() ?: 0.0,
+                cholesterol = (nutrition["cholesterol"] as? Number)?.toDouble() ?: 0.0,
+                sodium = (nutrition["sodium"] as? Number)?.toDouble() ?: 0.0,
+                vitamin = (nutrition["vitamin"] as? Number)?.toDouble() ?: 0.0
+            )
+        } else {
+            NutritionData()
+        }
+    }
     
     // Animation cho circular progress
     val caloriesProgress = remember { mutableStateOf(0f) }
@@ -61,8 +88,18 @@ fun NutritionFactsScreen(
         label = "calories_progress"
     )
     
-    LaunchedEffect(Unit) {
+    LaunchedEffect(nutritionData) {
         caloriesProgress.value = min(nutritionData.getCaloriesPercent() / 100f, 1f)
+    }
+    
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
     }
     
     LazyColumn(
@@ -82,7 +119,7 @@ fun NutritionFactsScreen(
             ) {
                 IconButton(onClick = { navController.popBackStack() }) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Quay lại",
                         modifier = Modifier.size(28.dp),
                         tint = Color(0xFF1C1C1E)
@@ -164,7 +201,7 @@ fun NutritionFactsScreen(
                 // Fat Card
                 NutritionCard(
                     title = "Chất béo",
-                    value = "${String.format("%.2f", nutritionData.fat)}g",
+                    value = "${nutritionData.fat.toInt()}g",
                     percent = nutritionData.getFatPercent(),
                     color = Color(0xFF3B82F6),
                     modifier = Modifier.weight(1f)
@@ -173,7 +210,7 @@ fun NutritionFactsScreen(
                 // Carbs Card
                 NutritionCard(
                     title = "Tinh bột",
-                    value = "${String.format("%.2f", nutritionData.carbs)}g",
+                    value = "${nutritionData.carbs.toInt()}g",
                     percent = nutritionData.getCarbsPercent(),
                     color = Color(0xFFFF9800),
                     modifier = Modifier.weight(1f)
@@ -182,7 +219,7 @@ fun NutritionFactsScreen(
                 // Protein Card
                 NutritionCard(
                     title = "Chất đạm",
-                    value = "${String.format("%.2f", nutritionData.protein)}g",
+                    value = "${nutritionData.protein.toInt()}g",
                     percent = nutritionData.getProteinPercent(),
                     color = Color(0xFF00BFA5),
                     modifier = Modifier.weight(1f)
@@ -223,32 +260,32 @@ fun NutritionFactsScreen(
                     // Nutrition items
                     NutritionItem(
                         label = "Tổng chất béo",
-                        value = "${String.format("%.2f", nutritionData.fat)}g",
+                        value = "${nutritionData.fat.toInt()}g",
                         percent = nutritionData.getFatPercent()
                     )
                     NutritionItem(
                         label = "Cholesterol",
-                        value = "${String.format("%.2f", nutritionData.cholesterol)}mg",
+                        value = "${nutritionData.cholesterol.toInt()}mg",
                         percent = nutritionData.getCholesterolPercent()
                     )
                     NutritionItem(
                         label = "Natri",
-                        value = "${String.format("%.2f", nutritionData.sodium)}mg",
+                        value = "${nutritionData.sodium.toInt()}mg",
                         percent = nutritionData.getSodiumPercent()
                     )
                     NutritionItem(
                         label = "Tổng Carbohydrate",
-                        value = "${String.format("%.2f", nutritionData.carbs)}g",
+                        value = "${nutritionData.carbs.toInt()}g",
                         percent = nutritionData.getCarbsPercent()
                     )
                     NutritionItem(
                         label = "Protein",
-                        value = "${String.format("%.2f", nutritionData.protein)}g",
+                        value = "${nutritionData.protein.toInt()}g",
                         percent = nutritionData.getProteinPercent()
                     )
                     NutritionItem(
                         label = "Vitamin",
-                        value = "${String.format("%.2f", nutritionData.vitamin)}%",
+                        value = "${nutritionData.vitamin.toInt()}%",
                         percent = nutritionData.getVitaminPercent()
                     )
                 }
@@ -297,120 +334,3 @@ fun NutritionFactsScreen(
     }
 }
 
-@Composable
-fun NutritionCard(
-    title: String,
-    value: String,
-    percent: Int,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = Color.White,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Icon tròn với màu nền
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(color),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = when (title) {
-                        "Chất béo" -> "%"
-                        "Tinh bột" -> "0"
-                        "Chất đạm" -> "•"
-                        else -> "•"
-                    },
-                    fontSize = 24.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = value,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1C1C1E)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                color = Color(0xFF6B7280)
-            )
-        }
-    }
-}
-
-@Composable
-fun NutritionItem(
-    label: String,
-    value: String,
-    percent: Int
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = "⚡",
-                fontSize = 16.sp
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = label,
-                fontSize = 15.sp,
-                color = Color(0xFF1C1C1E)
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1C1C1E)
-            )
-            Surface(
-                color = Color(0xFF00BFA5).copy(alpha = 0.1f),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = "$percent%",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF00BFA5),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-    }
-    
-    // Divider
-    HorizontalDivider(
-        modifier = Modifier.padding(top = 12.dp),
-        color = Color(0xFFE5E7EB),
-        thickness = 1.dp
-    )
-}

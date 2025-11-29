@@ -48,6 +48,8 @@ import com.example.nutricook.view.recipes.IngredientsFilterScreen
 import com.example.nutricook.view.recipes.NutritionFactsScreen
 import com.example.nutricook.view.recipes.RecipeDetailScreen
 import com.example.nutricook.view.recipes.RecipeDirectionsScreen
+import com.example.nutricook.view.recipes.UserRecipeInfoScreen
+import com.example.nutricook.view.recipes.UserRecipeNutritionFactsScreen
 import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
 import com.example.nutricook.view.recipes.RecipeInfoScreen
 import com.example.nutricook.view.recipes.RecipeStep2Screen
@@ -55,14 +57,19 @@ import com.example.nutricook.view.recipes.RecipeStepFinalScreen
 import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
+import com.example.nutricook.view.recipes.UserRecipeStepScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
 import com.example.nutricook.viewmodel.profile.SavesViewModel
+import com.example.nutricook.viewmodel.CreateRecipeViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
     val authVm: AuthViewModel = hiltViewModel()
     val authState by authVm.uiState.collectAsState()
+    
+    // Share CreateRecipeViewModel across all recipe creation steps
+    val createRecipeViewModel: CreateRecipeViewModel = hiltViewModel()
 
     val startDestination = if (authState.currentUser != null) "home" else "intro"
 
@@ -251,35 +258,48 @@ fun NavGraph(navController: NavHostController) {
         composable("create_recipe") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep1Screen(navController = navController)
+                    CreateRecipeStep1Screen(
+                        navController = navController
+                    )
                 }
             }
         }
         composable("create_recipe_step1") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep1Screen(navController = navController)
+                    CreateRecipeStep1Screen(
+                        navController = navController
+                    )
                 }
             }
         }
         composable("create_recipe_step2") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep2Screen(navController = navController)
+                    CreateRecipeStep2Screen(
+                        navController = navController,
+                        createRecipeViewModel = createRecipeViewModel
+                    )
                 }
             }
         }
         composable("create_recipe_step3") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep3Screen(navController = navController)
+                    CreateRecipeStep3Screen(
+                        navController = navController,
+                        createRecipeViewModel = createRecipeViewModel
+                    )
                 }
             }
         }
         composable("create_recipe_step4") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    CreateRecipeStep4Screen(navController = navController)
+                    CreateRecipeStep4Screen(
+                        navController = navController,
+                        createRecipeViewModel = createRecipeViewModel
+                    )
                 }
             }
         }
@@ -306,6 +326,60 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_step") { RecipeStepScreen(navController) }
         composable("recipe_step2") { RecipeStep2Screen(navController) }
         composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
+        
+        // Dynamic routes for user recipe steps - số màn hình dựa vào số bước đã tạo
+        composable(
+            route = "recipe_step_{stepIndex}",
+            arguments = listOf(navArgument("stepIndex") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val stepIndex = backStackEntry.arguments?.getInt("stepIndex") ?: 0
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    UserRecipeStepScreen(navController = navController, recipeId = "", stepIndex = stepIndex)
+                }
+            }
+        }
+        
+        // User recipe info screen
+        composable("user_recipe_info/{recipeId}") { backStackEntry ->
+            val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    UserRecipeInfoScreen(navController = navController, recipeId = recipeId)
+                }
+            }
+        }
+        
+        // Dynamic routes for user recipe steps with recipe ID
+        composable(
+            route = "user_recipe_step_{recipeId}_{stepIndex}",
+            arguments = listOf(
+                navArgument("recipeId") { type = NavType.StringType },
+                navArgument("stepIndex") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+            val stepIndex = backStackEntry.arguments?.getInt("stepIndex") ?: 0
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    UserRecipeStepScreen(
+                        navController = navController,
+                        recipeId = recipeId,
+                        stepIndex = stepIndex
+                    )
+                }
+            }
+        }
+        
+        // User recipe nutrition facts screen
+        composable("user_recipe_nutrition_facts/{recipeId}") { backStackEntry ->
+            val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    UserRecipeNutritionFactsScreen(navController = navController, recipeId = recipeId)
+                }
+            }
+        }
         composable("recipe_direction") { RecipeDirectionsScreen(navController) }
         composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
         composable("nutrition_facts") { NutritionFactsScreen(navController) }

@@ -51,7 +51,8 @@ data class TodayRecipe(
     val imageUrl: String? = null, // URL ảnh từ server
     val reviews: Int,
     val userName: String? = null, // Tên người upload
-    val createdAt: String? = null // Ngày upload
+    val createdAt: String? = null, // Ngày upload
+    val recipeId: String? = null // ID của recipe trong Firestore (cho user recipes)
 )
 
 @Composable
@@ -88,7 +89,29 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
         com.example.nutricook.data.SampleData.categories
     }
 
-    // Lấy món ăn từ Firestore (foodItems collection)
+    // Lấy user recipes từ Firestore (userRecipes collection)
+    val userRecipes = remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    
+    LaunchedEffect(Unit) {
+        try {
+            val snapshot = FirebaseFirestore.getInstance()
+                .collection("userRecipes")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(20)
+                .get()
+                .await()
+            
+            userRecipes.value = snapshot.documents.mapNotNull { doc ->
+                doc.data?.toMutableMap()?.apply {
+                    put("docId", doc.id)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("RecipeDiscovery", "Error loading user recipes: ${e.message}", e)
+        }
+    }
+    
+    // Lấy món ăn từ Firestore (foodItems collection) - fallback
     val foodItems = remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     
     LaunchedEffect(Unit) {
@@ -111,12 +134,36 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
         }
     }
     
-    val todayRecipes = if (foodItems.value.isNotEmpty()) {
-        // Ưu tiên hiển thị món ăn từ Firestore (người dùng upload)
+    val todayRecipes = if (userRecipes.value.isNotEmpty()) {
+        // Ưu tiên hiển thị user recipes (recipes do người dùng tạo)
+        userRecipes.value.mapIndexedNotNull { index, map ->
+            try {
+                val imageUrls = map["imageUrls"] as? List<*> ?: emptyList<Any>()
+                val firstImageUrl = imageUrls.firstOrNull() as? String
+                val docId = map["docId"] as? String
+                
+                TodayRecipe(
+                    name = map["recipeName"] as? String ?: "",
+                    description = map["description"] as? String ?: "",
+                    rating = (map["rating"] as? Number)?.toDouble() ?: 0.0,
+                    imageRes = R.drawable.beefandcabbage,
+                    imageUrl = firstImageUrl,
+                    reviews = (map["reviewCount"] as? Number)?.toInt() ?: 0,
+                    userName = map["userEmail"] as? String,
+                    createdAt = (map["createdAt"] as? com.google.firebase.Timestamp)?.toDate()?.toString(),
+                    recipeId = docId
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("RecipeDiscovery", "Error parsing user recipe: ${e.message}", e)
+                null
+            }
+        }
+    } else if (foodItems.value.isNotEmpty()) {
+        // Fallback: hiển thị món ăn từ foodItems
         foodItems.value.mapNotNull { map ->
             try {
                 val imageUrl = map["imageUrl"] as? String
-                val baseUrl = "http://192.168.88.164:8080" // Thay bằng IP thật của bạn
+                val baseUrl = "http://192.168.88.164:8080"
                 val fullImageUrl = if (!imageUrl.isNullOrBlank()) {
                     if (imageUrl.startsWith("http")) imageUrl else "$baseUrl$imageUrl"
                 } else null
@@ -151,7 +198,7 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
             }
         }
     } else {
-        com.example.nutricook.data.SampleData.todayRecipes
+        emptyList()
     }
 
     val listState = rememberLazyListState()
@@ -237,8 +284,12 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
         // 🍳 Today Recipes
         items(todayRecipes) { recipe ->
             TodayRecipeItem(recipe) {
-                // ✅ Khi bấm vào, mở RecipeInfoScreen
-                navController.navigate("recipe_info/${recipe.name}/${recipe.imageRes}")
+                // ✅ Khi bấm vào, mở UserRecipeInfoScreen nếu có recipeId, nếu không thì mở RecipeInfoScreen cũ
+                if (recipe.recipeId != null) {
+                    navController.navigate("user_recipe_info/${recipe.recipeId}")
+                } else {
+                    navController.navigate("recipe_info/${recipe.name}/${recipe.imageRes}")
+                }
             }
         }
         }

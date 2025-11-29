@@ -18,11 +18,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.nutricook.viewmodel.CreateRecipeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRecipeStep3Screen(
-    navController: NavController
+    navController: NavController,
+    createRecipeViewModel: CreateRecipeViewModel
 ) {
     val context = LocalContext.current
     
@@ -155,8 +159,10 @@ fun CreateRecipeStep3Screen(
             Button(
                 onClick = {
                     // Không cần validation vì tất cả đều tùy chọn
-                    // TODO: Lưu data và chuyển sang bước 4
-                    Toast.makeText(context, "Chuyển sang bước 4...", Toast.LENGTH_SHORT).show()
+                    // Lưu dữ liệu vào ViewModel
+                    createRecipeViewModel.setStep3Data(description, notes, tips)
+                    
+                    // Chuyển sang bước 4
                     navController.navigate("create_recipe_step4")
                 },
                 modifier = Modifier

@@ -43,7 +43,6 @@ import coil.request.ImageRequest
 import com.example.nutricook.viewmodel.CategoriesViewModel
 import com.example.nutricook.utils.CookingMethod
 import com.example.nutricook.utils.IngredientUnit
-import java.io.File
 
 data class IngredientItem(
     val name: String = "",

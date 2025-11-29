@@ -44,7 +44,7 @@ fun FoodDetailScreen(
     val context = LocalContext.current
     var foodItem by remember { mutableStateOf<FoodItemUI?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedQuantity by remember { mutableStateOf("100g") }
+    var selectedQuantity by remember { mutableStateOf("100 g") }
     var isBookmarked by remember { mutableStateOf(false) }
     
     // Load food item by ID
@@ -52,9 +52,68 @@ fun FoodDetailScreen(
         try {
             foodItem = viewModel.getFoodById(foodId)
             isLoading = false
+            // Set default quantity based on unit
+            foodItem?.let {
+                selectedQuantity = when (it.unit.lowercase()) {
+                    "ml", "l" -> "100 ml"
+                    "quả", "cái" -> "1 quả"
+                    else -> "100 g"
+                }
+            }
         } catch (e: Exception) {
             isLoading = false
         }
+    }
+    
+    // Tính toán dinh dưỡng dựa trên quantity đã chọn
+    val calculatedNutrition = remember(foodItem, selectedQuantity) {
+        if (foodItem == null) return@remember null
+        
+        val baseNutrition = NutritionData(
+            calories = parseCalories(foodItem!!.calories),
+            fat = foodItem!!.fat,
+            carbs = foodItem!!.carbs,
+            protein = foodItem!!.protein,
+            cholesterol = foodItem!!.cholesterol,
+            sodium = foodItem!!.sodium,
+            vitamin = foodItem!!.vitamin
+        )
+        
+        // Parse quantity và tính multiplier
+        val multiplier = when {
+            selectedQuantity.contains("oz", ignoreCase = true) -> {
+                // 1 oz ≈ 28.35g, tính trên 100g
+                val ozValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 1.0
+                (ozValue * 28.35) / 100.0
+            }
+            selectedQuantity.contains("ml", ignoreCase = true) -> {
+                val mlValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 100.0
+                mlValue / 100.0
+            }
+            selectedQuantity.contains("g", ignoreCase = true) -> {
+                val gValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 100.0
+                gValue / 100.0
+            }
+            selectedQuantity.contains("quả", ignoreCase = true) || selectedQuantity.contains("cái", ignoreCase = true) -> {
+                // Giả sử 1 quả ≈ 100g
+                1.0
+            }
+            selectedQuantity.contains("cốc", ignoreCase = true) -> {
+                // 1 cốc ≈ 240ml ≈ 240g
+                2.4
+            }
+            else -> 1.0
+        }
+        
+        NutritionData(
+            calories = baseNutrition.calories * multiplier,
+            fat = baseNutrition.fat * multiplier,
+            carbs = baseNutrition.carbs * multiplier,
+            protein = baseNutrition.protein * multiplier,
+            cholesterol = baseNutrition.cholesterol * multiplier,
+            sodium = baseNutrition.sodium * multiplier,
+            vitamin = baseNutrition.vitamin * multiplier
+        )
     }
     
     if (isLoading) {
@@ -64,7 +123,7 @@ fun FoodDetailScreen(
         ) {
             CircularProgressIndicator()
         }
-    } else if (foodItem == null) {
+    } else if (foodItem == null || calculatedNutrition == null) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -72,15 +131,7 @@ fun FoodDetailScreen(
             Text("Không tìm thấy nguyên liệu", color = Color.Gray)
         }
     } else {
-        val nutritionData = NutritionData(
-            calories = parseCalories(foodItem!!.calories),
-            fat = foodItem!!.fat,
-            carbs = foodItem!!.carbs,
-            protein = foodItem!!.protein,
-            cholesterol = foodItem!!.cholesterol,
-            sodium = foodItem!!.sodium,
-            vitamin = foodItem!!.vitamin
-        )
+        val nutritionData = calculatedNutrition
         
         LazyColumn(
             modifier = Modifier
@@ -130,21 +181,26 @@ fun FoodDetailScreen(
             
             /** 🔹 Food Image */
             item {
-                Surface(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    color = Color.White,
-                    shape = RoundedCornerShape(16.dp),
-                    shadowElevation = 2.dp
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
+                    Surface(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
+                            .width(200.dp)
+                            .height(200.dp),
+                        color = Color.White,
+                        shape = RoundedCornerShape(16.dp),
+                        shadowElevation = 2.dp
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                         if (foodItem!!.imageUrl.isNotBlank()) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
@@ -165,6 +221,7 @@ fun FoodDetailScreen(
                                 contentScale = ContentScale.Fit
                             )
                         }
+                        }
                     }
                 }
             }
@@ -176,39 +233,40 @@ fun FoodDetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
+                    // Tạo danh sách quantity options dựa trên unit của foodItem
+                    val quantityOptions = remember(foodItem?.unit) {
+                        when (foodItem?.unit?.lowercase()) {
+                            "ml", "l" -> listOf("1 oz", "100 ml", "1 cốc")
+                            "quả", "cái" -> listOf("1 oz", "100 g", "1 quả")
+                            else -> listOf("1 oz", "100 g", "1 quả")
+                        }
+                    }
+                    
+                    // Đảm bảo selectedQuantity có trong danh sách
+                    LaunchedEffect(quantityOptions) {
+                        if (selectedQuantity !in quantityOptions && quantityOptions.isNotEmpty()) {
+                            selectedQuantity = quantityOptions[1] // Mặc định chọn option thứ 2 (100g/100ml)
+                        }
+                    }
+                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        QuantityButton(
-                            text = "1 oz",
-                            isSelected = selectedQuantity == "1 oz",
-                            onClick = { selectedQuantity = "1 oz" },
-                            modifier = Modifier.weight(1f)
-                        )
-                        QuantityButton(
-                            text = "100 g",
-                            isSelected = selectedQuantity == "100g",
-                            onClick = { selectedQuantity = "100g" },
-                            modifier = Modifier.weight(1f)
-                        )
-                        QuantityButton(
-                            text = "1 fruit",
-                            isSelected = selectedQuantity == "1 fruit",
-                            onClick = { selectedQuantity = "1 fruit" },
-                            modifier = Modifier.weight(1f)
-                        )
+                        quantityOptions.forEachIndexed { index, option ->
+                            QuantityButton(
+                                text = option,
+                                isSelected = selectedQuantity == option,
+                                onClick = { selectedQuantity = option },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     // Quantity Visualizer (Bar chart)
-                    QuantityVisualizer(selectedIndex = when(selectedQuantity) {
-                        "1 oz" -> 0
-                        "100g" -> 1
-                        "1 fruit" -> 2
-                        else -> 1
-                    })
+                    QuantityVisualizer(selectedIndex = quantityOptions.indexOf(selectedQuantity).coerceIn(0, 2))
                 }
             }
             
@@ -222,7 +280,7 @@ fun FoodDetailScreen(
                 ) {
                     Text(
                         text = "${nutritionData.calories.toInt()} kcal",
-                        fontSize = 48.sp,
+                        fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1C1C1E)
                     )
@@ -238,21 +296,21 @@ fun FoodDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     MacroCard(
-                        title = "Fat",
+                        title = "Chất béo",
                         value = "${String.format("%.2f", nutritionData.fat)}g",
                         iconColor = Color(0xFF3B82F6),
                         iconSymbol = "%",
                         modifier = Modifier.weight(1f)
                     )
                     MacroCard(
-                        title = "Carbs",
+                        title = "Tinh bột",
                         value = "${String.format("%.2f", nutritionData.carbs)}g",
                         iconColor = Color(0xFFFF9800),
                         iconSymbol = "0",
                         modifier = Modifier.weight(1f)
                     )
                     MacroCard(
-                        title = "Protein",
+                        title = "Chất đạm",
                         value = "${String.format("%.2f", nutritionData.protein)}g",
                         iconColor = Color(0xFF00BFA5),
                         iconSymbol = "•",
@@ -273,7 +331,7 @@ fun FoodDetailScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     ) {
                         Text(
-                            text = "Information",
+                            text = "Thông tin",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1C1C1E)
@@ -295,7 +353,7 @@ fun FoodDetailScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "${foodItem!!.name} Health Benefits:",
+                            text = "Lợi ích của ${foodItem!!.name}:",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1C1C1E)
@@ -335,7 +393,7 @@ fun FoodDetailScreen(
                     }
                 }
             }
-            
+                
             /** 🔹 Nutrition Facts Section */
             item {
                 Surface(
@@ -439,35 +497,40 @@ private fun QuantityButton(
 
 @Composable
 private fun QuantityVisualizer(selectedIndex: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(24.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.Bottom
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
     ) {
-        repeat(10) { index ->
-            val height = when {
-                index % 5 == 0 -> 20.dp
-                index % 3 == 0 -> 14.dp
-                else -> 10.dp
+        Row(
+            modifier = Modifier
+                .width(280.dp)
+                .height(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            repeat(10) { index ->
+                val height = when {
+                    index % 5 == 0 -> 20.dp
+                    index % 3 == 0 -> 14.dp
+                    else -> 10.dp
+                }
+                val isSelected = when(selectedIndex) {
+                    0 -> index == 2
+                    1 -> index == 5
+                    2 -> index == 8
+                    else -> false
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(height)
+                        .background(
+                            color = if (isSelected) Color(0xFF00BFA5) else Color(0xFFE5E7EB),
+                            shape = RoundedCornerShape(3.dp)
+                        )
+                )
             }
-            val isSelected = when(selectedIndex) {
-                0 -> index == 2
-                1 -> index == 5
-                2 -> index == 8
-                else -> false
-            }
-            
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(height)
-                    .background(
-                        color = if (isSelected) Color(0xFF00BFA5) else Color(0xFFE5E7EB),
-                        shape = RoundedCornerShape(3.dp)
-                    )
-            )
         }
     }
 }

@@ -28,8 +28,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.nutricook.viewmodel.CreateRecipeViewModel
 
 data class CookingStep(
     val description: String = "",
@@ -39,7 +42,8 @@ data class CookingStep(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRecipeStep2Screen(
-    navController: NavController
+    navController: NavController,
+    createRecipeViewModel: CreateRecipeViewModel
 ) {
     val context = LocalContext.current
     
@@ -148,8 +152,10 @@ fun CreateRecipeStep2Screen(
                         return@Button
                     }
                     
-                    // TODO: Lưu data và chuyển sang bước 3
-                    Toast.makeText(context, "Chuyển sang bước 3...", Toast.LENGTH_SHORT).show()
+                    // Lưu dữ liệu vào ViewModel
+                    createRecipeViewModel.setStep2Data(validSteps)
+                    
+                    // Chuyển sang bước 3
                     navController.navigate("create_recipe_step3")
                 },
                 modifier = Modifier

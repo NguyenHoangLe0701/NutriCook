@@ -18,14 +18,76 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import com.example.nutricook.viewmodel.CreateRecipeViewModel
+import com.example.nutricook.viewmodel.CategoriesViewModel
+import com.example.nutricook.utils.NutritionCalculator
+import com.example.nutricook.utils.NutritionData
+import com.example.nutricook.data.repository.UserRecipeRepository
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.util.Log
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ActivityComponent
+import dagger.hilt.android.EntryPointAccessors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRecipeStep4Screen(
-    navController: NavController
+    navController: NavController,
+    createRecipeViewModel: CreateRecipeViewModel,
+    categoriesViewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val recipeRepository = remember {
+        val activity = context as? androidx.activity.ComponentActivity
+            ?: throw IllegalStateException("Context is not a ComponentActivity")
+        EntryPointAccessors.fromActivity(
+            activity,
+            RecipeRepositoryEntryPoint::class.java
+        ).recipeRepository()
+    }
     var isSubmitting by remember { mutableStateOf(false) }
+    
+    // Lấy dữ liệu từ ViewModel qua StateFlow
+    val recipeState by createRecipeViewModel.state.collectAsState()
+    val foodItems by categoriesViewModel.foodItems.collectAsState()
+    
+    // Lấy dữ liệu trực tiếp từ state để đảm bảo luôn cập nhật
+    val recipeName = recipeState.recipeName
+    val estimatedTime = recipeState.estimatedTime
+    val servings = recipeState.servings
+    val selectedImageUris = recipeState.selectedImageUris
+    val ingredients = recipeState.ingredients.filter { it.name.isNotBlank() } // Lọc nguyên liệu hợp lệ
+    val cookingSteps = recipeState.cookingSteps.filter { it.description.isNotBlank() } // Lọc bước hợp lệ
+    val description = recipeState.description
+    val notes = recipeState.notes
+    val tips = recipeState.tips
+    
+    // Debug: Log để kiểm tra dữ liệu
+    LaunchedEffect(recipeState) {
+        Log.d("Step4", "Recipe State: name='$recipeName', time='$estimatedTime', servings='$servings'")
+        Log.d("Step4", "Ingredients: ${ingredients.size}, Steps: ${cookingSteps.size}, Images: ${selectedImageUris.size}")
+    }
+    
+    // Tính toán dinh dưỡng
+    val foodItemsMap = remember(foodItems) {
+        foodItems.associateBy { it.id }
+    }
+    
+    val nutritionData = remember(ingredients, foodItemsMap, servings) {
+        val servingsInt = servings.toIntOrNull() ?: 1
+        NutritionCalculator.calculateNutrition(ingredients, foodItemsMap, servingsInt)
+    }
+    
+    // Lưu nutritionData vào ViewModel
+    LaunchedEffect(nutritionData) {
+        createRecipeViewModel.setNutritionData(nutritionData)
+    }
     
     LazyColumn(
         modifier = Modifier
@@ -143,31 +205,30 @@ fun CreateRecipeStep4Screen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1C1C1E)
                         )
-                        // TODO: Hiển thị thông tin từ bước 1
                         Text(
-                            text = "• Tên món: [Từ bước 1]",
+                            text = "• Tên món: ${if (recipeName.isNotBlank()) recipeName else "Chưa nhập"}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = if (recipeName.isNotBlank()) Color(0xFF1C1C1E) else Color.Gray
                         )
                         Text(
-                            text = "• Thời gian: [Từ bước 1]",
+                            text = "• Thời gian: ${if (estimatedTime.isNotBlank()) "$estimatedTime phút" else "Chưa nhập"}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = if (estimatedTime.isNotBlank()) Color(0xFF1C1C1E) else Color.Gray
                         )
                         Text(
-                            text = "• Số phần ăn: [Từ bước 1]",
+                            text = "• Số phần ăn: ${if (servings.isNotBlank()) servings else "Chưa nhập"}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = if (servings.isNotBlank()) Color(0xFF1C1C1E) else Color.Gray
                         )
                         Text(
-                            text = "• Số ảnh: [Từ bước 1]",
+                            text = "• Số ảnh: ${selectedImageUris.size}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = Color(0xFF1C1C1E)
                         )
                         Text(
-                            text = "• Số nguyên liệu: [Từ bước 1]",
+                            text = "• Số nguyên liệu: ${ingredients.size}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = Color(0xFF1C1C1E)
                         )
                     }
                 }
@@ -192,12 +253,22 @@ fun CreateRecipeStep4Screen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1C1C1E)
                         )
-                        // TODO: Hiển thị số bước nấu ăn từ bước 2
                         Text(
-                            text = "• Số bước nấu: [Từ bước 2]",
+                            text = "• Số bước nấu: ${cookingSteps.size}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = Color(0xFF1C1C1E)
                         )
+                        if (cookingSteps.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            cookingSteps.forEachIndexed { index, step ->
+                                Text(
+                                    text = "  ${index + 1}. ${if (step.description.isNotBlank()) step.description else "Chưa có mô tả"}",
+                                    fontSize = 13.sp,
+                                    color = if (step.description.isNotBlank()) Color(0xFF4B5563) else Color.Gray,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
                     }
                 }
                 
@@ -221,21 +292,20 @@ fun CreateRecipeStep4Screen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1C1C1E)
                         )
-                        // TODO: Hiển thị thông tin từ bước 3
                         Text(
-                            text = "• Mô tả: [Từ bước 3]",
+                            text = "• Mô tả: ${if (description.isNotBlank()) description else "Chưa nhập"}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = if (description.isNotBlank()) Color(0xFF1C1C1E) else Color.Gray
                         )
                         Text(
-                            text = "• Ghi chú: [Từ bước 3]",
+                            text = "• Ghi chú: ${if (notes.isNotBlank()) notes else "Chưa nhập"}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = if (notes.isNotBlank()) Color(0xFF1C1C1E) else Color.Gray
                         )
                         Text(
-                            text = "• Mẹo: [Từ bước 3]",
+                            text = "• Mẹo: ${if (tips.isNotBlank()) tips else "Chưa nhập"}",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = if (tips.isNotBlank()) Color(0xFF1C1C1E) else Color.Gray
                         )
                     }
                 }
@@ -246,7 +316,7 @@ fun CreateRecipeStep4Screen(
         item {
             Button(
                 onClick = {
-                    // Chuyển sang màn hình thông tin dinh dưỡng
+                    // Chuyển sang màn hình thông tin dinh dưỡng với dữ liệu đã tính
                     navController.navigate("nutrition_facts")
                 },
                 modifier = Modifier
@@ -271,10 +341,117 @@ fun CreateRecipeStep4Screen(
             }
         }
         
+        /** 🔹 Nút Đăng công thức */
+        item {
+            Button(
+                onClick = {
+                    // Sử dụng dữ liệu trực tiếp từ state
+                    val currentState = createRecipeViewModel.state.value
+                    val currentRecipeName = currentState.recipeName
+                    val currentEstimatedTime = currentState.estimatedTime
+                    val currentServings = currentState.servings
+                    val currentImageUris = currentState.selectedImageUris
+                    val currentIngredients = currentState.ingredients.filter { it.name.isNotBlank() }
+                    val currentCookingSteps = currentState.cookingSteps.filter { it.description.isNotBlank() }
+                    val currentDescription = currentState.description
+                    val currentNotes = currentState.notes
+                    val currentTips = currentState.tips
+                    
+                    Log.d("Step4", "Submit: name='$currentRecipeName', ingredients=${currentIngredients.size}, steps=${currentCookingSteps.size}")
+                    
+                    if (currentRecipeName.isBlank()) {
+                        Toast.makeText(context, "Vui lòng nhập tên món ăn", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    
+                    if (currentIngredients.isEmpty()) {
+                        Toast.makeText(context, "Vui lòng nhập ít nhất một nguyên liệu", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    
+                    isSubmitting = true
+                    scope.launch {
+                        try {
+                            val result = recipeRepository.saveRecipe(
+                                recipeName = currentRecipeName,
+                                estimatedTime = currentEstimatedTime,
+                                servings = currentServings,
+                                imageUris = currentImageUris,
+                                ingredients = currentIngredients,
+                                cookingSteps = currentCookingSteps,
+                                description = currentDescription,
+                                notes = currentNotes,
+                                tips = currentTips,
+                                nutritionData = nutritionData
+                            )
+                            
+                            result.onSuccess { recipeId ->
+                                val message = if (currentImageUris.isNotEmpty()) {
+                                    "Đăng công thức thành công!"
+                                } else {
+                                    "Đăng công thức thành công! (Lưu ý: Ảnh chưa được upload - vui lòng kiểm tra cấu hình Firebase Storage)"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                createRecipeViewModel.clearAll()
+                                navController.navigate("recipes") {
+                                    popUpTo("create_recipe") { inclusive = true }
+                                }
+                            }.onFailure { error ->
+                                val errorMessage = when {
+                                    error.message?.contains("404") == true || error.message?.contains("Not Found") == true -> {
+                                        "Lỗi: Firebase Storage chưa được cấu hình. Recipe đã được lưu nhưng ảnh chưa được upload. Vui lòng kiểm tra Firebase Console."
+                                    }
+                                    else -> "Lỗi: ${error.message}"
+                                }
+                                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00BFA5),
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 4.dp,
+                    pressedElevation = 6.dp
+                ),
+                enabled = !isSubmitting
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    text = if (isSubmitting) "Đang đăng..." else "Đăng công thức",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        
         // Bottom spacing
         item {
             Spacer(modifier = Modifier.height(20.dp))
         }
     }
+}
+
+@EntryPoint
+@InstallIn(ActivityComponent::class)
+interface RecipeRepositoryEntryPoint {
+    fun recipeRepository(): UserRecipeRepository
 }
 

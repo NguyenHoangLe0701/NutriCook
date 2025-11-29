@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,6 +8,15 @@ plugins {
     id("com.google.gms.google-services")        // ⬅️ Firebase
     id("com.google.dagger.hilt.android")        // ⬅️ Hilt
     id("org.jetbrains.kotlin.kapt")             // ⬅️ KAPT cho Hilt
+}
+
+// Đọc secrets.properties
+val secretsPropertiesFile = rootProject.file("app/secrets.properties")
+val secretsProperties = Properties()
+if (secretsPropertiesFile.exists()) {
+    FileInputStream(secretsPropertiesFile).use {
+        secretsProperties.load(it)
+    }
 }
 
 android {
@@ -18,6 +30,23 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // BuildConfig fields từ secrets.properties
+        buildConfigField(
+            "String",
+            "CLOUDINARY_CLOUD_NAME",
+            "\"${secretsProperties["CLOUDINARY_CLOUD_NAME"] ?: "your_cloud_name"}\""
+        )
+        buildConfigField(
+            "String",
+            "CLOUDINARY_API_KEY",
+            "\"${secretsProperties["CLOUDINARY_API_KEY"] ?: "your_api_key"}\""
+        )
+        buildConfigField(
+            "String",
+            "CLOUDINARY_API_SECRET",
+            "\"${secretsProperties["CLOUDINARY_API_SECRET"] ?: "your_api_secret"}\""
+        )
     }
 
     buildTypes {
@@ -39,7 +68,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true  // Bật BuildConfig để sử dụng các field từ secrets.properties
+    }
 
     // Tránh xung đột META-INF khi kéo nhiều SDK
     packaging {
@@ -104,6 +136,9 @@ dependencies {
 
     // --- Coil Compose ---
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // --- Cloudinary ---
+    implementation("com.cloudinary:cloudinary-android:3.0.2")
 
     // --- Test ---
     testImplementation("junit:junit:4.13.2")

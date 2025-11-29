@@ -10,6 +10,9 @@ cat > .gitignore <<'EOF'
 # Android local
 local.properties
 
+# Secrets (không commit credentials)
+app/secrets.properties
+
 # OS
 .DS_Store
 EOF
