@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: nutricook-dashboard
+    env: docker
+    region: singapore
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: JAVA_VERSION
+        value: 17
+      - key: DB_HOST
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: FIREBASE_ENABLED
+        value: "true"
+    healthCheckPath: /
+

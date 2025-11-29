@@ -28,20 +28,40 @@ public class FirebaseConfig {
                 System.out.println("🔥 Using Firestore emulator at: " + emulator);
                 return;
             }
-            // Nếu không có file serviceAccountKey.json trên classpath thì bỏ qua (ví dụ: môi trường test)
-            ClassPathResource credResource = new ClassPathResource("serviceAccountKey.json");
-            if (!credResource.exists()) {
-                // Không có file chứng thực => không khởi tạo Firebase
-                System.out.println("❌ serviceAccountKey.json not found on classpath");
-                return;
+            
+            GoogleCredentials credentials = null;
+            
+            // Ưu tiên 1: Đọc từ GOOGLE_APPLICATION_CREDENTIALS (chuẩn của Google Cloud)
+            String googleCredsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
+            if (googleCredsPath != null && !googleCredsPath.isBlank()) {
+                try {
+                    java.io.File credsFile = new java.io.File(googleCredsPath);
+                    if (credsFile.exists()) {
+                        System.out.println("✅ Loading Firebase credentials from: " + googleCredsPath);
+                        try (InputStream serviceAccount = new java.io.FileInputStream(credsFile)) {
+                            credentials = GoogleCredentials.fromStream(serviceAccount);
+                        }
+                        System.out.println("✅ Credentials loaded from GOOGLE_APPLICATION_CREDENTIALS");
+                    }
+                } catch (Exception e) {
+                    System.out.println("⚠️  Failed to load from GOOGLE_APPLICATION_CREDENTIALS: " + e.getMessage());
+                }
             }
-
-            System.out.println("✅ serviceAccountKey.json found, initializing Firebase...");
-            // Lấy file serviceAccountKey.json từ thư mục resources
-            InputStream serviceAccount = credResource.getInputStream();
-
-            GoogleCredentials credentials = GoogleCredentials.fromStream(serviceAccount);
-            System.out.println("✅ Credentials loaded: " + credentials);
+            
+            // Ưu tiên 2: Đọc từ classpath (serviceAccountKey.json trong resources)
+            if (credentials == null) {
+                ClassPathResource credResource = new ClassPathResource("serviceAccountKey.json");
+                if (credResource.exists()) {
+                    System.out.println("✅ Loading Firebase credentials from classpath");
+                    try (InputStream serviceAccount = credResource.getInputStream()) {
+                        credentials = GoogleCredentials.fromStream(serviceAccount);
+                    }
+                    System.out.println("✅ Credentials loaded from classpath");
+                } else {
+                    System.out.println("❌ serviceAccountKey.json not found on classpath and GOOGLE_APPLICATION_CREDENTIALS not set");
+                    return;
+                }
+            }
 
             FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(credentials)
