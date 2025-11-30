@@ -30,6 +30,8 @@ import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.newsfeed.NewsfeedScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
+import com.example.nutricook.view.profile.AddMealScreen
+import com.example.nutricook.view.profile.CustomFoodCalculatorScreen
 import com.example.nutricook.view.profile.ExerciseDetailScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
 import com.example.nutricook.view.profile.ProfileScreen
@@ -181,6 +183,7 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate("saves/$uid")
                 },
                 onOpenSearch = { navController.navigate("search_profiles") },
+                onNavigateToCalculator = { navController.navigate("add_meal") },
                 bottomBar = { BottomNavigationBar(navController) }
             )
         }
@@ -412,6 +415,37 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
+        
+        composable("add_meal") {
+            val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
+            val profileVm: com.example.nutricook.viewmodel.profile.ProfileViewModel = hiltViewModel()
+            val nutritionState by nutritionVm.ui.collectAsState()
+            val profileState by profileVm.uiState.collectAsState()
+            val todayLog = nutritionState.todayLog
+            val caloriesTarget = profileState.profile?.nutrition?.caloriesTarget ?: 2000f
+            
+            AddMealScreen(
+                navController = navController,
+                initialCalories = todayLog?.calories ?: 0f,
+                initialProtein = todayLog?.protein ?: 0f,
+                initialFat = todayLog?.fat ?: 0f,
+                initialCarb = todayLog?.carb ?: 0f,
+                caloriesTarget = caloriesTarget,
+                onSave = { cal, pro, fat, carb ->
+                    nutritionVm.updateTodayNutrition(cal, pro, fat, carb)
+                }
+            )
+        }
+        
+        composable("custom_food_calculator") {
+            val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
+            CustomFoodCalculatorScreen(
+                navController = navController,
+                onSave = { name, calories, protein, fat, carb ->
+                    nutritionVm.updateTodayNutrition(calories, protein, fat, carb)
+                }
+            )
+        }
         composable("exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}") { backStackEntry ->
             val exerciseName = backStackEntry.arguments?.getString("exerciseName") ?: "Unknown"
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.baseball

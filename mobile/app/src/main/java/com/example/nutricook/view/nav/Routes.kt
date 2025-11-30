@@ -36,4 +36,6 @@ internal object Routes {
     const val NUTRITIONFACTS = "nutrition_facts"
     const val REVIEWSCREEN = "review_screen"
     const val ARTICLEDETAIL = "article_detail"
+    const val CUSTOM_FOOD_CALCULATOR = "custom_food_calculator"
+    const val ADD_MEAL = "add_meal"
 }
