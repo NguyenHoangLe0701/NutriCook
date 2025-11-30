@@ -10,6 +10,7 @@ import com.example.nutricook.data.Page
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.user.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -49,7 +50,8 @@ class PostRepository @Inject constructor(
 
             // 1. Tải danh sách bài viết (Dữ liệu Author có thể bị cũ)
             val snapshot = query.get().await()
-            val rawPosts = snapshot.toObjects(Post::class.java)
+            // Use custom mapper to avoid likeCount warning (likeCount is computed from likes.size)
+            val rawPosts = snapshot.documents.mapNotNull { it.toPostDomain() }
 
             // 2. [QUAN TRỌNG] "Join" dữ liệu User mới nhất vào Post
             // Lấy danh sách ID các tác giả trong trang này (tối đa 10 người)
@@ -258,6 +260,45 @@ class PostRepository @Inject constructor(
             }.await()
         } catch (e: Exception) {
             Log.e("DEBUG_FEED", "Lỗi toggle save: ${e.message}")
+        }
+    }
+
+    /**
+     * Custom mapper to convert DocumentSnapshot to Post, ignoring likeCount field
+     * (likeCount is computed from likes.size, not stored in Firestore)
+     */
+    private fun DocumentSnapshot.toPostDomain(): Post? {
+        if (!exists()) return null
+        return try {
+            // Parse author (nested object)
+            val authorMap = get("author") as? Map<String, Any>
+            val author = if (authorMap != null) {
+                User(
+                    id = authorMap["id"] as? String ?: "",
+                    email = authorMap["email"] as? String ?: "",
+                    displayName = authorMap["displayName"] as? String,
+                    avatarUrl = authorMap["avatarUrl"] as? String
+                )
+            } else {
+                User() // Fallback to empty user
+            }
+
+            Post(
+                id = id,
+                userId = getString("userId") ?: author.id, // For backward compatibility
+                title = getString("title") ?: "",
+                content = getString("content") ?: "",
+                imageUrl = getString("imageUrl"),
+                author = author,
+                createdAt = getLong("createdAt") ?: System.currentTimeMillis(),
+                likes = (get("likes") as? List<String>) ?: emptyList(),
+                saves = (get("saves") as? List<String>) ?: emptyList(),
+                commentCount = getLong("commentCount")?.toInt() ?: 0
+                // Note: likeCount is computed from likes.size, so we don't read it from Firestore
+            )
+        } catch (e: Exception) {
+            Log.e("PostRepo", "Error mapping Post: ${e.message}")
+            null
         }
     }
 }

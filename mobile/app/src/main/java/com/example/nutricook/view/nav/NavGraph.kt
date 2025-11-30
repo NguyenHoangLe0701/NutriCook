@@ -147,6 +147,13 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
+        composable("recipe_discovery") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    RecipeDiscoveryScreen(navController)
+                }
+            }
+        }
 
         // 4. CATEGORIES
         composable("categories") {

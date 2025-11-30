@@ -418,6 +418,29 @@ class FirebaseProfileRepository @Inject constructor(
     private fun tsFromCursor(cursor: String?): Timestamp? =
         cursor?.toLongOrNull()?.let { Timestamp(Date(it)) }
 
-    private fun nextCursorFrom(snap: DocumentSnapshot): String? =
-        snap.getTimestamp("createdAt")?.toDate()?.time?.toString()
+    private fun nextCursorFrom(snap: DocumentSnapshot): String? {
+        // Handle both Long and Timestamp types for createdAt
+        // Use get() to safely check the field type without throwing exceptions
+        val createdAtValue = snap.get("createdAt") ?: return null
+        
+        return when (createdAtValue) {
+            is Long -> createdAtValue.toString()
+            is com.google.firebase.Timestamp -> createdAtValue.toDate().time.toString()
+            is Number -> createdAtValue.toLong().toString()
+            else -> {
+                // Try to parse as Long or Timestamp as fallback
+                try {
+                    val asLong = snap.getLong("createdAt")
+                    asLong?.toString()
+                } catch (e: Exception) {
+                    try {
+                        val asTimestamp = snap.getTimestamp("createdAt")
+                        asTimestamp?.toDate()?.time?.toString()
+                    } catch (e2: Exception) {
+                        null
+                    }
+                }
+            }
+        }
+    }
 }

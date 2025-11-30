@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.nutricook.R
 import com.example.nutricook.viewmodel.QueryViewModel
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import com.google.firebase.firestore.FirebaseFirestore
 
 // 🧱 Data models
@@ -101,13 +103,22 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                 .get()
                 .await()
             
-            userRecipes.value = snapshot.documents.mapNotNull { doc ->
-                doc.data?.toMutableMap()?.apply {
-                    put("docId", doc.id)
+            // Check if coroutine is still active before updating state
+            if (currentCoroutineContext().isActive) {
+                userRecipes.value = snapshot.documents.mapNotNull { doc ->
+                    doc.data?.toMutableMap()?.apply {
+                        put("docId", doc.id)
+                    }
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Re-throw cancellation exceptions to properly cancel the coroutine
+            throw e
         } catch (e: Exception) {
-            android.util.Log.e("RecipeDiscovery", "Error loading user recipes: ${e.message}", e)
+            // Only log non-cancellation errors
+            if (currentCoroutineContext().isActive) {
+                android.util.Log.e("RecipeDiscovery", "Error loading user recipes: ${e.message}", e)
+            }
         }
     }
     
@@ -124,13 +135,19 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                 .get()
                 .await()
             
-            foodItems.value = snapshot.documents.mapNotNull { doc ->
-                doc.data?.toMutableMap()?.apply {
-                    put("docId", doc.id)
+            // Check if coroutine is still active before updating state
+            if (currentCoroutineContext().isActive) {
+                foodItems.value = snapshot.documents.mapNotNull { doc ->
+                    doc.data?.toMutableMap()?.apply {
+                        put("docId", doc.id)
+                    }
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Re-throw cancellation exceptions to properly cancel the coroutine
+            throw e
         } catch (_: Exception) {
-            // Ignore errors loading food items
+            // Ignore other errors loading food items
         }
     }
     
