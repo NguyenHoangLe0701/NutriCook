@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import java.io.File
 
 plugins {
     id("com.android.application")
@@ -16,6 +17,32 @@ val secretsProperties = Properties()
 if (secretsPropertiesFile.exists()) {
     FileInputStream(secretsPropertiesFile).use {
         secretsProperties.load(it)
+    }
+}
+
+// Đọc .env từ root project (nếu có) hoặc local.properties
+val rootEnvFile = rootProject.rootDir.parentFile?.let { File(it, ".env") } ?: rootProject.file("../.env")
+val localPropertiesFile = rootProject.file("local.properties")
+val envProperties = Properties()
+val localProperties = Properties()
+
+// Ưu tiên đọc từ .env ở root project
+if (rootEnvFile.exists()) {
+    rootEnvFile.readLines().forEach { line ->
+        val trimmed = line.trim()
+        if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && trimmed.contains("=")) {
+            val parts = trimmed.split("=", limit = 2)
+            if (parts.size == 2) {
+                envProperties[parts[0].trim()] = parts[1].trim().removeSurrounding("\"", "\"")
+            }
+        }
+    }
+}
+
+// Fallback về local.properties nếu không có .env
+if (localPropertiesFile.exists()) {
+    FileInputStream(localPropertiesFile).use {
+        localProperties.load(it)
     }
 }
 
@@ -46,6 +73,16 @@ android {
             "String",
             "CLOUDINARY_API_SECRET",
             "\"${secretsProperties["CLOUDINARY_API_SECRET"] ?: "your_api_secret"}\""
+        )
+        
+        // BuildConfig field cho Gemini API Key (ưu tiên .env, fallback local.properties)
+        val geminiApiKey = (envProperties["GEMINI_API_KEY"] as String? 
+            ?: localProperties["GEMINI_API_KEY"] as String? 
+            ?: "").toString()
+        buildConfigField(
+            "String",
+            "GEMINI_API_KEY",
+            "\"$geminiApiKey\""
         )
     }
 

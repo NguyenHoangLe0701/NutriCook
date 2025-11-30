@@ -992,23 +992,23 @@ fun ProfessionalNutritionDialog(
         // Đợi 1000ms sau khi ngừng gõ để tránh gọi API quá nhiều
         delay(1000)
         
-        // Kiểm tra xem có kết quả trong danh sách không
+        // Kiểm tra xem có kết quả chính xác (exact match) trong danh sách không
         val allFoods = foodCategories.values.flatten()
-        val found = allFoods.any { 
-            it.name.contains(searchQuery, ignoreCase = true) 
+        val exactMatch = allFoods.any { 
+            it.name.equals(searchQuery.trim(), ignoreCase = true) 
         }
         
-        // Nếu không tìm thấy và có Gemini service, tự động gọi API
-        if (!found && geminiService != null && geminiService.isApiKeyConfigured() && searchQuery.length >= 3) {
+        // Nếu không có exact match và có Gemini service, tự động gọi API
+        if (!exactMatch && geminiService != null && geminiService.isApiKeyConfigured() && searchQuery.length >= 3) {
             isLoadingGemini = true
             geminiError = null
             
             try {
-                val nutrition = geminiService.calculateNutrition(searchQuery)
+                val nutrition = geminiService.calculateNutrition(searchQuery.trim())
                 
                 if (nutrition != null) {
                     geminiResult = QuickFood(
-                        name = searchQuery,
+                        name = searchQuery.trim(),
                         calories = nutrition.calories,
                         protein = nutrition.protein,
                         fat = nutrition.fat,
@@ -1019,11 +1019,12 @@ fun ProfessionalNutritionDialog(
                     geminiError = null // Không hiển thị lỗi, chỉ đơn giản là không có kết quả
                 }
             } catch (e: Exception) {
+                e.printStackTrace() // Log lỗi để debug
                 geminiError = null // Không hiển thị lỗi để tránh rối mắt
             } finally {
                 isLoadingGemini = false
             }
-        } else if (!found && searchQuery.length >= 3 && (geminiService == null || !geminiService.isApiKeyConfigured())) {
+        } else if (!exactMatch && searchQuery.length >= 3 && (geminiService == null || !geminiService.isApiKeyConfigured())) {
             // Nếu không có API key, không làm gì cả
             isLoadingGemini = false
         }
@@ -1089,7 +1090,7 @@ fun ProfessionalNutritionDialog(
                     placeholder = { 
                         Text(
                             if (geminiService?.isApiKeyConfigured() == true) 
-                                "Tìm kiếm hoặc nhập món ăn (ví dụ: nửa con cá ngừ, 1 trái dâu)..."
+                                "Tìm kiếm hoặc nhập món ăn..."
                             else 
                                 "Tìm kiếm món ăn...", 
                             fontSize = 14.sp
