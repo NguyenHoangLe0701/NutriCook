@@ -30,6 +30,8 @@ import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.newsfeed.NewsfeedScreen
 import com.example.nutricook.view.notifications.NotificationsScreen
+import com.example.nutricook.view.profile.AddMealScreen
+import com.example.nutricook.view.profile.CustomFoodCalculatorScreen
 import com.example.nutricook.view.profile.ExerciseDetailScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
 import com.example.nutricook.view.profile.ProfileScreen
@@ -58,6 +60,9 @@ import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
 import com.example.nutricook.view.recipes.UserRecipeStepScreen
+import com.example.nutricook.view.hotnews.AllHotNewsScreen
+import com.example.nutricook.view.hotnews.CreateHotNewsScreen
+import com.example.nutricook.view.hotnews.HotNewsDetailScreen
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
 import com.example.nutricook.viewmodel.CreateRecipeViewModel
@@ -181,6 +186,7 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate("saves/$uid")
                 },
                 onOpenSearch = { navController.navigate("search_profiles") },
+                onNavigateToCalculator = { navController.navigate("add_meal") },
                 bottomBar = { BottomNavigationBar(navController) }
             )
         }
@@ -412,6 +418,38 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
+        
+        composable("add_meal") {
+            val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
+            val profileVm: com.example.nutricook.viewmodel.profile.ProfileViewModel = hiltViewModel()
+            val nutritionState by nutritionVm.ui.collectAsState()
+            val profileState by profileVm.uiState.collectAsState()
+            val todayLog = nutritionState.todayLog
+            val caloriesTarget = profileState.profile?.nutrition?.caloriesTarget ?: 2000f
+            
+            AddMealScreen(
+                navController = navController,
+                initialCalories = todayLog?.calories ?: 0f,
+                initialProtein = todayLog?.protein ?: 0f,
+                initialFat = todayLog?.fat ?: 0f,
+                initialCarb = todayLog?.carb ?: 0f,
+                caloriesTarget = caloriesTarget,
+                onSave = { cal, pro, fat, carb ->
+                    nutritionVm.updateTodayNutrition(cal, pro, fat, carb)
+                }
+            )
+        }
+        
+        composable("custom_food_calculator") {
+            val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
+            CustomFoodCalculatorScreen(
+                navController = navController,
+                onSave = { name, calories, protein, fat, carb ->
+                    nutritionVm.updateTodayNutrition(calories, protein, fat, carb)
+                }
+            )
+        }
+        
         composable("exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}") { backStackEntry ->
             val exerciseName = backStackEntry.arguments?.getString("exerciseName") ?: "Unknown"
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.baseball
@@ -421,6 +459,30 @@ fun NavGraph(navController: NavHostController) {
             ExerciseDetailScreen(navController, exerciseName, imageRes, duration, calories, difficulty)
         }
         composable("article_detail") { ArticleDetailScreen(navController) }
+        
+        // ========== HOT NEWS ==========
+        composable("all_hot_news") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    AllHotNewsScreen(navController)
+                }
+            }
+        }
+        composable("create_hot_news") {
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    CreateHotNewsScreen(navController)
+                }
+            }
+        }
+        composable("hot_news_detail/{articleId}") { backStackEntry ->
+            val articleId = backStackEntry.arguments?.getString("articleId") ?: ""
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    HotNewsDetailScreen(articleId = articleId, navController = navController)
+                }
+            }
+        }
 
         // ========== NOTIFICATIONS & SEED ==========
         composable("notifications") {

@@ -28,22 +28,39 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Brush
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.nutricook.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import com.example.nutricook.viewmodel.hotnews.HotNewsViewModel
 import kotlinx.coroutines.delay
 
 data class Category(val name: String, val icon: Int)
 data class NutritionItem(val name: String, val calories: String, val weight: String, val icon: Int)
 data class RecipeSuggestion(val name: String, val image: Int)
-data class NewsFeed(val title: String, val image: Int, val category: String, val author: String, val date: String)
 data class Exercise(val name: String, val icon: Int)
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    navController: NavController,
+    hotNewsViewModel: HotNewsViewModel = hiltViewModel()
+) {
     var isActive by remember { mutableStateOf(true) }
+    
+    // Load hot news from Firestore
+    val hotNewsState by hotNewsViewModel.uiState.collectAsState()
+    
+    LaunchedEffect(Unit) {
+        hotNewsViewModel.loadHotNews()
+    }
+    
+    // Get first 3 articles for home screen
+    val displayedNews = remember(hotNewsState.articles) {
+        hotNewsState.articles.take(3)
+    }
 
     val categories = listOf(
         Category("Rau củ", R.drawable.vegetable),
@@ -53,29 +70,6 @@ fun HomeScreen(navController: NavController) {
     val recipeSuggestions = listOf(
         RecipeSuggestion("Gà chiên nước mắm", R.drawable.recipe_chicken),
         RecipeSuggestion("Cá hấp bia", R.drawable.recipe_fish)
-    )
-    val newsFeeds = listOf(
-        NewsFeed(
-            "You Can Now Try the Hottest Sauce From...",
-            R.drawable.news_hambuger,
-            "Food News and Trends",
-            "Courtney",
-            "Sept 13, 2022"
-        ),
-        NewsFeed(
-            "8 5-Ingredient Breakfast Sandwiches for Easy...",
-            R.drawable.news_fastfood,
-            "Kitchen Tips",
-            "Sara Tane",
-            "Sept 13, 2022"
-        ),
-        NewsFeed(
-            "How to Make Pizza Chips — TikTok's New It Snack",
-            R.drawable.news_pizza,
-            "Food News and Trends",
-            "Alice Knisley",
-            "Sept 22, 2022"
-        )
     )
     val exercises = listOf(
         Exercise("Cycling", R.drawable.cycling), // Giả sử các icon đã có
@@ -516,79 +510,107 @@ fun HomeScreen(navController: NavController) {
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
-                    modifier = Modifier.clickable { navController.navigate("news_feeds") }
+                    modifier = Modifier.clickable { navController.navigate("all_hot_news") }
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                newsFeeds.forEach { news ->
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { navController.navigate("article_detail") }
-                    ) {
-                        Row(
+            if (hotNewsState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (displayedNews.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Chưa có bài đăng nào",
+                        color = Color.Gray
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    displayedNews.forEach { article ->
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                .clickable { 
+                                    navController.navigate("hot_news_detail/${article.id}")
+                                }
                         ) {
-                            Image(
-                                painter = painterResource(id = news.image),
-                                contentDescription = news.title,
+                            Row(
                                 modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(RoundedCornerShape(10.dp)),
-                                contentScale = ContentScale.Crop
-                            )
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                AsyncImage(
+                                    model = article.thumbnailUrl ?: "",
+                                    contentDescription = article.title,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    contentScale = ContentScale.Crop,
+                                    error = painterResource(id = R.drawable.news_fastfood)
+                                )
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = news.category,
-                                    color = Color(0xFF20B2AA),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = news.title,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF1B1B1B),
-                                    maxLines = 2
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.news_fastfood),
-                                        contentDescription = "Tác giả",
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .clip(CircleShape)
-                                    )
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = news.author,
+                                        text = article.category,
+                                        color = Color(0xFF20B2AA),
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        fontWeight = FontWeight.Medium
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = news.date,
-                                        fontSize = 12.sp,
-                                        color = Color.Gray
+                                        text = article.title,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF1B1B1B),
+                                        maxLines = 2
                                     )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = article.author.avatarUrl ?: "",
+                                            contentDescription = "Tác giả",
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clip(CircleShape),
+                                            contentScale = ContentScale.Crop,
+                                            error = painterResource(id = R.drawable.news_fastfood)
+                                        )
+                                        Text(
+                                            text = article.author.displayName ?: article.author.email ?: "Anonymous",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = article.getFormattedDate(),
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
                                 }
                             }
                         }

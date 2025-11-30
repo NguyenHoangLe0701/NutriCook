@@ -85,6 +85,7 @@ fun ProfileScreen(
     onOpenPosts: () -> Unit = {},
     onOpenSaves: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onNavigateToCalculator: () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     vm: ProfileViewModel = hiltViewModel(),
     nutritionVm: NutritionViewModel = hiltViewModel()
@@ -235,7 +236,7 @@ fun ProfileScreen(
                         caloriesTarget = caloriesTarget,
                         todayLog = todayLog,
                         weeklyData = historyData,
-                        onAddClick = { showUpdateDialog = true },
+                        onAddClick = { onNavigateToCalculator() },
                         onTargetChange = { newTarget ->
                             vm.updateCaloriesTarget(newTarget)
                         }
@@ -335,7 +336,11 @@ fun ProfileScreen(
                         nutritionVm.updateTodayNutrition(c, pr, f, cb)
                         showUpdateDialog = false
                     },
-                    geminiService = geminiService
+                    geminiService = geminiService,
+                    onNavigateToCalculator = {
+                        showUpdateDialog = false
+                        onNavigateToCalculator()
+                    }
                 )
             }
         }
@@ -935,7 +940,8 @@ fun ProfessionalNutritionDialog(
     caloriesTarget: Float,
     onDismiss: () -> Unit,
     onSave: (Float, Float, Float, Float) -> Unit,
-    geminiService: GeminiNutritionService? = null
+    geminiService: GeminiNutritionService? = null,
+    onNavigateToCalculator: (() -> Unit)? = null
 ) {
     var cal by remember { mutableStateOf(if(initialCalories > 0) initialCalories.toString() else "") }
     var pro by remember { mutableStateOf(if(initialProtein > 0) initialProtein.toString() else "") }
@@ -1480,6 +1486,24 @@ fun ProfessionalNutritionDialog(
                     MacroInputField(label = "Protein", value = pro, onValueChange = { pro = it }, color = Color(0xFF3B82F6), modifier = Modifier.weight(1f))
                     MacroInputField(label = "Fat", value = fat, onValueChange = { fat = it }, color = Color(0xFFF59E0B), modifier = Modifier.weight(1f))
                     MacroInputField(label = "Carb", value = carb, onValueChange = { carb = it }, color = Color(0xFF10B981), modifier = Modifier.weight(1f))
+                }
+                
+                // Nút mở màn hình tính calories
+                if (onNavigateToCalculator != null) {
+                    OutlinedButton(
+                        onClick = {
+                            onNavigateToCalculator()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TealPrimary
+                        )
+                    ) {
+                        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Tính calories tự động", fontWeight = FontWeight.Medium)
+                    }
                 }
 
                 Button(
