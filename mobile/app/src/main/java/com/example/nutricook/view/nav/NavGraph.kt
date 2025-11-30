@@ -26,6 +26,9 @@ import com.example.nutricook.view.categories.FoodDetailScreen
 import com.example.nutricook.view.debug.DataSeedScreen
 import com.example.nutricook.view.home.HomeScreen
 import com.example.nutricook.view.home.NutritionDetailScreen
+import com.example.nutricook.view.hotnews.AllHotNewsScreen
+import com.example.nutricook.view.hotnews.CreateHotNewsScreen
+import com.example.nutricook.view.hotnews.HotNewsDetailScreen
 import com.example.nutricook.view.intro.IntroScreen
 import com.example.nutricook.view.intro.OnboardingScreen
 import com.example.nutricook.view.newsfeed.NewsfeedScreen
@@ -50,8 +53,6 @@ import com.example.nutricook.view.recipes.IngredientsFilterScreen
 import com.example.nutricook.view.recipes.NutritionFactsScreen
 import com.example.nutricook.view.recipes.RecipeDetailScreen
 import com.example.nutricook.view.recipes.RecipeDirectionsScreen
-import com.example.nutricook.view.recipes.UserRecipeInfoScreen
-import com.example.nutricook.view.recipes.UserRecipeNutritionFactsScreen
 import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
 import com.example.nutricook.view.recipes.RecipeInfoScreen
 import com.example.nutricook.view.recipes.RecipeStep2Screen
@@ -59,19 +60,18 @@ import com.example.nutricook.view.recipes.RecipeStepFinalScreen
 import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
+import com.example.nutricook.view.recipes.UserRecipeInfoScreen
+import com.example.nutricook.view.recipes.UserRecipeNutritionFactsScreen
 import com.example.nutricook.view.recipes.UserRecipeStepScreen
-import com.example.nutricook.view.hotnews.AllHotNewsScreen
-import com.example.nutricook.view.hotnews.CreateHotNewsScreen
-import com.example.nutricook.view.hotnews.HotNewsDetailScreen
+import com.example.nutricook.viewmodel.CreateRecipeViewModel
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import com.example.nutricook.viewmodel.profile.ActivitiesViewModel
-import com.example.nutricook.viewmodel.CreateRecipeViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController) {
     val authVm: AuthViewModel = hiltViewModel()
     val authState by authVm.uiState.collectAsState()
-    
+
     // Share CreateRecipeViewModel across all recipe creation steps
     val createRecipeViewModel: CreateRecipeViewModel = hiltViewModel()
 
@@ -173,10 +173,7 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("recent_activity/$uid")
                 },
-                onEditAvatar = {
-                    // [SỬA ĐỔI]: Thêm navigation đến màn hình chỉnh sửa
-                    navController.navigate("edit_profile")
-                },
+                // [ĐÃ SỬA] Xóa onEditAvatar vì ProfileScreen không cần nữa
                 onOpenPosts = {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("posts/$uid")
@@ -331,7 +328,7 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_step") { RecipeStepScreen(navController) }
         composable("recipe_step2") { RecipeStep2Screen(navController) }
         composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
-        
+
         // Dynamic routes for user recipe steps - số màn hình dựa vào số bước đã tạo
         composable(
             route = "recipe_step_{stepIndex}",
@@ -344,7 +341,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-        
+
         // User recipe info screen
         composable("user_recipe_info/{recipeId}") { backStackEntry ->
             val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
@@ -354,7 +351,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-        
+
         // Dynamic routes for user recipe steps with recipe ID
         composable(
             route = "user_recipe_step_{recipeId}_{stepIndex}",
@@ -375,7 +372,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-        
+
         // User recipe nutrition facts screen
         composable("user_recipe_nutrition_facts/{recipeId}") { backStackEntry ->
             val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
@@ -418,7 +415,7 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable("exercise_suggestions") { ExerciseSuggestionsScreen(navController) }
-        
+
         composable("add_meal") {
             val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
             val profileVm: com.example.nutricook.viewmodel.profile.ProfileViewModel = hiltViewModel()
@@ -426,7 +423,7 @@ fun NavGraph(navController: NavHostController) {
             val profileState by profileVm.uiState.collectAsState()
             val todayLog = nutritionState.todayLog
             val caloriesTarget = profileState.profile?.nutrition?.caloriesTarget ?: 2000f
-            
+
             AddMealScreen(
                 navController = navController,
                 initialCalories = todayLog?.calories ?: 0f,
@@ -439,7 +436,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        
+
         composable("custom_food_calculator") {
             val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
             CustomFoodCalculatorScreen(
@@ -449,7 +446,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        
+
         composable("exercise_detail/{exerciseName}/{imageRes}/{duration}/{calories}/{difficulty}") { backStackEntry ->
             val exerciseName = backStackEntry.arguments?.getString("exerciseName") ?: "Unknown"
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.baseball
@@ -459,7 +456,7 @@ fun NavGraph(navController: NavHostController) {
             ExerciseDetailScreen(navController, exerciseName, imageRes, duration, calories, difficulty)
         }
         composable("article_detail") { ArticleDetailScreen(navController) }
-        
+
         // ========== HOT NEWS ==========
         composable("all_hot_news") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
@@ -494,12 +491,6 @@ fun NavGraph(navController: NavHostController) {
         }
         composable("seed_data") { DataSeedScreen(navController) }
 
-        composable("edit_profile") {
-            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Màn hình Chỉnh sửa hồ sơ (Edit Profile Screen)")
-                }
-            }
-        }
+        // [ĐÃ SỬA] Đã xóa route "edit_profile" vì chức năng này đã có trong SettingsScreen
     }
 }

@@ -15,11 +15,12 @@ data class ProfileSharedUiState(
     val message: String? = null,
     val myProfile: Profile? = null,
 
-    // các field để binding lên SettingsScreen
+    // Các field binding lên SettingsScreen
     val fullName: String = "",
     val email: String = "",
     val dayOfBirth: String = "",
     val gender: String = "Male",
+    val bio: String = "", // [MỚI] Thêm Bio để chỉnh sửa trong Settings
 
     val saving: Boolean = false
 )
@@ -32,12 +33,13 @@ sealed interface ProfileSharedEvent {
     data class EmailChanged(val v: String) : ProfileSharedEvent
     data class DobChanged(val v: String) : ProfileSharedEvent
     data class GenderChanged(val v: String) : ProfileSharedEvent
+    data class BioChanged(val v: String) : ProfileSharedEvent // [MỚI] Sự kiện sửa Bio
 
-    // đổi mật khẩu
+    // Đổi mật khẩu
     data class ChangePassword(val old: String, val new: String) : ProfileSharedEvent
 
-    // đổi avatar từ Settings
-    data class ChangeAvatar(val localUri: String) : ProfileSharedEvent
+    // Đổi avatar từ Settings
+    data class UpdateAvatar(val localUri: String) : ProfileSharedEvent
 
     data object Consume : ProfileSharedEvent
 }
@@ -50,7 +52,9 @@ class ProfileSharedViewModel @Inject constructor(
     private val _ui = MutableStateFlow(ProfileSharedUiState())
     val uiState = _ui.asStateFlow()
 
-    init { onEvent(ProfileSharedEvent.Refresh) }
+    init {
+        onEvent(ProfileSharedEvent.Refresh)
+    }
 
     fun onEvent(e: ProfileSharedEvent) {
         when (e) {
@@ -58,16 +62,7 @@ class ProfileSharedViewModel @Inject constructor(
                 _ui.value = _ui.value.copy(loading = true, message = null)
                 runCatching { repo.getMyProfile() }
                     .onSuccess { p ->
-                        _ui.value = _ui.value.copy(
-                            loading = false,
-                            myProfile = p,
-                            fullName = p.user.displayName?.ifBlank {
-                                p.user.email.substringBefore("@")
-                            } ?: p.user.email.substringBefore("@"),
-                            email = p.user.email,
-                            dayOfBirth = p.dayOfBirth.orEmpty(),
-                            gender = p.gender ?: "Male"
-                        )
+                        updateStateFromProfile(p)
                     }
                     .onFailure { ex ->
                         _ui.value = _ui.value.copy(
@@ -81,17 +76,21 @@ class ProfileSharedViewModel @Inject constructor(
                 _ui.value = _ui.value.copy(saving = true, message = null)
                 val s = _ui.value
                 runCatching {
+                    // [CHỈNH SỬA] Bỏ tham số email (vì Repo mới đã bỏ), thêm bio
                     repo.updateProfile(
                         fullName = s.fullName,
-                        email = s.email,
                         dayOfBirth = s.dayOfBirth.ifBlank { null },
                         gender = s.gender.ifBlank { null },
-                        bio = s.myProfile?.bio
+                        bio = s.bio
                     )
                 }
-                    .onSuccess {
-                        _ui.value = _ui.value.copy(saving = false, message = "Đã lưu thay đổi")
-                        onEvent(ProfileSharedEvent.Refresh) // đồng bộ lại
+                    .onSuccess { updatedProfile ->
+                        // Repo trả về Profile mới, update thẳng vào State luôn
+                        updateStateFromProfile(updatedProfile)
+                        _ui.value = _ui.value.copy(
+                            saving = false,
+                            message = "Đã lưu thay đổi"
+                        )
                     }
                     .onFailure { ex ->
                         _ui.value = _ui.value.copy(
@@ -113,6 +112,9 @@ class ProfileSharedViewModel @Inject constructor(
             is ProfileSharedEvent.GenderChanged ->
                 _ui.value = _ui.value.copy(gender = e.v)
 
+            is ProfileSharedEvent.BioChanged ->
+                _ui.value = _ui.value.copy(bio = e.v)
+
             is ProfileSharedEvent.ChangePassword -> viewModelScope.launch {
                 _ui.value = _ui.value.copy(saving = true, message = null)
                 runCatching { repo.changePassword(e.old, e.new) }
@@ -130,17 +132,26 @@ class ProfileSharedViewModel @Inject constructor(
                     }
             }
 
-            is ProfileSharedEvent.ChangeAvatar -> viewModelScope.launch {
+            // [QUAN TRỌNG] Xử lý đổi Avatar
+            is ProfileSharedEvent.UpdateAvatar -> viewModelScope.launch {
+                if (e.localUri.isEmpty()) return@launch
+
                 _ui.value = _ui.value.copy(saving = true, message = null)
                 runCatching { repo.updateAvatar(e.localUri) }
-                    .onSuccess { url ->
-                        // cập nhật ngay vào state cho mượt
-                        _ui.value = _ui.value.let { st ->
-                            val p = st.myProfile
-                            val newP = p?.copy(user = p.user.copy(avatarUrl = url))
-                            st.copy(saving = false, myProfile = newP, message = "Đã đổi ảnh đại diện")
+                    .onSuccess { newUrl ->
+                        // Cập nhật URL mới vào State ngay lập tức
+                        val currentP = _ui.value.myProfile
+                        if (currentP != null) {
+                            val newP = currentP.copy(user = currentP.user.copy(avatarUrl = newUrl))
+                            _ui.value = _ui.value.copy(
+                                saving = false,
+                                myProfile = newP,
+                                message = "Đã đổi ảnh đại diện"
+                            )
+                        } else {
+                            // Nếu profile chưa có thì load lại
+                            onEvent(ProfileSharedEvent.Refresh)
                         }
-                        onEvent(ProfileSharedEvent.Refresh)
                     }
                     .onFailure { ex ->
                         _ui.value = _ui.value.copy(
@@ -153,5 +164,18 @@ class ProfileSharedViewModel @Inject constructor(
             ProfileSharedEvent.Consume ->
                 _ui.value = _ui.value.copy(message = null)
         }
+    }
+
+    // Helper function để đồng bộ Profile vào UI State
+    private fun updateStateFromProfile(p: Profile) {
+        _ui.value = _ui.value.copy(
+            loading = false,
+            myProfile = p,
+            fullName = p.user.displayName ?: "",
+            email = p.user.email,
+            dayOfBirth = p.dayOfBirth.orEmpty(),
+            gender = p.gender ?: "Male",
+            bio = p.bio ?: "" // Đồng bộ Bio
+        )
     }
 }

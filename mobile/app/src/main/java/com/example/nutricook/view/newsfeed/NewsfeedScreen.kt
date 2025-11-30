@@ -76,7 +76,7 @@ fun NewsfeedScreen(
     var showCommentDialog by remember { mutableStateOf<String?>(null) } // postId hoặc articleId
     var commentPostType by remember { mutableStateOf("post") } // "post" hoặc "hotnews"
     val currentUser = FirebaseAuth.getInstance().currentUser
-    
+
     // Inject CommentRepository
     val context = androidx.compose.ui.platform.LocalContext.current
     val commentRepo = remember {
@@ -88,7 +88,7 @@ fun NewsfeedScreen(
             null
         }
     }
-    
+
     // Reload khi quay lại từ CreateHotNewsScreen
     DisposableEffect(navController) {
         val listener = navController?.let { nc ->
@@ -111,7 +111,8 @@ fun NewsfeedScreen(
 
     Scaffold(
         topBar = {
-            ModernTopBar()
+            // [ĐÃ SỬA] Truyền avatarUrl của user hiện tại vào TopBar
+            ModernTopBar(currentUserAvatarUrl = currentUser?.photoUrl?.toString())
         },
         floatingActionButton = {
             Column(
@@ -226,14 +227,13 @@ fun NewsfeedScreen(
         if (showCreateDialog) {
             ModernCreatePostDialog(
                 onDismiss = { showCreateDialog = false },
-                // [CẬP NHẬT] Nhận thêm title
                 onSubmit = { title, content, uri ->
                     viewModel.createPostWithImage(title, content, uri)
                     showCreateDialog = false
                 }
             )
         }
-        
+
         // Comment Dialog
         showCommentDialog?.let { postId ->
             if (commentRepo != null) {
@@ -263,28 +263,42 @@ interface CommentRepositoryEntryPoint {
 // --- MODERN TOP BAR ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModernTopBar() {
+fun ModernTopBar(currentUserAvatarUrl: String? = null) { // [ĐÃ SỬA] Thêm tham số
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(PrimaryGreen, PrimaryGreenDark)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Restaurant,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                // [ĐÃ SỬA] Hiển thị Avatar User hoặc Icon mặc định
+                if (!currentUserAvatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = currentUserAvatarUrl,
+                        contentDescription = "My Avatar",
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.LightGray),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(PrimaryGreen, PrimaryGreenDark)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.Restaurant,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
+
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     "NutriCook",
@@ -367,6 +381,7 @@ fun ModernPostCard(
             // Header
             PostHeader(
                 email = post.author.email,
+                avatarUrl = post.author.avatarUrl, // [ĐÃ SỬA] Truyền avatarUrl
                 timestamp = post.createdAt,
                 isAuthor = isAuthor,
                 onDelete = { onDelete(post.id) }
@@ -374,7 +389,6 @@ fun ModernPostCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // [CẬP NHẬT] Hiển thị Title
             if (post.title.isNotBlank()) {
                 Text(
                     text = post.title,
@@ -435,30 +449,47 @@ fun ModernPostCard(
 @Composable
 fun PostHeader(
     email: String,
+    avatarUrl: String?, // [ĐÃ SỬA] Thêm tham số avatarUrl
     timestamp: Long,
     isAuthor: Boolean,
     onDelete: () -> Unit
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(PrimaryGreen.copy(0.2f), AccentOrange.copy(0.2f))
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = email.take(1).uppercase(),
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = PrimaryGreen
+        // [ĐÃ SỬA] Logic hiển thị Avatar
+        if (!avatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = "User Avatar",
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.LightGray),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            // Fallback: Chữ cái đầu
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(PrimaryGreen.copy(0.2f), AccentOrange.copy(0.2f))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = email.take(1).uppercase(),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = PrimaryGreen
+                )
+            }
         }
+
         Spacer(modifier = Modifier.width(12.dp))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 email.substringBefore("@"),
@@ -630,10 +661,9 @@ fun ActionButton(
 @Composable
 fun ModernCreatePostDialog(
     onDismiss: () -> Unit,
-    // [CẬP NHẬT] Thêm tham số title vào callback
     onSubmit: (String, String, Uri?) -> Unit
 ) {
-    var title by remember { mutableStateOf("") } // [CẬP NHẬT] State cho title
+    var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -667,7 +697,6 @@ fun ModernCreatePostDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // [CẬP NHẬT] Input Title
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -752,7 +781,6 @@ fun ModernCreatePostDialog(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    // [CẬP NHẬT] Truyền title vào onSubmit
                     onClick = { onSubmit(title, content, selectedImageUri) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -762,7 +790,6 @@ fun ModernCreatePostDialog(
                         disabledContainerColor = PrimaryGreen.copy(0.3f)
                     ),
                     shape = RoundedCornerShape(16.dp),
-                    // Logic kích hoạt nút: Cần có (Title & Content) hoặc (Ảnh)
                     enabled = (title.isNotBlank() && content.isNotBlank()) || selectedImageUri != null
                 ) {
                     Text(
@@ -804,6 +831,7 @@ fun ModernHotNewsCard(
             // Header
             PostHeader(
                 email = article.author.email,
+                avatarUrl = article.author.avatarUrl, // [ĐÃ SỬA] Truyền avatarUrl
                 timestamp = article.createdAt,
                 isAuthor = isAuthor,
                 onDelete = { onDelete(article.id) }
@@ -898,7 +926,7 @@ fun CommentDialog(
     var commentText by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    
+
     // Load comments
     LaunchedEffect(postId, postType) {
         isLoading = true
@@ -910,7 +938,7 @@ fun CommentDialog(
             isLoading = false
         }
     }
-    
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -938,9 +966,9 @@ fun CommentDialog(
                         Icon(Icons.Default.Close, null, tint = TextMuted)
                     }
                 }
-                
+
                 Divider(color = DividerColor, thickness = 1.dp)
-                
+
                 // Comments List
                 if (isLoading) {
                     Box(
@@ -1002,9 +1030,9 @@ fun CommentDialog(
                         }
                     }
                 }
-                
+
                 Divider(color = DividerColor, thickness = 1.dp)
-                
+
                 // Input Section
                 Row(
                     modifier = Modifier
@@ -1079,31 +1107,44 @@ fun CommentItem(
     onDelete: () -> Unit
 ) {
     val isAuthor = comment.author.id == currentUserId
-    
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Avatar
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(PrimaryGreen.copy(0.2f), AccentOrange.copy(0.2f))
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = (comment.author.email ?: "?").take(1).uppercase(),
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = PrimaryGreen
+        // [ĐÃ SỬA] Avatar
+        val avatarUrl = comment.author.avatarUrl
+        if (!avatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.LightGray),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(PrimaryGreen.copy(0.2f), AccentOrange.copy(0.2f))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = (comment.author.email ?: "?").take(1).uppercase(),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = PrimaryGreen
+                )
+            }
         }
-        
+
         // Content
         Column(modifier = Modifier.weight(1f)) {
             Row(
