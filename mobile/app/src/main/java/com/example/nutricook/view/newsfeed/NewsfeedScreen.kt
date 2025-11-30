@@ -18,8 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +36,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.nutricook.model.hotnews.HotNewsArticle
+import com.example.nutricook.model.newsfeed.FeedItem
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.viewmodel.newsfeed.PostViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -53,18 +58,63 @@ val DividerColor = Color(0xFFE5E7EB)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewsfeedScreen(
+    navController: NavController? = null,
     viewModel: PostViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     val currentUser = FirebaseAuth.getInstance().currentUser
+    
+    // Reload khi quay lại từ CreateHotNewsScreen
+    DisposableEffect(navController) {
+        val listener = navController?.let { nc ->
+            androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
+                if (destination.route == "newsfeed") {
+                    nc.previousBackStackEntry?.savedStateHandle?.get<Boolean>("shouldReloadHotNews")?.let {
+                        if (it) {
+                            viewModel.loadFeed()
+                            nc.previousBackStackEntry?.savedStateHandle?.remove<Boolean>("shouldReloadHotNews")
+                        }
+                    }
+                }
+            }
+        }
+        listener?.let { navController?.addOnDestinationChangedListener(it) }
+        onDispose {
+            listener?.let { navController?.removeOnDestinationChangedListener(it) }
+        }
+    }
 
     Scaffold(
         topBar = {
             ModernTopBar()
         },
         floatingActionButton = {
-            ModernFAB(onClick = { showCreateDialog = true })
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                // Nút tạo Hot News (nằm trên)
+                FloatingActionButton(
+                    onClick = {
+                        navController?.navigate("create_hot_news")
+                    },
+                    containerColor = AccentOrange,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .scale(0.9f)
+                        .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
+                ) {
+                    Icon(
+                        Icons.Default.Whatshot,
+                        contentDescription = "Tạo Hot News",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                // Nút tạo bài viết (nằm dưới)
+                ModernFAB(onClick = { showCreateDialog = true })
+            }
         },
         containerColor = BackgroundLight
     ) { paddingValues ->
@@ -91,20 +141,37 @@ fun NewsfeedScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    itemsIndexed(state.items) { index, post ->
+                    itemsIndexed(state.items) { index, feedItem ->
                         // Logic Load More (Pagination)
                         if (index >= state.items.size - 2 && !state.loadingMore && state.hasMore) {
                             LaunchedEffect(Unit) { viewModel.loadMore() }
                         }
 
-                        ModernPostCard(
-                            post = post,
-                            currentUserId = currentUser?.uid ?: "",
-                            onLike = { viewModel.toggleLike(post) },
-                            onSave = { viewModel.toggleSave(post) },
-                            onDelete = { viewModel.deletePost(post.id) },
-                            onComment = { /* TODO */ }
-                        )
+                        when (feedItem) {
+                            is FeedItem.PostItem -> {
+                                ModernPostCard(
+                                    post = feedItem.post,
+                                    currentUserId = currentUser?.uid ?: "",
+                                    onLike = { viewModel.toggleLike(feedItem) },
+                                    onSave = { viewModel.toggleSave(feedItem) },
+                                    onDelete = { viewModel.deletePost(feedItem.post.id) },
+                                    onComment = { /* TODO */ }
+                                )
+                            }
+                            is FeedItem.HotNewsItem -> {
+                                ModernHotNewsCard(
+                                    article = feedItem.article,
+                                    currentUserId = currentUser?.uid ?: "",
+                                    onLike = { viewModel.toggleLike(feedItem) },
+                                    onSave = { viewModel.toggleSave(feedItem) },
+                                    onDelete = { viewModel.deletePost(feedItem.article.id) },
+                                    onComment = { /* TODO */ },
+                                    onClick = {
+                                        navController?.navigate("hot_news_detail/${feedItem.article.id}")
+                                    }
+                                )
+                            }
+                        }
                     }
 
                     // Loading indicator ở cuối danh sách khi load more
@@ -651,6 +718,114 @@ fun ModernCreatePostDialog(
                     )
                 }
             }
+        }
+    }
+}
+
+// --- MODERN HOT NEWS CARD ---
+@Composable
+fun ModernHotNewsCard(
+    article: HotNewsArticle,
+    currentUserId: String,
+    onLike: () -> Unit,
+    onSave: () -> Unit,
+    onDelete: (String) -> Unit,
+    onComment: () -> Unit,
+    onClick: () -> Unit
+) {
+    val isLiked = article.likes.contains(currentUserId)
+    val isSaved = article.saves.contains(currentUserId)
+    val isAuthor = article.author.id == currentUserId
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Header
+            PostHeader(
+                email = article.author.email,
+                timestamp = article.createdAt,
+                isAuthor = isAuthor,
+                onDelete = { onDelete(article.id) }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Category Badge
+            Surface(
+                color = AccentOrange.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = article.category,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AccentOrange,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Title
+            Text(
+                text = article.title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = TextDark,
+                lineHeight = 24.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Content
+            if (article.content.isNotBlank()) {
+                Text(
+                    text = article.content,
+                    fontSize = 15.sp,
+                    lineHeight = 24.sp,
+                    color = TextDark.copy(alpha = 0.8f),
+                    maxLines = 3
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Thumbnail
+            if (!article.thumbnailUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = article.thumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 200.dp, max = 400.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFF3F4F6)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Stats
+            PostStats(likesCount = article.likes.size, commentsCount = article.commentCount)
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Divider(color = DividerColor, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Actions
+            PostActions(
+                isLiked = isLiked,
+                isSaved = isSaved,
+                onLike = onLike,
+                onComment = onComment,
+                onSave = onSave
+            )
         }
     }
 }

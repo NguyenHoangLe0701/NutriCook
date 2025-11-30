@@ -282,7 +282,7 @@ fun CreateHotNewsScreen(
                         onSuccess = {
                             isUploading = false
                             // Set flag to reload when going back
-                            navController.previousBackStackEntry?.savedStateHandle?.set("shouldReload", true)
+                            navController.previousBackStackEntry?.savedStateHandle?.set("shouldReloadHotNews", true)
                             navController.popBackStack()
                         },
                         onError = { error ->

@@ -134,7 +134,7 @@ fun NavGraph(navController: NavHostController) {
         composable("newsfeed") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    NewsfeedScreen()
+                    NewsfeedScreen(navController = navController)
                 }
             }
         }

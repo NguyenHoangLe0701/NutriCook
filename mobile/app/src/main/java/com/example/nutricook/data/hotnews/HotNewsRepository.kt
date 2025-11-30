@@ -51,6 +51,13 @@ class HotNewsRepository @Inject constructor(
                         User()
                     }
                     
+                    // Parse likes, saves, commentCount
+                    @Suppress("UNCHECKED_CAST")
+                    val likes = (data["likes"] as? List<String>) ?: emptyList()
+                    @Suppress("UNCHECKED_CAST")
+                    val saves = (data["saves"] as? List<String>) ?: emptyList()
+                    val commentCount = (data["commentCount"] as? Number)?.toInt() ?: 0
+                    
                     HotNewsArticle(
                         id = doc.id,
                         title = data["title"] as? String ?: "",
@@ -59,7 +66,10 @@ class HotNewsRepository @Inject constructor(
                         author = author,
                         thumbnailUrl = data["thumbnailUrl"] as? String,
                         link = data["link"] as? String,
-                        createdAt = (data["createdAt"] as? Long) ?: System.currentTimeMillis()
+                        createdAt = (data["createdAt"] as? Long) ?: System.currentTimeMillis(),
+                        likes = likes,
+                        saves = saves,
+                        commentCount = commentCount
                     )
                 } catch (e: Exception) {
                     android.util.Log.e("HotNewsRepo", "Error parsing document ${doc.id}: ${e.message}")
@@ -117,7 +127,10 @@ class HotNewsRepository @Inject constructor(
                 author = author,
                 thumbnailUrl = thumbnailUrl,
                 link = link,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                likes = emptyList(),
+                saves = emptyList(),
+                commentCount = 0
             )
             
             // Lưu vào Firestore
@@ -194,6 +207,84 @@ class HotNewsRepository @Inject constructor(
                 android.util.Log.e("HotNewsRepo", "Error uploading image: ${e.message}")
                 continuation.resume(null)
             }
+        }
+    }
+    
+    /**
+     * Thả tim / Bỏ tim cho Hot News
+     */
+    suspend fun toggleLike(articleId: String, currentUserId: String) {
+        try {
+            val docRef = firestore.collection("hotNews").document(articleId)
+            val doc = docRef.get().await()
+            
+            if (!doc.exists()) return
+            
+            @Suppress("UNCHECKED_CAST")
+            val currentLikes = (doc.get("likes") as? List<String>) ?: emptyList()
+            
+            val newLikes = if (currentLikes.contains(currentUserId)) {
+                currentLikes - currentUserId
+            } else {
+                currentLikes + currentUserId
+            }
+            
+            docRef.update("likes", newLikes).await()
+        } catch (e: Exception) {
+            android.util.Log.e("HotNewsRepo", "Error toggling like: ${e.message}")
+        }
+    }
+    
+    /**
+     * Lưu bài / Bỏ lưu cho Hot News
+     */
+    suspend fun toggleSave(articleId: String, currentUserId: String) {
+        try {
+            val docRef = firestore.collection("hotNews").document(articleId)
+            val doc = docRef.get().await()
+            
+            if (!doc.exists()) return
+            
+            @Suppress("UNCHECKED_CAST")
+            val currentSaves = (doc.get("saves") as? List<String>) ?: emptyList()
+            
+            val newSaves = if (currentSaves.contains(currentUserId)) {
+                currentSaves - currentUserId
+            } else {
+                currentSaves + currentUserId
+            }
+            
+            docRef.update("saves", newSaves).await()
+        } catch (e: Exception) {
+            android.util.Log.e("HotNewsRepo", "Error toggling save: ${e.message}")
+        }
+    }
+    
+    /**
+     * Xóa bài Hot News (chỉ người đăng mới có thể xóa)
+     */
+    suspend fun deleteHotNews(articleId: String): Boolean {
+        return try {
+            val currentUser = auth.currentUser ?: return false
+            val docRef = firestore.collection("hotNews").document(articleId)
+            val doc = docRef.get().await()
+            
+            if (!doc.exists()) return false
+            
+            // Kiểm tra xem người dùng hiện tại có phải là tác giả không
+            val authorObj = doc.get("author") as? Map<*, *>
+            val authorId = authorObj?.get("id") as? String
+            
+            if (authorId != currentUser.uid) {
+                android.util.Log.w("HotNewsRepo", "User ${currentUser.uid} is not the author of article $articleId")
+                return false
+            }
+            
+            docRef.delete().await()
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("HotNewsRepo", "Error deleting hot news: ${e.message}")
+            false
         }
     }
 }
