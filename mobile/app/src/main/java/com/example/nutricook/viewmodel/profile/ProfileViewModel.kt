@@ -3,8 +3,9 @@ package com.example.nutricook.viewmodel.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
-import com.example.nutricook.model.newsfeed.Post // Import đúng
+import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.profile.Profile
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,16 +21,23 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val repo: ProfileRepository
+    private val repo: ProfileRepository,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _ui.asStateFlow()
 
+    // Danh sách bài đã lưu
     private val _savedPosts = MutableStateFlow<List<Post>>(emptyList())
     val savedPosts: StateFlow<List<Post>> = _savedPosts.asStateFlow()
 
+    // [MỚI] Danh sách bài viết của chính tôi
+    private val _userPosts = MutableStateFlow<List<Post>>(emptyList())
+    val userPosts: StateFlow<List<Post>> = _userPosts.asStateFlow()
+
     init {
+        // 1. Tự động lắng nghe thay đổi từ Firestore (Real-time)
         repo.myProfileFlow()
             .distinctUntilChanged()
             .onEach { p ->
@@ -47,45 +55,124 @@ class ProfileViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
+        // 2. Load Profile lần đầu
         viewModelScope.launch {
-            if (_ui.value.profile == null) refreshOnce()
+            if (_ui.value.profile == null) {
+                runCatching { repo.getMyProfile() }
+            }
         }
+
+        // 3. Tự động load dữ liệu bài viết
+        loadSavedPosts()
+        loadUserPosts() // [MỚI] Load bài viết của mình
     }
 
-    fun loadSavedPosts() = viewModelScope.launch {
-        val uid = _ui.value.profile?.user?.id ?: return@launch
+    // --- CÁC HÀM UPDATE ---
+
+    fun updateAvatar(localUri: String) = viewModelScope.launch {
+        _ui.update { it.copy(updating = true, message = null) }
+
         runCatching {
-            repo.getUserSaves(uid)
+            repo.updateAvatar(localUri)
         }
-            .onSuccess { pagedResult ->
-                _savedPosts.value = pagedResult.items
+            .onSuccess { newUrl ->
+                _ui.update { state ->
+                    val updatedUser = state.profile?.user?.copy(avatarUrl = newUrl)
+                    val updatedProfile = state.profile?.copy(user = updatedUser!!)
+
+                    state.copy(
+                        updating = false,
+                        profile = updatedProfile ?: state.profile,
+                        message = "Đã cập nhật ảnh đại diện"
+                    )
+                }
+            }
+            .onFailure { e ->
+                _ui.update {
+                    it.copy(
+                        updating = false,
+                        message = "Lỗi đổi ảnh: ${e.message}"
+                    )
+                }
+            }
+    }
+
+    fun updateProfile(fullName: String?, bio: String?) = viewModelScope.launch {
+        _ui.update { it.copy(updating = true, message = null) }
+        runCatching {
+            repo.updateProfile(
+                fullName = fullName,
+                dayOfBirth = null,
+                gender = null,
+                bio = bio
+            )
+        }
+            .onSuccess {
+                _ui.update { it.copy(updating = false, message = "Đã lưu hồ sơ") }
+            }
+            .onFailure { e ->
+                _ui.update { it.copy(updating = false, message = e.message ?: "Lỗi lưu hồ sơ") }
+            }
+    }
+
+    fun updateCaloriesTarget(target: Float) = viewModelScope.launch {
+        _ui.update { it.copy(updating = true, message = null) }
+        runCatching {
+            repo.updateCaloriesTarget(target)
+        }
+            .onSuccess {
+                _ui.update { it.copy(updating = false, message = "Đã cập nhật mục tiêu") }
+            }
+            .onFailure { e ->
+                _ui.update { it.copy(updating = false, message = e.message ?: "Lỗi cập nhật") }
+            }
+    }
+
+    // --- CÁC HÀM KHÁC ---
+
+    // Hàm lấy bài viết đã lưu
+    fun loadSavedPosts() = viewModelScope.launch {
+        val uid = auth.currentUser?.uid ?: return@launch
+
+        runCatching { repo.getSavedPosts(uid) }
+            .onSuccess { paged ->
+                _savedPosts.value = paged.items
             }
             .onFailure { e ->
                 e.printStackTrace()
             }
     }
 
-    fun refreshOnce() = viewModelScope.launch {
-        _ui.update { it.copy(loading = true) }
-        runCatching { repo.getMyProfile() }
-            .onSuccess { p ->
-                val chartData = generateChartData(p)
-                _ui.update {
-                    it.copy(
-                        loading = false,
-                        profile = p,
-                        chartData = chartData
-                    )
-                }
+    // [MỚI] Hàm lấy bài viết của chính mình
+    fun loadUserPosts() = viewModelScope.launch {
+        val uid = auth.currentUser?.uid ?: return@launch
+
+        runCatching { repo.getUserPosts(uid) }
+            .onSuccess { paged ->
+                _userPosts.value = paged.items
             }
             .onFailure { e ->
-                _ui.update {
-                    it.copy(
-                        loading = false,
-                        message = e.message ?: "Không tải được hồ sơ"
-                    )
-                }
+                e.printStackTrace()
             }
+    }
+
+    fun setFollow(targetUid: String, follow: Boolean) = viewModelScope.launch {
+        runCatching { repo.setFollow(targetUid, follow) }
+            .onFailure { _ui.update { it.copy(message = "Lỗi thao tác theo dõi") } }
+    }
+
+    suspend fun isFollowing(targetUid: String): Boolean =
+        runCatching { repo.isFollowing(targetUid) }.getOrElse { false }
+
+    fun changePassword(old: String, new: String) = viewModelScope.launch {
+        _ui.update { it.copy(updating = true) }
+        runCatching { repo.changePassword(old, new) }
+            .onSuccess { _ui.update { it.copy(updating = false, message = "Đã đổi mật khẩu") } }
+            .onFailure { e -> _ui.update { it.copy(updating = false, message = e.message) } }
+    }
+
+    fun consumeMessage() {
+        _ui.update { it.copy(message = null) }
     }
 
     private fun generateChartData(p: Profile?): List<Float> {
@@ -98,108 +185,5 @@ class ProfileViewModel @Inject constructor(
             }
         }
         return listOf(1500f, 1800f, 1600f, 1900f, 1700f, 2000f, 1800f)
-    }
-
-    fun updateProfile(fullName: String?, bio: String?) = viewModelScope.launch {
-        _ui.update { it.copy(updating = true, message = null) }
-        runCatching {
-            repo.updateProfile(
-                fullName = fullName,
-                email = null,
-                dayOfBirth = null,
-                gender = null,
-                bio = bio
-            )
-        }
-            .onSuccess {
-                refreshOnce()
-                _ui.update { it.copy(updating = false, message = "Đã lưu hồ sơ") }
-            }
-            .onFailure { e ->
-                _ui.update {
-                    it.copy(
-                        updating = false,
-                        message = e.message ?: "Không thể lưu hồ sơ"
-                    )
-                }
-            }
-    }
-
-    fun updateAvatar(localUri: String) = viewModelScope.launch {
-        _ui.update { it.copy(updating = true, message = null) }
-        runCatching { repo.updateAvatar(localUri) }
-            .onSuccess { url ->
-                _ui.update { st ->
-                    val newProfile = st.profile?.copy(
-                        user = st.profile.user.copy(avatarUrl = url)
-                    )
-                    st.copy(
-                        updating = false,
-                        profile = newProfile ?: st.profile,
-                        message = "Đã cập nhật ảnh đại diện"
-                    )
-                }
-                refreshOnce()
-            }
-            .onFailure { e ->
-                _ui.update {
-                    it.copy(
-                        updating = false,
-                        message = e.message ?: "Không thể cập nhật ảnh"
-                    )
-                }
-            }
-    }
-
-    fun setFollow(targetUid: String, follow: Boolean) = viewModelScope.launch {
-        runCatching { repo.setFollow(targetUid, follow) }
-            .onFailure { e ->
-                _ui.update {
-                    it.copy(message = e.message ?: "Lỗi thao tác theo dõi")
-                }
-            }
-    }
-
-    suspend fun isFollowing(targetUid: String): Boolean =
-        runCatching { repo.isFollowing(targetUid) }.getOrElse { false }
-
-    fun changePassword(oldPassword: String, newPassword: String) = viewModelScope.launch {
-        _ui.update { it.copy(updating = true, message = null) }
-        runCatching { repo.changePassword(oldPassword, newPassword) }
-            .onSuccess {
-                _ui.update { it.copy(updating = false, message = "Đã đổi mật khẩu") }
-            }
-            .onFailure { e ->
-                _ui.update {
-                    it.copy(
-                        updating = false,
-                        message = e.message ?: "Đổi mật khẩu thất bại"
-                    )
-                }
-            }
-    }
-
-    fun consumeMessage() {
-        _ui.update { it.copy(message = null) }
-    }
-
-    /** Cập nhật mục tiêu calories */
-    fun updateCaloriesTarget(target: Float) = viewModelScope.launch {
-        _ui.update { it.copy(updating = true, message = null) }
-        runCatching {
-            repo.updateCaloriesTarget(target)
-        }
-            .onSuccess {
-                refreshOnce()
-                _ui.update { it.copy(updating = false, message = "Đã cập nhật mục tiêu calories") }
-            }
-            .onFailure { e ->
-                _ui.update {
-                    it.copy(
-                        updating = false,
-                        message = e.message ?: "Không thể cập nhật mục tiêu"
-                    )
-                }
-            }
     }
 }

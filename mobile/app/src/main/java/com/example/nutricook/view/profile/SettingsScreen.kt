@@ -1,5 +1,9 @@
 package com.example.nutricook.view.profile
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -20,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -27,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.nutricook.viewmodel.profile.ProfileSharedEvent
 import com.example.nutricook.viewmodel.profile.ProfileSharedViewModel
 
@@ -44,10 +50,32 @@ fun SettingsScreen(
     navController: androidx.navigation.NavController? = null
 ) {
     val ui by vm.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // --- 1. LAUNCHER CHỌN ẢNH TỪ THƯ VIỆN ---
+    val singlePhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            if (uri != null) {
+                vm.onEvent(ProfileSharedEvent.UpdateAvatar(uri.toString()))
+                Toast.makeText(context, "Đang tải ảnh lên...", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    // --- 2. [QUAN TRỌNG] LẮNG NGHE KẾT QUẢ TỪ VIEWMODEL ---
+    // Hiện Toast khi ViewModel báo thành công hoặc lỗi
+    LaunchedEffect(ui.message) {
+        if (ui.message != null) {
+            Toast.makeText(context, ui.message, Toast.LENGTH_SHORT).show()
+            vm.onEvent(ProfileSharedEvent.Consume) // Xóa message sau khi hiện
+        }
+    }
 
     // Dialog flags
     var showName by remember { mutableStateOf(false) }
     var showEmail by remember { mutableStateOf(false) }
+    var showBio by remember { mutableStateOf(false) } // [MỚI] State cho dialog Bio
     var showDob by remember { mutableStateOf(false) }
     var showGender by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
@@ -136,7 +164,7 @@ fun SettingsScreen(
                             val avatarUrl = ui.myProfile?.user?.avatarUrl
                             val initials = ui.fullName.firstOrNull()?.uppercase() ?: "U"
 
-                            // Avatar
+                            // Avatar Display
                             Box(
                                 modifier = Modifier
                                     .size(120.dp)
@@ -146,7 +174,10 @@ fun SettingsScreen(
                             ) {
                                 if (!avatarUrl.isNullOrBlank()) {
                                     AsyncImage(
-                                        model = avatarUrl,
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(avatarUrl)
+                                            .crossfade(true)
+                                            .build(),
                                         contentDescription = "Avatar",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
@@ -173,7 +204,7 @@ fun SettingsScreen(
                                 }
                             ) {
                                 Text(
-                                    text = "+ Change Profile Picture",
+                                    text = "+ Đổi ảnh đại diện",
                                     color = Color(0xFF0D7C74),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
@@ -209,6 +240,14 @@ fun SettingsScreen(
                         onClick = { showName = true }
                     )
 
+                    // [MỚI] Thêm mục chỉnh sửa Bio
+                    SettingsItemCard(
+                        icon = Icons.Outlined.Info,
+                        label = "Tiểu sử (Bio)",
+                        value = ui.bio.ifBlank { "Chưa cập nhật" },
+                        onClick = { showBio = true }
+                    )
+
                     SettingsItemCard(
                         icon = Icons.Outlined.Email,
                         label = "Email",
@@ -226,7 +265,7 @@ fun SettingsScreen(
                     SettingsItemCard(
                         icon = Icons.Outlined.CalendarMonth,
                         label = "Ngày sinh",
-                        value = ui.dayOfBirth.ifBlank { "02/02/1989" },
+                        value = ui.dayOfBirth.ifBlank { "Chưa cập nhật" },
                         onClick = { showDob = true }
                     )
 
@@ -245,7 +284,7 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Debug Seed button (temporary)
+                // Debug Seed button
                 Card(
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
@@ -337,6 +376,22 @@ fun SettingsScreen(
                 vm.onEvent(ProfileSharedEvent.FullNameChanged(text))
                 vm.onEvent(ProfileSharedEvent.SaveSettings)
                 showName = false
+            }
+        )
+    }
+
+    // [MỚI] Dialog chỉnh sửa Bio
+    if (showBio) {
+        var text by remember(ui.bio) { mutableStateOf(ui.bio) }
+        BaseEditDialog(
+            title = "Tiểu sử",
+            value = text,
+            onValueChange = { text = it },
+            onDismiss = { showBio = false },
+            onSave = {
+                vm.onEvent(ProfileSharedEvent.BioChanged(text))
+                vm.onEvent(ProfileSharedEvent.SaveSettings)
+                showBio = false
             }
         )
     }
@@ -500,9 +555,9 @@ fun SettingsScreen(
                             unfocusedContainerColor = Color(0xFFF9FAFB)
                         ),
                         visualTransformation = if (showOldPassword)
-                            androidx.compose.ui.text.input.VisualTransformation.None
+                            VisualTransformation.None
                         else
-                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { showOldPassword = !showOldPassword }) {
                                 Icon(
@@ -531,9 +586,9 @@ fun SettingsScreen(
                             unfocusedContainerColor = Color(0xFFF9FAFB)
                         ),
                         visualTransformation = if (showNewPassword)
-                            androidx.compose.ui.text.input.VisualTransformation.None
+                            VisualTransformation.None
                         else
-                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { showNewPassword = !showNewPassword }) {
                                 Icon(
@@ -671,14 +726,16 @@ fun SettingsScreen(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
 
-                    // Camera option
+                    // 1. Camera option (Tạm thời dùng chung Photo Picker để tránh crash do FileProvider)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
                                 showAvatarOptions = false
-                                // TODO: Mở camera
-                                // vm.onEvent(ProfileSharedEvent.OpenCamera)
+                                singlePhotoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                                Toast.makeText(context, "Đang mở camera/thư viện...", Toast.LENGTH_SHORT).show()
                             },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
@@ -708,14 +765,15 @@ fun SettingsScreen(
                         }
                     }
 
-                    // Gallery option
+                    // 2. Gallery option (Đã hoạt động)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
                                 showAvatarOptions = false
-                                // TODO: Mở gallery
-                                // vm.onEvent(ProfileSharedEvent.OpenGallery)
+                                singlePhotoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
                             },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
@@ -752,8 +810,9 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     showAvatarOptions = false
-                                    // TODO: Xóa avatar
-                                    // vm.onEvent(ProfileSharedEvent.RemoveAvatar)
+                                    // Gửi sự kiện xóa ảnh (gửi chuỗi rỗng)
+                                    vm.onEvent(ProfileSharedEvent.UpdateAvatar(""))
+                                    Toast.makeText(context, "Đang xóa ảnh...", Toast.LENGTH_SHORT).show()
                                 },
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
@@ -824,7 +883,6 @@ private fun SettingsItemCard(
                 .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon lớn hơn
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -834,7 +892,6 @@ private fun SettingsItemCard(
 
             Spacer(Modifier.width(16.dp))
 
-            // Label and value
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -855,7 +912,6 @@ private fun SettingsItemCard(
                 }
             }
 
-            // Arrow lớn hơn
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,

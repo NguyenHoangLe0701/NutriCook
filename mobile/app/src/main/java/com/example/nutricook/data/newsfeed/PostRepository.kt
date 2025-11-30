@@ -10,6 +10,7 @@ import com.example.nutricook.data.Page
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.user.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -46,32 +47,79 @@ class PostRepository @Inject constructor(
                 }
             }
 
+            // 1. Tải danh sách bài viết (Dữ liệu Author có thể bị cũ)
             val snapshot = query.get().await()
-            val items = snapshot.toObjects(Post::class.java)
-            val nextCursor = if (items.size >= pageSize) items.last().id else null
+            val rawPosts = snapshot.toObjects(Post::class.java)
 
-            Page(items = items, nextCursor = nextCursor)
+            // 2. [QUAN TRỌNG] "Join" dữ liệu User mới nhất vào Post
+            // Lấy danh sách ID các tác giả trong trang này (tối đa 10 người)
+            val authorIds = rawPosts.map { it.author.id }.distinct().take(10)
+
+            val finalPosts = if (authorIds.isNotEmpty()) {
+                // Tải thông tin mới nhất của các tác giả từ collection 'users'
+                val usersSnapshot = firestore.collection("users")
+                    .whereIn(FieldPath.documentId(), authorIds)
+                    .get()
+                    .await()
+
+                // Tạo Map để tra cứu nhanh: ID -> User Object
+                val usersMap = usersSnapshot.documents.associate { doc ->
+                    // Map thủ công để đảm bảo lấy đúng field
+                    val uid = doc.id
+                    val email = doc.getString("email") ?: ""
+                    val name = doc.getString("displayName")
+                    val avatar = doc.getString("avatarUrl")
+
+                    uid to User(id = uid, email = email, displayName = name, avatarUrl = avatar)
+                }
+
+                // Gán lại Author mới nhất vào bài viết
+                rawPosts.map { post ->
+                    val liveAuthor = usersMap[post.author.id]
+                    if (liveAuthor != null) {
+                        // Copy bài viết nhưng thay thế author bằng thông tin mới nhất
+                        post.copy(author = liveAuthor)
+                    } else {
+                        post
+                    }
+                }
+            } else {
+                rawPosts
+            }
+
+            val nextCursor = if (finalPosts.size >= pageSize) finalPosts.last().id else null
+
+            Page(items = finalPosts, nextCursor = nextCursor)
         } catch (e: Exception) {
             e.printStackTrace()
             Page(emptyList(), null)
         }
     }
 
-    // [CẬP NHẬT] Nhận title và lưu vào object Post
+    // [CẬP NHẬT] Lấy thông tin User từ Firestore thay vì Auth để đảm bảo Avatar đúng
     override suspend fun createPost(title: String, content: String, imageUrl: String?): Post {
         val currentUser = auth.currentUser ?: throw Exception("Bạn chưa đăng nhập")
+
+        // 1. Lấy thông tin User mới nhất từ Firestore (Nơi chứa Avatar thật)
+        val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+
+        // Ưu tiên lấy từ Firestore, nếu không có thì fallback về Auth
+        val currentAvatarUrl = userDoc.getString("avatarUrl") ?: currentUser.photoUrl?.toString()
+        val currentDisplayName = userDoc.getString("displayName") ?: currentUser.displayName
+        val currentEmail = userDoc.getString("email") ?: currentUser.email ?: "Anonymous"
+
         val docRef = firestore.collection("posts").document()
 
         val newPost = Post(
             id = docRef.id,
-            title = title, // Lưu title
+            title = title,
             content = content,
             imageUrl = imageUrl,
             author = User(
                 id = currentUser.uid,
-                email = currentUser.email ?: "Anonymous",
-                displayName = currentUser.displayName,
-                avatarUrl = currentUser.photoUrl?.toString()
+                email = currentEmail,
+                displayName = currentDisplayName,
+                avatarUrl = currentAvatarUrl // <--- Đây chính là Avatar chuẩn
             ),
             createdAt = System.currentTimeMillis(),
             likes = emptyList(),
@@ -109,15 +157,17 @@ class PostRepository @Inject constructor(
                     continuation.resume(null)
                     return@suspendCancellableCoroutine
                 }
-                
+
                 // Generate unique public_id for Cloudinary
                 val timestamp = System.currentTimeMillis()
                 val random = (0..9999).random()
                 val publicId = "posts/${currentUser.uid}/${timestamp}_${random}"
-                
+
                 android.util.Log.d("PostRepo", "Uploading image to Cloudinary: $publicId")
-                
+
                 // Upload to Cloudinary
+                // [LƯU Ý] Nếu bạn đã cấu hình unsigned upload thì thêm .unsigned("tên_preset") vào đây
+                // Ví dụ: .unsigned("nutricook_unsigned")
                 val requestId = mediaManager.upload(imageUri)
                     .option("public_id", publicId)
                     .option("folder", "nutricook/posts")
@@ -125,17 +175,17 @@ class PostRepository @Inject constructor(
                         override fun onStart(requestId: String) {
                             android.util.Log.d("PostRepo", "Upload started: $requestId")
                         }
-                        
+
                         override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
                             val progress = (bytes * 100 / totalBytes).toInt()
                             android.util.Log.d("PostRepo", "Upload progress: $progress%")
                         }
-                        
+
                         override fun onSuccess(requestId: String, resultData: Map<Any?, Any?>) {
                             val secureUrl = resultData["secure_url"] as? String
                             val url = resultData["url"] as? String
                             val imageUrl = secureUrl ?: url
-                            
+
                             if (imageUrl != null) {
                                 android.util.Log.d("PostRepo", "Image uploaded successfully: $imageUrl")
                                 continuation.resume(imageUrl)
@@ -144,18 +194,18 @@ class PostRepository @Inject constructor(
                                 continuation.resume(null)
                             }
                         }
-                        
+
                         override fun onError(requestId: String, error: ErrorInfo) {
                             android.util.Log.e("PostRepo", "Upload error: ${error.description}")
                             continuation.resume(null)
                         }
-                        
+
                         override fun onReschedule(requestId: String, error: ErrorInfo) {
                             android.util.Log.w("PostRepo", "Upload rescheduled: ${error.description}")
                         }
                     })
                     .dispatch()
-                
+
                 android.util.Log.d("PostRepo", "Upload request dispatched: $requestId")
             } catch (e: Exception) {
                 android.util.Log.e("PostRepo", "Error uploading image: ${e.message}")
