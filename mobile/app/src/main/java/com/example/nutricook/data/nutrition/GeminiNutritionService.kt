@@ -1,5 +1,6 @@
 package com.example.nutricook.data.nutrition
 
+import com.example.nutricook.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,14 +17,13 @@ import javax.inject.Singleton
  * Cách sử dụng:
  * 1. Lấy API key từ Google AI Studio: https://makersuite.google.com/app/apikey
  * 2. Thêm vào local.properties: GEMINI_API_KEY=your_api_key_here
- * 3. Hoặc hardcode tạm thời (không khuyến khích cho production)
+ * 3. Rebuild project để BuildConfig được cập nhật
  */
 @Singleton
 class GeminiNutritionService @Inject constructor() {
     
-    // TODO: Lấy từ BuildConfig hoặc local.properties
-    // Tạm thời để null, người dùng cần thêm API key
-    private val apiKey: String? = null // "YOUR_GEMINI_API_KEY_HERE"
+    // Lấy API key từ BuildConfig (được tạo từ local.properties)
+    private val apiKey: String? = BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() }
     
     private val client = OkHttpClient()
     private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
