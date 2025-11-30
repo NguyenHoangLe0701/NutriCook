@@ -48,8 +48,14 @@ import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
 import com.example.nutricook.data.nutrition.GeminiNutritionService
 import kotlinx.coroutines.delay
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ActivityComponent
+import dagger.hilt.android.EntryPointAccessors
 
 // --- MÀU SẮC ---
 private val TealPrimary = Color(0xFF2BB6AD)
@@ -63,6 +69,13 @@ private val CardBg = Color(0xFFF9FAFB) // Màu nền cho biểu đồ tuần
 private val HeaderGradient = Brush.verticalGradient(
     colors = listOf(Color(0xFFFFF0E8), Color(0xFFFFFBF9), Color.White)
 )
+
+// EntryPoint để inject GeminiNutritionService vào Composable
+@EntryPoint
+@InstallIn(ActivityComponent::class)
+interface GeminiServiceEntryPoint {
+    fun geminiService(): GeminiNutritionService
+}
 
 @Composable
 fun ProfileScreen(
@@ -79,6 +92,21 @@ fun ProfileScreen(
     val ui by vm.uiState.collectAsState()
     val nutritionState by nutritionVm.ui.collectAsState()
     var showUpdateDialog by remember { mutableStateOf(false) }
+    
+    // Inject GeminiNutritionService
+    val context = LocalContext.current
+    val geminiService = remember {
+        val activity = context as? androidx.activity.ComponentActivity
+            ?: null
+        if (activity != null) {
+            EntryPointAccessors.fromActivity(
+                activity,
+                GeminiServiceEntryPoint::class.java
+            ).geminiService()
+        } else {
+            null
+        }
+    }
 
     Scaffold(
         bottomBar = bottomBar,
@@ -287,7 +315,8 @@ fun ProfileScreen(
                     onSave = { c, p, f, cb ->
                         nutritionVm.updateTodayNutrition(c, p, f, cb)
                         showUpdateDialog = false
-                    }
+                    },
+                    geminiService = geminiService
                 )
             }
         }
@@ -832,7 +861,8 @@ fun ProfessionalNutritionDialog(
     initialCarb: Float,
     caloriesTarget: Float,
     onDismiss: () -> Unit,
-    onSave: (Float, Float, Float, Float) -> Unit
+    onSave: (Float, Float, Float, Float) -> Unit,
+    geminiService: GeminiNutritionService? = null
 ) {
     var cal by remember { mutableStateOf(if(initialCalories > 0) initialCalories.toString() else "") }
     var pro by remember { mutableStateOf(if(initialProtein > 0) initialProtein.toString() else "") }
@@ -949,10 +979,9 @@ fun ProfessionalNutritionDialog(
     var isLoadingGemini by remember { mutableStateOf(false) }
     var geminiError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
-    val geminiService: GeminiNutritionService? = null // TODO: Inject qua Hilt nếu cần
     
     // Debounce search và tự động gọi Gemini nếu không tìm thấy
-    LaunchedEffect(searchQuery) {
+    LaunchedEffect(searchQuery, geminiService) {
         geminiResult = null
         geminiError = null
         
@@ -960,8 +989,8 @@ fun ProfessionalNutritionDialog(
             return@LaunchedEffect
         }
         
-        // Đợi 800ms sau khi ngừng gõ
-        delay(800)
+        // Đợi 1000ms sau khi ngừng gõ để tránh gọi API quá nhiều
+        delay(1000)
         
         // Kiểm tra xem có kết quả trong danh sách không
         val allFoods = foodCategories.values.flatten()
@@ -969,22 +998,33 @@ fun ProfessionalNutritionDialog(
             it.name.contains(searchQuery, ignoreCase = true) 
         }
         
-        // Nếu không tìm thấy và có Gemini service, gọi API
+        // Nếu không tìm thấy và có Gemini service, tự động gọi API
         if (!found && geminiService != null && geminiService.isApiKeyConfigured() && searchQuery.length >= 3) {
             isLoadingGemini = true
-            val nutrition = geminiService.calculateNutrition(searchQuery)
+            geminiError = null
             
-            if (nutrition != null) {
-                geminiResult = QuickFood(
-                    name = searchQuery,
-                    calories = nutrition.calories,
-                    protein = nutrition.protein,
-                    fat = nutrition.fat,
-                    carb = nutrition.carb
-                )
-            } else {
-                geminiError = "Không thể tính calories tự động"
+            try {
+                val nutrition = geminiService.calculateNutrition(searchQuery)
+                
+                if (nutrition != null) {
+                    geminiResult = QuickFood(
+                        name = searchQuery,
+                        calories = nutrition.calories,
+                        protein = nutrition.protein,
+                        fat = nutrition.fat,
+                        carb = nutrition.carb
+                    )
+                    geminiError = null
+                } else {
+                    geminiError = null // Không hiển thị lỗi, chỉ đơn giản là không có kết quả
+                }
+            } catch (e: Exception) {
+                geminiError = null // Không hiển thị lỗi để tránh rối mắt
+            } finally {
+                isLoadingGemini = false
             }
+        } else if (!found && searchQuery.length >= 3 && (geminiService == null || !geminiService.isApiKeyConfigured())) {
+            // Nếu không có API key, không làm gì cả
             isLoadingGemini = false
         }
     }
@@ -1049,9 +1089,9 @@ fun ProfessionalNutritionDialog(
                     placeholder = { 
                         Text(
                             if (geminiService?.isApiKeyConfigured() == true) 
-                                "🔍 Tìm kiếm hoặc nhập món ăn (ví dụ: 1 quả táo)..."
+                                "Tìm kiếm hoặc nhập món ăn (ví dụ: nửa con cá ngừ, 1 trái dâu)..."
                             else 
-                                "🔍 Tìm kiếm món ăn...", 
+                                "Tìm kiếm món ăn...", 
                             fontSize = 14.sp
                         ) 
                     },
@@ -1078,8 +1118,8 @@ fun ProfessionalNutritionDialog(
                         } else if (geminiResult != null) {
                             Icon(
                                 Icons.Outlined.AutoAwesome, 
-                                contentDescription = "Tự động tính", 
-                                tint = TealPrimary,
+                                contentDescription = "Kết quả từ AI", 
+                                tint = Color(0xFF6366F1),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1092,7 +1132,7 @@ fun ProfessionalNutritionDialog(
                     singleLine = true
                 )
                 
-                // Hiển thị thông báo khi đang tính hoặc có lỗi
+                // Hiển thị thông báo khi đang tính calories từ AI
                 if (isLoadingGemini && searchQuery.length >= 3) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1106,7 +1146,7 @@ fun ProfessionalNutritionDialog(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Đang tính calories cho \"$searchQuery\"...",
+                            "✨ Đang tính calories cho \"$searchQuery\"...",
                             fontSize = 12.sp,
                             color = TextGray,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -1114,22 +1154,25 @@ fun ProfessionalNutritionDialog(
                     }
                 }
                 
-                if (geminiError != null && searchQuery.isNotEmpty()) {
+                // Hiển thị thông báo khi có kết quả từ AI
+                if (geminiResult != null && !isLoadingGemini) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF)),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.3f))
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.Info, contentDescription = null, tint = Color(0xFF856404), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = geminiError ?: "",
+                                text = "Đã tìm thấy \"${geminiResult!!.name}\" với ${geminiResult!!.calories.toInt()} kcal",
                                 fontSize = 12.sp,
-                                color = Color(0xFF856404)
+                                color = Color(0xFF6366F1),
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
