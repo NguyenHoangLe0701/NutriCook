@@ -634,7 +634,10 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier
                             .width(120.dp)
                             .height(140.dp)
-                            .clickable { /* TODO: Xử lý khi click vào bài tập */ }
+                            .clickable { 
+                                // Navigate to exercise suggestions screen
+                                navController.navigate("exercise_suggestions")
+                            }
                     ) {
                         Column(
                             modifier = Modifier
