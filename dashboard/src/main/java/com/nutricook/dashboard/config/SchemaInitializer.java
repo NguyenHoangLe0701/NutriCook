@@ -1,6 +1,7 @@
 package com.nutricook.dashboard.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
@@ -8,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "schema.initializer.enabled", havingValue = "true", matchIfMissing = true)
 public class SchemaInitializer {
 
     @Autowired
