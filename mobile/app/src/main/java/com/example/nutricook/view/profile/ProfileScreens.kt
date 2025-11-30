@@ -94,7 +94,6 @@ fun ProfileScreen(
     val nutritionState by nutritionVm.ui.collectAsState()
     val savedPosts by vm.savedPosts.collectAsState()
 
-    var showUpdateDialog by remember { mutableStateOf(false) }
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     
     // Inject GeminiNutritionService
@@ -322,27 +321,6 @@ fun ProfileScreen(
                     }
                 }
             } // End LazyColumn
-
-            // Dialog nhập liệu dinh dưỡng
-            if (showUpdateDialog) {
-                ProfessionalNutritionDialog(
-                    initialCalories = nutritionState.todayLog?.calories ?: 0f,
-                    initialProtein = nutritionState.todayLog?.protein ?: 0f,
-                    initialFat = nutritionState.todayLog?.fat ?: 0f,
-                    initialCarb = nutritionState.todayLog?.carb ?: 0f,
-                    caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f,
-                    onDismiss = { showUpdateDialog = false },
-                    onSave = { c, pr, f, cb ->
-                        nutritionVm.updateTodayNutrition(c, pr, f, cb)
-                        showUpdateDialog = false
-                    },
-                    geminiService = geminiService,
-                    onNavigateToCalculator = {
-                        showUpdateDialog = false
-                        onNavigateToCalculator()
-                    }
-                )
-            }
         }
     }
 }
@@ -1488,6 +1466,24 @@ fun ProfessionalNutritionDialog(
                     MacroInputField(label = "Carb", value = carb, onValueChange = { carb = it }, color = Color(0xFF10B981), modifier = Modifier.weight(1f))
                 }
                 
+                // Nút mở màn hình tính calories
+                if (onNavigateToCalculator != null) {
+                    OutlinedButton(
+                        onClick = {
+                            onNavigateToCalculator()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TealPrimary
+                        )
+                    ) {
+                        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Tính calories tự động", fontWeight = FontWeight.Medium)
+                    }
+                }
+
                 // Nút mở màn hình tính calories
                 if (onNavigateToCalculator != null) {
                     OutlinedButton(
