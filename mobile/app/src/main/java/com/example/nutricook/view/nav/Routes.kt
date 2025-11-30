@@ -38,4 +38,5 @@ internal object Routes {
     const val ARTICLEDETAIL = "article_detail"
     const val CUSTOM_FOOD_CALCULATOR = "custom_food_calculator"
     const val ADD_MEAL = "add_meal"
+    const val ADVANCED_SEARCH = "advanced_search"
 }

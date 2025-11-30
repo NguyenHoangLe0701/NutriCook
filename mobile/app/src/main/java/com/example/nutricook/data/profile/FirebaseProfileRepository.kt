@@ -1,56 +1,61 @@
 package com.example.nutricook.data.profile
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
+import com.example.nutricook.BuildConfig
 import com.example.nutricook.model.common.Paged
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.profile.ActivityItem
-import com.example.nutricook.model.profile.ActivityType
 import com.example.nutricook.model.profile.Nutrition
 import com.example.nutricook.model.profile.Profile
 import com.example.nutricook.model.user.User
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.storage.FirebaseStorage
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 import javax.inject.Inject
-import kotlin.math.abs
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class FirebaseProfileRepository @Inject constructor(
     private val auth: FirebaseAuth,
     private val db: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    @ApplicationContext private val context: Context
 ) : ProfileRepository {
 
     companion object {
         private const val USERS = "users"
         private const val POSTS = "posts"
         private const val SAVES = "saves"
-        private const val ACTIVITIES = "activities"
         private const val DEFAULT_PAGE_SIZE = 20L
     }
 
+    // --- HELPER ---
     private fun requireUid(): String =
-        auth.currentUser?.uid ?: error("Chưa đăng nhập")
+        auth.currentUser?.uid ?: throw Exception("Người dùng chưa đăng nhập")
 
     private fun users() = db.collection(USERS)
     private fun userDoc(uid: String) = users().document(uid)
     private fun posts() = db.collection(POSTS)
     private fun savesCol(uid: String) = userDoc(uid).collection(SAVES)
-    private fun activitiesCol(uid: String) = userDoc(uid).collection(ACTIVITIES)
 
-    // ===================== FLOW =====================
+    // ===================== 1. LOCAL DATA & STATE =====================
+
     override fun myProfileFlow(): Flow<Profile?> = callbackFlow {
         val uid = auth.currentUser?.uid
         if (uid == null) {
@@ -59,7 +64,7 @@ class FirebaseProfileRepository @Inject constructor(
             return@callbackFlow
         }
 
-        val reg = userDoc(uid).addSnapshotListener { snap, e ->
+        val registration = userDoc(uid).addSnapshotListener { snap, e ->
             if (e != null) {
                 Log.e("ProfileRepo", "Lỗi lắng nghe profile: ${e.message}")
                 return@addSnapshotListener
@@ -70,206 +75,271 @@ class FirebaseProfileRepository @Inject constructor(
                 trySend(null)
             }
         }
-        awaitClose { reg.remove() }
+        awaitClose { registration.remove() }
     }
 
-    // ===================== GET =====================
     override suspend fun getMyProfile(): Profile =
         getProfileByUid(requireUid())
+
+    // ===================== 2. PUBLIC INFO =====================
 
     override suspend fun getProfileByUid(uid: String): Profile {
         if (uid.isEmpty()) throw Exception("User ID không hợp lệ")
 
-        val doc = userDoc(uid)
-        var snap = doc.get().await()
+        val docRef = userDoc(uid)
+        var snap = docRef.get().await()
 
         if (!snap.exists()) {
             val u = auth.currentUser
-            val email = u?.email ?: ""
-            val displayName = u?.displayName ?: u?.email?.substringBefore("@") ?: ""
+            if (u != null && u.uid == uid) {
+                val email = u.email ?: ""
+                val displayName = u.displayName ?: u.email?.substringBefore("@") ?: "User"
 
-            val data = hashMapOf(
-                "email" to email,
-                "displayName" to displayName,
-                "avatarUrl" to (u?.photoUrl?.toString()),
-                "posts" to 0,
-                "following" to 0,
-                "followers" to 0,
-                "createdAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-            doc.set(data, SetOptions.merge()).await()
-            snap = doc.get().await()
+                val initialData = hashMapOf(
+                    "email" to email,
+                    "displayName" to displayName,
+                    "avatarUrl" to (u.photoUrl?.toString()),
+                    "posts" to 0,
+                    "following" to 0,
+                    "followers" to 0,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                docRef.set(initialData, SetOptions.merge()).await()
+                snap = docRef.get().await()
+            } else {
+                throw Exception("Không tìm thấy hồ sơ người dùng")
+            }
         }
-        return snap.toProfileDomain() ?: throw Exception("Lỗi parse dữ liệu Profile")
+        return snap.toProfileDomain() ?: throw Exception("Lỗi dữ liệu Profile")
     }
 
-    // ===================== UPDATE PROFILE =====================
+    // ===================== 3. UPDATES =====================
+
     override suspend fun updateProfile(
         fullName: String?,
-        email: String?,
         dayOfBirth: String?,
         gender: String?,
         bio: String?
-    ) {
+    ): Profile {
         val uid = requireUid()
-        val current = auth.currentUser ?: error("Chưa đăng nhập")
 
-        if (!email.isNullOrBlank() && email != current.email) {
-            try {
-                current.updateEmail(email).await()
-            } catch (e: Exception) {
-                if (e is FirebaseAuthRecentLoginRequiredException) {
-                    throw IllegalStateException("Phiên đăng nhập đã cũ, vui lòng đăng nhập lại.")
-                } else {
-                    throw e
-                }
-            }
-        }
+        val updates = mutableMapOf<String, Any>()
+        fullName?.let { updates["displayName"] = it }
+        dayOfBirth?.let { updates["dayOfBirth"] = it }
+        gender?.let { updates["gender"] = it }
+        bio?.let { updates["bio"] = it }
+        updates["updatedAt"] = FieldValue.serverTimestamp()
 
-        val data = buildMap<String, Any> {
-            fullName?.let { put("displayName", it) }
-            email?.let { put("email", it) }
-            dayOfBirth?.let { put("dayOfBirth", it) }
-            gender?.let { put("gender", it) }
-            bio?.let { put("bio", it) }
-            put("updatedAt", FieldValue.serverTimestamp())
+        if (updates.isNotEmpty()) {
+            userDoc(uid).update(updates).await()
         }
-        if (data.isNotEmpty()) {
-            userDoc(uid).set(data, SetOptions.merge()).await()
-        }
+        return getMyProfile()
     }
 
+    /**
+     * [FIX 1] Sử dụng Cloudinary Upload
+     */
     override suspend fun updateAvatar(localUri: String): String {
         val uid = requireUid()
-        val ref = storage.reference.child("avatars/$uid.jpg")
-        ref.putFile(Uri.parse(localUri)).await()
-        val url = ref.downloadUrl.await().toString()
 
-        userDoc(uid).set(
-            mapOf(
-                "avatarUrl" to url,
-                "updatedAt" to FieldValue.serverTimestamp()
-            ),
-            SetOptions.merge()
-        ).await()
-        return url
-    }
+        setupCloudinaryIfNeeded()
 
-    // ===================== UPDATE CALORIES TARGET =====================
-    override suspend fun updateCaloriesTarget(caloriesTarget: Float) {
-        val uid = requireUid()
-        userDoc(uid).set(
-            mapOf(
-                "nutrition.caloriesTarget" to caloriesTarget,
-                "updatedAt" to FieldValue.serverTimestamp()
-            ),
-            SetOptions.merge()
-        ).await()
-    }
+        val downloadUrl = suspendCancellableCoroutine<String> { continuation ->
+            val requestId = MediaManager.get().upload(Uri.parse(localUri))
+                .option("folder", "nutricook/avatars")
+                .option("public_id", uid)
+                .option("overwrite", true)
+                .option("resource_type", "image")
+                .callback(object : UploadCallback {
+                    override fun onStart(requestId: String) {}
 
-    // ===================== FOLLOW =====================
-    override suspend fun setFollow(targetUid: String, follow: Boolean) {
-        val me = requireUid()
-        val meDoc = userDoc(me)
-        val targetDoc = userDoc(targetUid)
-        val followingRef = meDoc.collection("following").document(targetUid)
-        val followerRef = targetDoc.collection("followers").document(me)
+                    override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
 
-        db.runTransaction { t ->
-            val already = t.get(followingRef).exists()
-            if (follow && !already) {
-                t.set(followingRef, mapOf("at" to FieldValue.serverTimestamp()))
-                t.set(followerRef, mapOf("at" to FieldValue.serverTimestamp()))
-                t.update(meDoc, "following", FieldValue.increment(1))
-                t.update(targetDoc, "followers", FieldValue.increment(1))
-            } else if (!follow && already) {
-                t.delete(followingRef)
-                t.delete(followerRef)
-                t.update(meDoc, "following", FieldValue.increment(-1))
-                t.update(targetDoc, "followers", FieldValue.increment(-1))
+                    override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                        val url = resultData["secure_url"] as? String
+                            ?: resultData["url"] as? String
+                            ?: ""
+                        if (continuation.isActive) continuation.resume(url)
+                    }
+
+                    override fun onError(requestId: String, error: ErrorInfo) {
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(Exception("Lỗi Cloudinary: ${error.description}"))
+                        }
+                    }
+
+                    override fun onReschedule(requestId: String, error: ErrorInfo) {
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(Exception("Lỗi Reschedule: ${error.description}"))
+                        }
+                    }
+                })
+                .dispatch()
+
+            continuation.invokeOnCancellation {
+                MediaManager.get().cancelRequest(requestId)
             }
-            null
-        }.await()
+        }
+
+        userDoc(uid).update(
+            mapOf(
+                "avatarUrl" to downloadUrl,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+        ).await()
+
+        return downloadUrl
     }
 
-    override suspend fun isFollowing(targetUid: String): Boolean {
-        val me = requireUid()
-        val snap = userDoc(me).collection("following").document(targetUid).get().await()
-        return snap.exists()
+    private fun setupCloudinaryIfNeeded() {
+        try {
+            MediaManager.get()
+        } catch (e: Exception) {
+            val config = HashMap<String, String>()
+            config["cloud_name"] = BuildConfig.CLOUDINARY_CLOUD_NAME
+            config["api_key"] = BuildConfig.CLOUDINARY_API_KEY
+            config["api_secret"] = BuildConfig.CLOUDINARY_API_SECRET
+            config["secure"] = "true"
+            MediaManager.init(context, config)
+        }
     }
 
-    // ===================== CHANGE PASSWORD =====================
+    override suspend fun updateCaloriesTarget(caloriesTarget: Float): Profile {
+        val uid = requireUid()
+        val updates = mapOf(
+            "nutrition.caloriesTarget" to caloriesTarget,
+            "nutrition.updatedAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        userDoc(uid).update(updates).await()
+        return getMyProfile()
+    }
+
+    // ===================== 4. ACCOUNT SECURITY =====================
+
     override suspend fun changePassword(oldPassword: String, newPassword: String) {
-        val user = auth.currentUser ?: error("Chưa đăng nhập")
-        val email = user.email ?: error("Tài khoản không có email")
+        val user = auth.currentUser ?: throw Exception("Chưa đăng nhập")
+        val email = user.email ?: throw Exception("Tài khoản không có email")
+
         val credential = EmailAuthProvider.getCredential(email, oldPassword)
         user.reauthenticate(credential).await()
         user.updatePassword(newPassword).await()
     }
 
-    // ===================== POSTS =====================
+    // ===================== 5. SOCIAL ACTIONS =====================
+
+    override suspend fun setFollow(targetUid: String, follow: Boolean) {
+        val myUid = requireUid()
+        if (myUid == targetUid) return
+
+        val myDoc = userDoc(myUid)
+        val targetDoc = userDoc(targetUid)
+
+        val followingRef = myDoc.collection("following").document(targetUid)
+        val followerRef = targetDoc.collection("followers").document(myUid)
+
+        db.runTransaction { transaction ->
+            val isFollowing = transaction.get(followingRef).exists()
+
+            if (follow && !isFollowing) {
+                transaction.set(followingRef, mapOf("at" to FieldValue.serverTimestamp()))
+                transaction.set(followerRef, mapOf("at" to FieldValue.serverTimestamp()))
+                transaction.update(myDoc, "following", FieldValue.increment(1))
+                transaction.update(targetDoc, "followers", FieldValue.increment(1))
+            } else if (!follow && isFollowing) {
+                transaction.delete(followingRef)
+                transaction.delete(followerRef)
+                transaction.update(myDoc, "following", FieldValue.increment(-1))
+                transaction.update(targetDoc, "followers", FieldValue.increment(-1))
+            }
+        }.await()
+    }
+
+    override suspend fun isFollowing(targetUid: String): Boolean {
+        val myUid = requireUid()
+        val snap = userDoc(myUid).collection("following").document(targetUid).get().await()
+        return snap.exists()
+    }
+
+    // ===================== 6. LIST DATA =====================
+
     override suspend fun getUserPosts(uid: String, cursor: String?): Paged<Post> {
-        val pageSize = DEFAULT_PAGE_SIZE
-        var q = posts()
+        var query = posts()
             .whereEqualTo("author.id", uid)
             .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(pageSize)
+            .limit(DEFAULT_PAGE_SIZE)
 
-        tsFromCursor(cursor)?.let { q = q.startAfter(it) }
-        val snaps = q.get().await().documents
+        tsFromCursor(cursor)?.let { query = query.startAfter(it) }
+
+        val snaps = query.get().await().documents
         if (snaps.isEmpty()) return Paged(emptyList(), null)
 
         val author = fetchUser(uid)
-        val items = snaps.mapNotNull { it.toPostDomain(author = author) }
-        val next = nextCursorFrom(snaps.last())
-        return Paged(items = items, nextCursor = next)
+        val items = snaps.mapNotNull { it.toPostDomain(author) }
+        val nextKey = nextCursorFrom(snaps.last())
+        return Paged(items, nextKey)
     }
 
-    // ===================== SAVES =====================
-    override suspend fun getUserSaves(uid: String, cursor: String?): Paged<Post> {
-        val pageSize = DEFAULT_PAGE_SIZE
-        var q = savesCol(uid)
+    /**
+     * [FIX 2] Hàm lấy bài đã lưu (Saved Posts) an toàn hơn.
+     * Tự động handle trường hợp tác giả bài viết bị null hoặc lỗi data.
+     */
+    override suspend fun getSavedPosts(uid: String, cursor: String?): Paged<Post> {
+        var query = savesCol(uid)
             .orderBy("at", Query.Direction.DESCENDING)
-            .limit(pageSize)
+            .limit(DEFAULT_PAGE_SIZE)
 
-        tsFromCursor(cursor)?.let { q = q.startAfter(it) }
-        val saveDocs = q.get().await().documents
+        tsFromCursor(cursor)?.let { query = query.startAfter(it) }
+
+        val saveDocs = query.get().await().documents
         if (saveDocs.isEmpty()) return Paged(emptyList(), null)
 
         val postIds = saveDocs.mapNotNull { it.getString("postId") }
         if (postIds.isEmpty()) return Paged(emptyList(), null)
 
-        val postsSnap = postIds.map { pid -> posts().document(pid).get() }.map { it.await() }
+        // Lấy chi tiết bài viết
+        val postsSnapshots = postIds.map { pid -> posts().document(pid).get() }.map { it.await() }
 
-        val authorUids = postsSnap.mapNotNull { it.getString("author.id") }.distinct()
-        val authorCache = mutableMapOf<String, User>()
+        // Lấy danh sách tác giả
+        val authorIds = postsSnapshots.mapNotNull { it.getString("author.id") }.distinct()
+        val authorsMap = mutableMapOf<String, User>()
 
-        for (auid in authorUids) {
-            val userSnap = userDoc(auid).get().await()
-            authorCache[auid] = userSnap.toUserDomain(auid)
+        if (authorIds.isNotEmpty()) {
+            try {
+                for (auid in authorIds) {
+                    runCatching { authorsMap[auid] = fetchUser(auid) }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
-        val items = postsSnap.mapNotNull { pSnap ->
-            if (!pSnap.exists()) return@mapNotNull null
-            val authorData = pSnap.get("author") as? Map<String, Any>
-            val authorUid = authorData?.get("id") as? String ?: return@mapNotNull null
+        // Map data an toàn
+        val items = postsSnapshots.mapNotNull { snap ->
+            if (!snap.exists()) return@mapNotNull null
 
-            val author = authorCache[authorUid] ?: return@mapNotNull null
-            pSnap.toPostDomain(author = author)
+            val authorId = snap.getString("author.id")
+            // Fallback nếu không tìm thấy user
+            val author = if (authorId != null) {
+                authorsMap[authorId] ?: User(id = authorId, displayName = "Unknown User")
+            } else {
+                User(id = "unknown", displayName = "Unknown")
+            }
+
+            snap.toPostDomain(author)
         }
 
-        val next = saveDocs.last().getTimestamp("at")?.toDate()?.time?.toString()
-        return Paged(items = items, nextCursor = next)
+        val nextKey = saveDocs.last().getTimestamp("at")?.toDate()?.time?.toString()
+        return Paged(items, nextKey)
     }
 
-    // ===================== ACTIVITIES =====================
     override suspend fun getUserActivities(uid: String, cursor: String?): Paged<ActivityItem> {
-        // Tạm thời trả về rỗng để tránh lỗi nếu chưa dùng tới
         return Paged(emptyList(), null)
     }
 
-    // ===================== SEARCH =====================
+    // ===================== 7. SEARCH =====================
+
     override suspend fun searchProfiles(query: String): List<Profile> {
         if (query.isBlank()) return emptyList()
         val snapshot = db.collection(USERS)
@@ -283,99 +353,71 @@ class FirebaseProfileRepository @Inject constructor(
     }
 
     // ===================== MAPPERS =====================
-    private fun tsFromCursor(cursor: String?): Timestamp? =
-        cursor?.toLongOrNull()?.let { ms -> Timestamp(Date(ms)) }
-
-    private fun nextCursorFrom(last: DocumentSnapshot): String? =
-        last.getTimestamp("createdAt")?.toDate()?.time?.toString()
 
     private suspend fun fetchUser(uid: String): User {
         val snap = userDoc(uid).get().await()
-        return snap.toUserDomain(uid)
+        return snap.toUserDomain()
     }
 
-    private fun DocumentSnapshot.toUserDomain(uid: String): User {
+    private fun DocumentSnapshot.toUserDomain(): User {
         return User(
-            id = uid,
+            id = id,
             email = getString("email") ?: "",
             displayName = getString("displayName"),
             avatarUrl = getString("avatarUrl")
         )
     }
 
-    // [QUAN TRỌNG] Hàm parse Profile AN TOÀN (Đã thêm try-catch)
     private fun DocumentSnapshot.toProfileDomain(): Profile? {
         if (!exists()) return null
-
         return try {
-            val uid = id
-            val email = getString("email") ?: ""
-            val displayName = getString("displayName")
-            val avatarUrl = getString("avatarUrl")
-            val posts = getLong("posts")?.toInt() ?: 0
-            val following = getLong("following")?.toInt() ?: 0
-            val followers = getLong("followers")?.toInt() ?: 0
-            val bio = getString("bio")
-            val dayOfBirth = getString("dayOfBirth")
-            val gender = getString("gender")
-
+            val user = this.toUserDomain()
             var nutritionObj: Nutrition? = null
             val nutMap = get("nutrition") as? Map<String, Any>
-
             if (nutMap != null) {
-                // Xử lý linh hoạt: có thể lồng trong 'targets' hoặc nằm phẳng ở ngoài
-                val targets = nutMap["targets"] as? Map<String, Any> ?: nutMap
-
-                val cals = (targets["caloriesTarget"] as? Number)?.toFloat() ?: 2000f
-                val pro = (targets["proteinG"] as? Number)?.toFloat() ?: 150f
-                val fat = (targets["fatG"] as? Number)?.toFloat() ?: 60f
-                val carb = (targets["carbG"] as? Number)?.toFloat() ?: 200f
-
+                val cals = (nutMap["caloriesTarget"] as? Number)?.toFloat() ?: 0f
+                val pro = (nutMap["proteinG"] as? Number)?.toFloat() ?: 0f
+                val fat = (nutMap["fatG"] as? Number)?.toFloat() ?: 0f
+                val carb = (nutMap["carbG"] as? Number)?.toFloat() ?: 0f
                 nutritionObj = Nutrition(cals, pro, fat, carb)
             }
 
-            val user = User(id = uid, email = email, displayName = displayName, avatarUrl = avatarUrl)
-            Profile(user, posts, following, followers, 0, 0, bio, dayOfBirth, gender, nutritionObj)
-        } catch (e: Exception) {
-            Log.e("FirebaseProfileRepo", "Lỗi parse Profile: ${e.message}")
-            null
-        }
-    }
-
-    // [QUAN TRỌNG] Hàm parse Post AN TOÀN (Đã thêm try-catch)
-    private fun DocumentSnapshot.toPostDomain(author: User): Post? {
-        if (!exists()) return null
-
-        return try {
-            val content = getString("content") ?: ""
-            val imageUrl = getString("imageUrl")
-            val title = getString("title") ?: "" // Lấy title an toàn
-
-            @Suppress("UNCHECKED_CAST")
-            val likes = (get("likes") as? List<String>) ?: emptyList()
-            @Suppress("UNCHECKED_CAST")
-            val saves = (get("saves") as? List<String>) ?: emptyList()
-
-            val createdAtMs = getLong("createdAt") ?: 0L
-            val commentCount = getLong("commentCount")?.toInt() ?: 0
-
-            Post(
-                id = id,
-                title = title,
-                content = content,
-                imageUrl = imageUrl,
-                author = author,
-                createdAt = createdAtMs,
-                likes = likes,
-                saves = saves,
-                commentCount = commentCount
+            Profile(
+                user = user,
+                posts = getLong("posts")?.toInt() ?: 0,
+                following = getLong("following")?.toInt() ?: 0,
+                followers = getLong("followers")?.toInt() ?: 0,
+                bio = getString("bio"),
+                dayOfBirth = getString("dayOfBirth"),
+                gender = getString("gender"),
+                nutrition = nutritionObj
             )
         } catch (e: Exception) {
-            Log.e("FirebaseProfileRepo", "Lỗi parse Post: ${e.message}")
+            Log.e("ProfileRepo", "Error mapping: ${e.message}")
             null
         }
     }
 
-    private fun parseActivityType(s: String?): ActivityType = ActivityType.values().find { it.name == s?.uppercase() } ?: ActivityType.NEW_POST
-    private fun hashToLong(s: String): Long = abs(s.hashCode().toLong())
+    private fun DocumentSnapshot.toPostDomain(author: User): Post? {
+        if (!exists()) return null
+        return try {
+            Post(
+                id = id,
+                title = getString("title") ?: "",
+                content = getString("content") ?: "",
+                imageUrl = getString("imageUrl"),
+                author = author,
+                createdAt = getLong("createdAt") ?: 0L,
+                likes = (get("likes") as? List<String>) ?: emptyList(),
+                saves = (get("saves") as? List<String>) ?: emptyList(),
+                commentCount = getLong("commentCount")?.toInt() ?: 0
+            )
+        } catch (e: Exception) { null }
+    }
+
+    private fun tsFromCursor(cursor: String?): Timestamp? =
+        cursor?.toLongOrNull()?.let { Timestamp(Date(it)) }
+
+    private fun nextCursorFrom(snap: DocumentSnapshot): String? =
+        snap.getTimestamp("createdAt")?.toDate()?.time?.toString()
 }

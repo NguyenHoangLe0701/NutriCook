@@ -35,7 +35,16 @@ import com.example.nutricook.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.text.input.ImeAction
 import com.example.nutricook.viewmodel.hotnews.HotNewsViewModel
+import com.example.nutricook.viewmodel.search.SearchViewModel
+import com.example.nutricook.model.search.SearchResult
+import com.example.nutricook.model.search.SearchType
+import com.example.nutricook.view.search.*
 import kotlinx.coroutines.delay
 
 data class Category(val name: String, val icon: Int)
@@ -43,18 +52,123 @@ data class NutritionItem(val name: String, val calories: String, val weight: Str
 data class RecipeSuggestion(val name: String, val image: Int)
 data class Exercise(val name: String, val icon: Int)
 
+data class NutritionData(
+    val value: String,
+    val iconRes: Int,
+    val label: String
+)
+
+data class FruitNutrition(
+    val name: String,
+    val kcal: String,
+    val weight: String,
+    val image: Int,
+    val nutrition: List<NutritionData>
+)
+
+@Composable
+fun ExpandableFruitCard(fruit: FruitNutrition) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(2.dp, Color(0xFFBDECEC))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = fruit.image),
+                    contentDescription = fruit.name,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFFFF8E1)),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        fruit.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1B1B1B)
+                    )
+                    Text(
+                        "${fruit.kcal}    ${fruit.weight}",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // ✅ Nút mở rộng / thu gọn
+                Image(
+                    painter = painterResource(
+                        id = if (isExpanded) R.drawable.minus_square else R.drawable.add_square
+                    ),
+                    contentDescription = if (isExpanded) "Thu gọn" else "Mở rộng",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { isExpanded = !isExpanded }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        fruit.nutrition.forEach { nut ->
+                            NutritionStatCard(
+                                value = nut.value,
+                                label = nut.label,
+                                iconRes = nut.iconRes,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun HomeScreen(
     navController: NavController,
-    hotNewsViewModel: HotNewsViewModel = hiltViewModel()
+    hotNewsViewModel: HotNewsViewModel = hiltViewModel(),
+    searchViewModel: SearchViewModel = hiltViewModel()
 ) {
     var isActive by remember { mutableStateOf(true) }
+    var showSearchResults by remember { mutableStateOf(false) }
     
     // Load hot news from Firestore
     val hotNewsState by hotNewsViewModel.uiState.collectAsState()
+    val searchState by searchViewModel.uiState.collectAsState()
     
     LaunchedEffect(Unit) {
         hotNewsViewModel.loadHotNews()
+    }
+    
+    // Show search results when query is not blank
+    LaunchedEffect(searchState.query) {
+        showSearchResults = searchState.query.isNotBlank()
     }
     
     // Get first 3 articles for home screen
@@ -146,22 +260,274 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = "Tìm kiếm", tint = Color.Gray)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Bạn muốn tìm kiếm gì?",
-                        color = Color.Gray,
-                        modifier = Modifier.weight(1f)
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Tìm kiếm",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(24.dp)
                     )
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Lọc", tint = Color.Gray)
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    TextField(
+                        value = searchState.query,
+                        onValueChange = searchViewModel::onQueryChange,
+                        modifier = Modifier.weight(1f),
+                        placeholder = {
+                            Text(
+                                "Tìm kiếm công thức, thực phẩm, tin tức...",
+                                color = Color.Gray
+                            )
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { /* Search is handled by onValueChange with debounce */ }
+                        )
+                    )
+                    
+                    if (searchState.query.isNotBlank()) {
+                        IconButton(onClick = { searchViewModel.clearSearch() }) {
+                            Icon(
+                                Icons.Default.Clear,
+                                contentDescription = "Xóa",
+                                tint = Color.Gray
+                            )
+                        }
+                    }
+                    
+                    IconButton(onClick = { searchViewModel.toggleFilters() }) {
+                        Icon(
+                            Icons.Default.FilterList,
+                            contentDescription = "Lọc",
+                            tint = if (searchState.showFilters) MaterialTheme.colorScheme.primary else Color.Gray
+                        )
                     }
                 }
             }
         }
+        
+        // 🔹 Filter Chips (when filters are shown)
+        if (searchState.showFilters) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Loại tìm kiếm",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        FilterChip(
+                            selected = searchState.selectedTypes.contains(SearchType.RECIPES),
+                            onClick = { searchViewModel.toggleSearchType(SearchType.RECIPES) },
+                            label = { Text("Công thức") },
+                            leadingIcon = if (searchState.selectedTypes.contains(SearchType.RECIPES)) {
+                                { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                        
+                        FilterChip(
+                            selected = searchState.selectedTypes.contains(SearchType.FOODS),
+                            onClick = { searchViewModel.toggleSearchType(SearchType.FOODS) },
+                            label = { Text("Thực phẩm") },
+                            leadingIcon = if (searchState.selectedTypes.contains(SearchType.FOODS)) {
+                                { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                        
+                        FilterChip(
+                            selected = searchState.selectedTypes.contains(SearchType.NEWS),
+                            onClick = { searchViewModel.toggleSearchType(SearchType.NEWS) },
+                            label = { Text("Tin tức") },
+                            leadingIcon = if (searchState.selectedTypes.contains(SearchType.NEWS)) {
+                                { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                        
+                        FilterChip(
+                            selected = searchState.selectedTypes.contains(SearchType.USERS),
+                            onClick = { searchViewModel.toggleSearchType(SearchType.USERS) },
+                            label = { Text("Người dùng") },
+                            leadingIcon = if (searchState.selectedTypes.contains(SearchType.USERS)) {
+                                { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                    }
+                }
+            }
+        }
+        
+        // 🔹 Search Results (when query is not blank)
+        if (showSearchResults && searchState.query.isNotBlank()) {
+            if (searchState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (searchState.error != null) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = null,
+                                tint = Color.Red,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = searchState.error ?: "Lỗi không xác định",
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            } else {
+                val allResultsEmpty = searchState.results.values.all { it.isEmpty() }
+                
+                if (allResultsEmpty) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.SearchOff,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Không tìm thấy kết quả",
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Recipes
+                    if (searchState.results[SearchType.RECIPES]?.isNotEmpty() == true) {
+                        item {
+                            Text(
+                                text = "Công thức nấu ăn",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                        items(searchState.results[SearchType.RECIPES]!!) { result ->
+                            if (result is SearchResult.RecipeResult) {
+                                RecipeResultItem(
+                                    result,
+                                    onClick = { navController.navigate("recipe_detail/${result.title}") }
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Foods
+                    if (searchState.results[SearchType.FOODS]?.isNotEmpty() == true) {
+                        item {
+                            Text(
+                                text = "Thực phẩm",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                        items(searchState.results[SearchType.FOODS]!!) { result ->
+                            if (result is SearchResult.FoodResult) {
+                                FoodResultItem(
+                                    result,
+                                    onClick = { navController.navigate("add_meal") }
+                                )
+                            }
+                        }
+                    }
+                    
+                    // News
+                    if (searchState.results[SearchType.NEWS]?.isNotEmpty() == true) {
+                        item {
+                            Text(
+                                text = "Tin tức",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                        items(searchState.results[SearchType.NEWS]!!) { result ->
+                            if (result is SearchResult.NewsResult) {
+                                NewsResultItem(
+                                    result,
+                                    onClick = { navController.navigate("article_detail") }
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Users
+                    if (searchState.results[SearchType.USERS]?.isNotEmpty() == true) {
+                        item {
+                            Text(
+                                text = "Người dùng",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                        items(searchState.results[SearchType.USERS]!!) { result ->
+                            if (result is SearchResult.UserResult) {
+                                UserResultItem(
+                                    result,
+                                    onClick = { navController.navigate("profile") }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 🔹 Nội dung bình thường (khi không search)
+        if (!showSearchResults || searchState.query.isBlank()) {
         item {
             Column(
                 modifier = Modifier
@@ -373,7 +739,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // ✅ Danh sách nhiều loại trái cây
-            val fruits = listOf(
+            val fruits: List<FruitNutrition> = listOf(
                 FruitNutrition(
                     name = "Dứa/Thơm",
                     kcal = "48 kcal",
@@ -399,7 +765,7 @@ fun HomeScreen(
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                fruits.forEach { fruit ->
+                fruits.forEach { fruit: FruitNutrition ->
                     ExpandableFruitCard(fruit)
                 }
             }
@@ -689,6 +1055,7 @@ fun HomeScreen(
                 }
             }
         }
+        } // Close if (!showSearchResults || searchState.query.isBlank())
     }
 }
 
@@ -734,103 +1101,6 @@ fun NutritionStatCard(
                 fontSize = 11.sp,
                 color = Color(0xFF6B6B6B)
             )
-        }
-    }
-}
-
-data class NutritionData(
-    val value: String,
-    val iconRes: Int,
-    val label: String
-)
-
-data class FruitNutrition(
-    val name: String,
-    val kcal: String,
-    val weight: String,
-    val image: Int,
-    val nutrition: List<NutritionData>
-)
-
-@Composable
-fun ExpandableFruitCard(fruit: FruitNutrition) {
-    var isExpanded by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(2.dp, Color(0xFFBDECEC))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(id = fruit.image),
-                    contentDescription = fruit.name,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFFFF8E1)),
-                    contentScale = ContentScale.Crop
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        fruit.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1B1B1B)
-                    )
-                    Text(
-                        "${fruit.kcal}    ${fruit.weight}",
-                        fontSize = 13.sp,
-                        color = Color.Gray
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // ✅ Nút mở rộng / thu gọn
-                Image(
-                    painter = painterResource(
-                        id = if (isExpanded) R.drawable.minus_square else R.drawable.add_square
-                    ),
-                    contentDescription = if (isExpanded) "Thu gọn" else "Mở rộng",
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clickable { isExpanded = !isExpanded }
-                )
-            }
-
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        fruit.nutrition.forEach { nut ->
-                            NutritionStatCard(
-                                value = nut.value,
-                                label = nut.label,
-                                iconRes = nut.iconRes,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }

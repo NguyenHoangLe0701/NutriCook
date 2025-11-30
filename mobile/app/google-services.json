@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "697610921161",
+    "firebase_url": "https://nutricook-fff8f-default-rtdb.firebaseio.com",
     "project_id": "nutricook-fff8f",
     "storage_bucket": "nutricook-fff8f.firebasestorage.app"
   },
@@ -19,6 +20,14 @@
           "android_info": {
             "package_name": "com.example.nutricook",
             "certificate_hash": "407ce8bc9037fddbdd842c792b8d10636523dccb"
+          }
+        },
+        {
+          "client_id": "697610921161-6ded8mj3dkggqfokq6tdfl2mmmfml41r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nutricook",
+            "certificate_hash": "ee575f429db53da8744fe2b81344fb95a8a9ca0b"
           }
         },
         {

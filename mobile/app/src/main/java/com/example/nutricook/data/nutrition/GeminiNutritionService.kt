@@ -7,7 +7,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Log
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +28,8 @@ class GeminiNutritionService @Inject constructor() {
     private val apiKey: String? = BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() }
     
     private val client = OkHttpClient()
-    private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+    // Dùng v1 API với gemini-1.5-flash (model nhanh, được hỗ trợ tốt)
+    private val baseUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
     
     /**
      * Tính calories và dinh dưỡng từ tên món ăn
@@ -34,49 +37,60 @@ class GeminiNutritionService @Inject constructor() {
      * @return NutritionInfo hoặc null nếu lỗi
      */
     suspend fun calculateNutrition(foodName: String): NutritionInfo? = withContext(Dispatchers.IO) {
-        if (apiKey == null) {
+        // Debug: Kiểm tra API key
+        val apiKeyValue = BuildConfig.GEMINI_API_KEY
+        Log.d("GeminiService", "BuildConfig.GEMINI_API_KEY length: ${apiKeyValue.length}, isBlank: ${apiKeyValue.isBlank()}")
+        
+        if (apiKey == null || apiKey.isBlank()) {
+            Log.e("GeminiService", "API key is null or blank!")
             return@withContext null
         }
         
         try {
-            val prompt = """
-                Bạn là chuyên gia dinh dưỡng. Hãy tính calories và các chất dinh dưỡng cho món ăn sau.
-                Trả về JSON với format:
-                {
-                    "calories": số_calories,
-                    "protein": số_gam_protein,
-                    "fat": số_gam_fat,
-                    "carb": số_gam_carb
-                }
-                
-                Món ăn: "$foodName"
-                
-                Chỉ trả về JSON, không có text khác.
-            """.trimIndent()
+            val prompt = """Bạn là chuyên gia dinh dưỡng. Tính calories và dinh dưỡng cho món ăn: "$foodName". 
+Trả về CHỈ JSON với format này, không có text khác:
+{"calories": số_calories, "protein": số_gam_protein, "fat": số_gam_fat, "carb": số_gam_carb}"""
             
+            // Request body đúng format cho Gemini API
             val requestBody = JSONObject().apply {
-                put("contents", JSONObject().apply {
-                    put("parts", JSONObject().apply {
-                        put("text", prompt)
+                put("contents", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("parts", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("text", prompt)
+                            })
+                        })
                     })
                 })
-            }.toString().toRequestBody("application/json".toMediaType())
+            }
             
             val request = Request.Builder()
                 .url("$baseUrl?key=$apiKey")
-                .post(requestBody)
+                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+                .addHeader("Content-Type", "application/json")
                 .build()
             
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: return@withContext null
             
+            Log.d("GeminiService", "Response code: ${response.code}")
+            
             if (!response.isSuccessful) {
+                Log.e("GeminiService", "API failed: ${response.code} - $responseBody")
                 return@withContext null
             }
             
             val jsonResponse = JSONObject(responseBody)
+            
+            // Kiểm tra error
+            if (jsonResponse.has("error")) {
+                Log.e("GeminiService", "API error: ${jsonResponse.getJSONObject("error")}")
+                return@withContext null
+            }
+            
             val candidates = jsonResponse.getJSONArray("candidates")
             if (candidates.length() == 0) {
+                Log.e("GeminiService", "No candidates in response")
                 return@withContext null
             }
             
@@ -86,17 +100,45 @@ class GeminiNutritionService @Inject constructor() {
                 .getJSONObject(0)
                 .getString("text")
             
-            // Parse JSON từ response
-            val nutritionJson = JSONObject(content.trim())
+            Log.d("GeminiService", "Raw content: $content")
+            
+            // Xử lý markdown code blocks và tìm JSON
+            var jsonText = content.trim()
+            jsonText = jsonText.replace("```json", "").replace("```", "").trim()
+            
+            // Tìm JSON object trong text
+            val jsonStart = jsonText.indexOf('{')
+            val jsonEnd = jsonText.lastIndexOf('}')
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                jsonText = jsonText.substring(jsonStart, jsonEnd + 1)
+            } else {
+                Log.e("GeminiService", "No JSON found in content: $content")
+                return@withContext null
+            }
+            
+            Log.d("GeminiService", "Extracted JSON: $jsonText")
+            
+            val nutritionJson = JSONObject(jsonText)
+            val caloriesValue = nutritionJson.optDouble("calories", 0.0).toFloat()
+            val proteinValue = nutritionJson.optDouble("protein", 0.0).toFloat()
+            val fatValue = nutritionJson.optDouble("fat", 0.0).toFloat()
+            val carbValue = nutritionJson.optDouble("carb", 0.0).toFloat()
+            
+            Log.d("GeminiService", "Parsed: calories=$caloriesValue, protein=$proteinValue, fat=$fatValue, carb=$carbValue")
+            
+            if (caloriesValue <= 0) {
+                Log.w("GeminiService", "Calories is 0 or negative")
+                return@withContext null
+            }
             
             NutritionInfo(
-                calories = nutritionJson.optDouble("calories", 0.0).toFloat(),
-                protein = nutritionJson.optDouble("protein", 0.0).toFloat(),
-                fat = nutritionJson.optDouble("fat", 0.0).toFloat(),
-                carb = nutritionJson.optDouble("carb", 0.0).toFloat()
+                calories = caloriesValue,
+                protein = proteinValue,
+                fat = fatValue,
+                carb = carbValue
             )
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("GeminiService", "Error: ${e.javaClass.simpleName} - ${e.message}", e)
             null
         }
     }
