@@ -5,32 +5,30 @@ import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,12 +39,16 @@ import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.viewmodel.newsfeed.PostViewModel
 import com.google.firebase.auth.FirebaseAuth
 
-// --- MÀU SẮC CHỦ ĐẠO ---
-val NutriGreen = Color(0xFF4CAF50)
-val NutriBackground = Color(0xFFF5F7F6)
-val RedHeart = Color(0xFFE91E63)
-val TextPrimary = Color(0xFF1E1E1E)
-val TextSecondary = Color(0xFF757575)
+// --- MODERN COLOR PALETTE ---
+val PrimaryGreen = Color(0xFF10B981)
+val PrimaryGreenDark = Color(0xFF059669)
+val AccentOrange = Color(0xFFF59E0B)
+val BackgroundLight = Color(0xFFFAFAFA)
+val CardBackground = Color(0xFFFFFFFF)
+val HeartRed = Color(0xFFEF4444)
+val TextDark = Color(0xFF111827)
+val TextMuted = Color(0xFF6B7280)
+val DividerColor = Color(0xFFE5E7EB)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,83 +57,81 @@ fun NewsfeedScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
-
-    // Lấy User hiện tại để check xem đã like/save chưa
     val currentUser = FirebaseAuth.getInstance().currentUser
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("NutriCook Feed", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
+            ModernTopBar()
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                containerColor = NutriGreen,
-                contentColor = Color.White,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Đăng bài")
-            }
+            ModernFAB(onClick = { showCreateDialog = true })
         },
-        containerColor = NutriBackground
+        containerColor = BackgroundLight
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
 
-            if (state.items.isEmpty() && !state.loading) {
-                // Màn hình trống
-                EmptyView()
-            } else {
-                // Danh sách bài viết
+            // 1. Hiển thị Loading khi danh sách rỗng và đang tải
+            if (state.loading && state.items.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryGreen)
+                }
+            }
+            // 2. Hiển thị Empty View khi không có bài viết và không tải
+            else if (!state.loading && state.items.isEmpty()) {
+                if (state.error != null) {
+                    ModernErrorView(state.error!!) { viewModel.loadFeed() }
+                } else {
+                    ModernEmptyView()
+                }
+            }
+            // 3. Hiển thị Danh sách bài viết
+            else {
                 LazyColumn(
-                    contentPadding = PaddingValues(bottom = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     itemsIndexed(state.items) { index, post ->
-                        // Tự động load thêm khi cuộn xuống cuối
-                        if (index >= state.items.size - 2 && !state.loadingMore) {
+                        // Logic Load More (Pagination)
+                        if (index >= state.items.size - 2 && !state.loadingMore && state.hasMore) {
                             LaunchedEffect(Unit) { viewModel.loadMore() }
                         }
 
-                        PostCard(
+                        ModernPostCard(
                             post = post,
                             currentUserId = currentUser?.uid ?: "",
                             onLike = { viewModel.toggleLike(post) },
                             onSave = { viewModel.toggleSave(post) },
                             onDelete = { viewModel.deletePost(post.id) },
-                            onComment = { /* TODO: Mở màn hình comment sau */ }
+                            onComment = { /* TODO */ }
                         )
                     }
 
+                    // Loading indicator ở cuối danh sách khi load more
                     if (state.loadingMore) {
                         item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = NutriGreen, modifier = Modifier.size(24.dp))
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = PrimaryGreen,
+                                    strokeWidth = 3.dp,
+                                    modifier = Modifier.size(32.dp)
+                                )
                             }
                         }
                     }
                 }
             }
-
-            // Loading ban đầu
-            if (state.loading && state.items.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = NutriGreen)
-            }
-
-            // Hiển thị lỗi nếu có
-            if (state.error != null && state.items.isEmpty()) {
-                ErrorView(state.error!!) { viewModel.loadFeed() }
-            }
         }
 
-        // Dialog đăng bài (Phiên bản nâng cấp chọn ảnh)
         if (showCreateDialog) {
-            CreatePostAdvancedDialog(
+            ModernCreatePostDialog(
                 onDismiss = { showCreateDialog = false },
-                onSubmit = { content, uri ->
-                    viewModel.createPostWithImage(content, uri)
+                // [CẬP NHẬT] Nhận thêm title
+                onSubmit = { title, content, uri ->
+                    viewModel.createPostWithImage(title, content, uri)
                     showCreateDialog = false
                 }
             )
@@ -139,9 +139,90 @@ fun NewsfeedScreen(
     }
 }
 
-// --- ITEM BÀI VIẾT (CARD) ---
+// --- MODERN TOP BAR ---
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostCard(
+fun ModernTopBar() {
+    TopAppBar(
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(PrimaryGreen, PrimaryGreenDark)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Restaurant,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "NutriCook",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = TextDark
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = { /* Search */ }) {
+                Icon(Icons.Outlined.Search, null, tint = TextMuted)
+            }
+            IconButton(onClick = { /* Notifications */ }) {
+                Box {
+                    Icon(Icons.Outlined.Notifications, null, tint = TextMuted)
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .clip(CircleShape)
+                            .background(HeartRed)
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground),
+        modifier = Modifier.shadow(elevation = 1.dp)
+    )
+}
+
+// --- MODERN FAB ---
+@Composable
+fun ModernFAB(onClick: () -> Unit) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.9f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessHigh)
+    )
+
+    FloatingActionButton(
+        onClick = {
+            pressed = true
+            onClick()
+        },
+        containerColor = PrimaryGreen,
+        contentColor = Color.White,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .scale(scale)
+            .shadow(elevation = 8.dp, shape = RoundedCornerShape(16.dp))
+    ) {
+        Icon(Icons.Default.Edit, contentDescription = "Tạo bài viết", modifier = Modifier.size(24.dp))
+    }
+}
+
+// --- MODERN POST CARD ---
+@Composable
+fun ModernPostCard(
     post: Post,
     currentUserId: String,
     onLike: () -> Unit,
@@ -149,131 +230,292 @@ fun PostCard(
     onDelete: (String) -> Unit,
     onComment: () -> Unit
 ) {
-    // Kiểm tra trạng thái Like/Save
     val isLiked = post.likes.contains(currentUserId)
     val isSaved = post.saves.contains(currentUserId)
     val isAuthor = post.author.id == currentUserId
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // 1. Header
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(NutriGreen.copy(0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = post.author.email.take(1).uppercase(),
-                        fontWeight = FontWeight.Bold, color = NutriGreen
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(post.author.email.substringBefore("@"), fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text(
-                        DateUtils.getRelativeTimeSpanString(post.createdAt).toString(),
-                        fontSize = 12.sp, color = TextSecondary
-                    )
-                }
-
-                // Nếu là tác giả thì hiện nút xóa (Tạm thời dùng Icon Close nhỏ gọn)
-                if (isAuthor) {
-                    IconButton(onClick = { onDelete(post.id) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Xóa", tint = Color.LightGray)
-                    }
-                }
-            }
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Header
+            PostHeader(
+                email = post.author.email,
+                timestamp = post.createdAt,
+                isAuthor = isAuthor,
+                onDelete = { onDelete(post.id) }
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 2. Nội dung Text
-            if (post.content.isNotBlank()) {
-                Text(post.content, fontSize = 15.sp, lineHeight = 22.sp, color = TextPrimary)
-                Spacer(modifier = Modifier.height(10.dp))
+            // [CẬP NHẬT] Hiển thị Title
+            if (post.title.isNotBlank()) {
+                Text(
+                    text = post.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = TextDark,
+                    lineHeight = 24.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // 3. Ảnh (Coil AsyncImage)
+            // Content
+            if (post.content.isNotBlank()) {
+                Text(
+                    text = post.content,
+                    fontSize = 15.sp,
+                    lineHeight = 24.sp,
+                    color = if (post.title.isNotBlank()) TextDark.copy(alpha = 0.8f) else TextDark
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Image
             if (!post.imageUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = post.imageUrl,
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 200.dp, max = 350.dp) // Chiều cao linh hoạt
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.LightGray),
+                        .heightIn(min = 200.dp, max = 400.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFF3F4F6)),
                     contentScale = ContentScale.Crop
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Divider(color = Color.LightGray.copy(0.2f))
-            Spacer(modifier = Modifier.height(8.dp))
+            // Stats
+            PostStats(likesCount = post.likes.size, commentsCount = post.commentCount)
 
-            // 4. Action Buttons (Like, Comment, Save)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(12.dp))
+            Divider(color = DividerColor, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Actions
+            PostActions(
+                isLiked = isLiked,
+                isSaved = isSaved,
+                onLike = onLike,
+                onComment = onComment,
+                onSave = onSave
+            )
+        }
+    }
+}
+
+// --- POST HEADER ---
+@Composable
+fun PostHeader(
+    email: String,
+    timestamp: Long,
+    isAuthor: Boolean,
+    onDelete: () -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(PrimaryGreen.copy(0.2f), AccentOrange.copy(0.2f))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = email.take(1).uppercase(),
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = PrimaryGreen
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                email.substringBefore("@"),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = TextDark
+            )
+            val timeString = try {
+                DateUtils.getRelativeTimeSpanString(timestamp).toString()
+            } catch (e: Exception) {
+                "Vừa xong"
+            }
+            Text(
+                timeString,
+                fontSize = 13.sp,
+                color = TextMuted
+            )
+        }
+
+        if (isAuthor) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(32.dp)
             ) {
-                // --- Nút Like ---
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onLike() }.padding(4.dp)
-                ) {
-                    // Animation màu sắc
-                    val iconColor by animateColorAsState(if (isLiked) RedHeart else TextSecondary, label = "LikeColor")
-                    Icon(
-                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = iconColor
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${post.likes.size}", color = iconColor)
-                }
-
-                // --- Nút Comment ---
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onComment() }.padding(4.dp)
-                ) {
-                    Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Comment", tint = TextSecondary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${post.commentCount}", color = TextSecondary)
-                }
-
-                // Nút Share (Trang trí)
-                Icon(Icons.Outlined.Share, contentDescription = "Share", tint = TextSecondary)
-
-                // --- Nút Save ---
-                IconButton(onClick = onSave) {
-                    val saveColor by animateColorAsState(if (isSaved) NutriGreen else TextSecondary, label = "SaveColor")
-                    Icon(
-                        imageVector = if (isSaved) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = "Save",
-                        tint = saveColor
-                    )
-                }
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "Xóa",
+                    tint = TextMuted,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        } else {
+            IconButton(onClick = { /* More options */ }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Outlined.MoreVert, null, tint = TextMuted, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
-// --- DIALOG ĐĂNG BÀI NÂNG CẤP (Image Picker) ---
+// --- POST STATS ---
 @Composable
-fun CreatePostAdvancedDialog(
-    onDismiss: () -> Unit,
-    onSubmit: (String, Uri?) -> Unit
+fun PostStats(likesCount: Int, commentsCount: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        if (likesCount > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(HeartRed.copy(0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Favorite,
+                        null,
+                        tint = HeartRed,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "$likesCount lượt thích",
+                    fontSize = 13.sp,
+                    color = TextMuted
+                )
+            }
+        } else {
+            Spacer(modifier = Modifier.width(1.dp))
+        }
+
+        if (commentsCount > 0) {
+            Text(
+                "$commentsCount bình luận",
+                fontSize = 13.sp,
+                color = TextMuted
+            )
+        }
+    }
+}
+
+// --- POST ACTIONS ---
+@Composable
+fun PostActions(
+    isLiked: Boolean,
+    isSaved: Boolean,
+    onLike: () -> Unit,
+    onComment: () -> Unit,
+    onSave: () -> Unit
 ) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        ActionButton(
+            icon = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            text = "Thích",
+            isActive = isLiked,
+            activeColor = HeartRed,
+            onClick = onLike
+        )
+
+        ActionButton(
+            icon = Icons.Outlined.ChatBubbleOutline,
+            text = "Bình luận",
+            isActive = false,
+            activeColor = PrimaryGreen,
+            onClick = onComment
+        )
+
+        ActionButton(
+            icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+            text = "Lưu",
+            isActive = isSaved,
+            activeColor = AccentOrange,
+            onClick = onSave
+        )
+    }
+}
+
+@Composable
+fun ActionButton(
+    icon: ImageVector,
+    text: String,
+    isActive: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit
+) {
+    val color by animateColorAsState(
+        targetValue = if (isActive) activeColor else TextMuted,
+        animationSpec = tween(300)
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 1.1f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessHigh)
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(
+                onClick = onClick,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .scale(scale)
+    ) {
+        Icon(
+            icon,
+            contentDescription = text,
+            tint = color,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text,
+            fontSize = 14.sp,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            color = color
+        )
+    }
+}
+
+// --- MODERN CREATE POST DIALOG ---
+@Composable
+fun ModernCreatePostDialog(
+    onDismiss: () -> Unit,
+    // [CẬP NHẬT] Thêm tham số title vào callback
+    onSubmit: (String, String, Uri?) -> Unit
+) {
+    var title by remember { mutableStateOf("") } // [CẬP NHẬT] State cho title
     var content by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Khởi tạo Launcher để mở thư viện ảnh
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> selectedImageUri = uri }
@@ -281,106 +523,213 @@ fun CreatePostAdvancedDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = CardBackground),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Chia sẻ món ngon", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = NutriGreen)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Input Text
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    placeholder = { Text("Hôm nay bạn nấu gì?...") },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NutriGreen,
-                        cursorColor = NutriGreen
+            Column(modifier = Modifier.padding(24.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Tạo bài viết",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
                     )
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, null, tint = TextMuted)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // [CẬP NHẬT] Input Title
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    placeholder = { Text("Tiêu đề món ăn...", color = TextMuted) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryGreen,
+                        unfocusedBorderColor = DividerColor,
+                        cursorColor = PrimaryGreen
+                    ),
+                    singleLine = true
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Khu vực hiển thị ảnh đã chọn
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    placeholder = { Text("Chia sẻ công thức của bạn...", color = TextMuted) },
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryGreen,
+                        unfocusedBorderColor = DividerColor,
+                        cursorColor = PrimaryGreen
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 if (selectedImageUri != null) {
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                    ) {
                         AsyncImage(
                             model = selectedImageUri,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
+                            modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
-                        // Nút Xóa ảnh (Góc trên phải)
                         IconButton(
                             onClick = { selectedImageUri = null },
-                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-                                .background(Color.Black.copy(0.5f), CircleShape).size(24.dp)
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .size(32.dp)
+                                .background(Color.Black.copy(0.6f), CircleShape)
                         ) {
-                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Icon(
+                                Icons.Default.Close,
+                                null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
-                } else {
-                    // Nút bấm chọn ảnh
-                    OutlinedButton(
-                        onClick = {
-                            // Mở thư viện ảnh (Chỉ chọn ảnh)
-                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, NutriGreen),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Image, contentDescription = null, tint = NutriGreen)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Thêm ảnh từ thư viện", color = NutriGreen)
-                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = PrimaryGreen
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, PrimaryGreen.copy(0.3f))
+                ) {
+                    Icon(Icons.Outlined.Image, null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Thêm ảnh", fontWeight = FontWeight.Medium)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { onSubmit(content, selectedImageUri) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = NutriGreen),
-                    shape = RoundedCornerShape(12.dp),
-                    // Chỉ cho bấm khi có nội dung hoặc có ảnh
-                    enabled = content.isNotBlank() || selectedImageUri != null
+                    // [CẬP NHẬT] Truyền title vào onSubmit
+                    onClick = { onSubmit(title, content, selectedImageUri) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryGreen,
+                        disabledContainerColor = PrimaryGreen.copy(0.3f)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    // Logic kích hoạt nút: Cần có (Title & Content) hoặc (Ảnh)
+                    enabled = (title.isNotBlank() && content.isNotBlank()) || selectedImageUri != null
                 ) {
-                    Text("Đăng ngay", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Đăng bài",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
                 }
             }
         }
     }
 }
 
-// --- CÁC HELPER VIEW ---
+// --- MODERN EMPTY VIEW ---
 @Composable
-fun EmptyView() {
+fun ModernEmptyView() {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Chưa có bài viết nào", color = TextSecondary)
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(PrimaryGreen.copy(0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Outlined.RamenDining,
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                tint = PrimaryGreen
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            "Chưa có bài viết nào",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextDark
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Hãy là người đầu tiên chia sẻ món ngon!",
+            fontSize = 14.sp,
+            color = TextMuted
+        )
     }
 }
 
+// --- MODERN ERROR VIEW ---
 @Composable
-fun ErrorView(error: String, onRetry: () -> Unit) {
+fun ModernErrorView(error: String, onRetry: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Có lỗi xảy ra!", color = Color.Red, fontWeight = FontWeight.Bold)
-        Text(error, color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(16.dp))
-        Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = NutriGreen)) {
-            Text("Thử lại")
+        Icon(
+            Icons.Outlined.ErrorOutline,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = HeartRed.copy(0.5f)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            "Đã có lỗi xảy ra",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = TextDark
+        )
+        Text(
+            error,
+            color = TextMuted,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.height(48.dp).padding(horizontal = 24.dp)
+        ) {
+            Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Thử lại", fontWeight = FontWeight.SemiBold)
         }
     }
 }

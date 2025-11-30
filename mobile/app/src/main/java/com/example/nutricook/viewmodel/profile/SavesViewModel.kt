@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
-import com.example.nutricook.model.profile.Post
+import com.example.nutricook.model.newsfeed.Post // [QUAN TRỌNG] Thêm import này
 import com.example.nutricook.viewmodel.common.ListState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,21 +18,26 @@ class SavesViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    // Lấy userId từ Navigation argument (đảm bảo không null)
     private val uid: String = checkNotNull(savedStateHandle["userId"])
 
     private val _state = MutableStateFlow(ListState<Post>(loading = true))
     val state: StateFlow<ListState<Post>> = _state
 
-    // giữ cursor trong VM
+    // Giữ cursor trong ViewModel để xử lý Load More
     private var nextCursor: String? = null
     private var paging = false
 
-    init { refresh() }
+    init {
+        refresh()
+    }
 
-    /** load lần đầu / refresh toàn bộ */
+    /** Load lần đầu hoặc Refresh toàn bộ danh sách */
     fun refresh() = viewModelScope.launch {
         nextCursor = null
+        // Reset state về loading, xóa lỗi cũ nếu có (nhưng giữ items cũ nếu muốn UX mượt hơn, ở đây reset loading=true thì UI thường hiện loading spinner toàn màn hình)
         _state.value = _state.value.copy(loading = true, error = null)
+
         runCatching { repo.getUserSaves(uid, cursor = null) }
             .onSuccess { page ->
                 nextCursor = page.nextCursor
@@ -47,10 +52,10 @@ class SavesViewModel @Inject constructor(
             }
     }
 
-    /** tải tiếp trang sau */
+    /** Tải tiếp trang sau (Pagination) */
     fun loadMore() {
         val cursor = nextCursor ?: return
-        if (paging) return
+        if (paging || _state.value.loadingMore) return // Kiểm tra thêm flag loadingMore trong state để chắc chắn
         paging = true
 
         _state.value = _state.value.copy(loadingMore = true, error = null)

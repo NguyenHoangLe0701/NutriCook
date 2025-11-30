@@ -9,15 +9,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 data class NutritionUiState(
     val loading: Boolean = false,
     val history: List<DailyLog> = emptyList(), // Dữ liệu cho biểu đồ
-    val todayLog: DailyLog? = null, // Dữ liệu hôm nay để hiển thị input
+    val todayLog: DailyLog? = null, // Dữ liệu hôm nay (nếu null nghĩa là chưa có gì)
     val message: String? = null
 )
 
@@ -29,10 +26,6 @@ class NutritionViewModel @Inject constructor(
     private val _ui = MutableStateFlow(NutritionUiState())
     val ui = _ui.asStateFlow()
 
-    // Format ngày chuẩn: yyyy-MM-dd
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    private val todayId: String get() = dateFormat.format(Date())
-
     init {
         loadData()
     }
@@ -40,31 +33,35 @@ class NutritionViewModel @Inject constructor(
     fun loadData() = viewModelScope.launch {
         _ui.update { it.copy(loading = true) }
         try {
+            // 1. Lấy lịch sử tuần (để vẽ biểu đồ)
             val weekHistory = repo.getWeeklyHistory()
-            val today = repo.getLogByDate(todayId) ?: DailyLog(dateId = todayId)
+
+            // 2. Lấy dữ liệu hôm nay
+            // Hàm này trong Repo đã tự check ngày. Nếu qua ngày mới -> trả về null
+            val today = repo.getTodayLog()
 
             _ui.update {
-                it.copy(loading = false, history = weekHistory, todayLog = today)
+                it.copy(
+                    loading = false,
+                    history = weekHistory,
+                    // Nếu today là null (qua ngày mới), tạo object rỗng để UI hiển thị 0
+                    todayLog = today ?: DailyLog(calories = 0f, protein = 0f, fat = 0f, carb = 0f)
+                )
             }
         } catch (e: Exception) {
             _ui.update { it.copy(loading = false, message = e.message) }
         }
     }
 
-    // Hàm gọi từ UI khi người dùng nhập số liệu mới
+    // Hàm này gọi từ Dialog nhập liệu
     fun updateTodayNutrition(cal: Float, pro: Float, fat: Float, carb: Float) = viewModelScope.launch {
-        val log = DailyLog(
-            dateId = todayId,
-            calories = cal,
-            protein = pro,
-            fat = fat,
-            carb = carb
-        )
-
         try {
-            repo.saveDailyLog(log)
-            loadData() // Reload lại biểu đồ ngay lập tức
-            _ui.update { it.copy(message = "Đã cập nhật dinh dưỡng hôm nay!") }
+            // Gọi Repo để cộng dồn số liệu vào ngày hôm nay
+            repo.updateTodayNutrition(cal, pro, fat, carb)
+
+            // Reload lại để cập nhật UI ngay lập tức
+            loadData()
+            _ui.update { it.copy(message = "Đã cập nhật dinh dưỡng!") }
         } catch (e: Exception) {
             _ui.update { it.copy(message = "Lỗi: ${e.message}") }
         }

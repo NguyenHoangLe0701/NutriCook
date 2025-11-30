@@ -88,33 +88,31 @@ class PostViewModel @Inject constructor(
         }
     }
 
-    // --- 3. Đăng bài (Có xử lý Upload ảnh) ---
-    fun createPostWithImage(content: String, imageUri: Uri?) {
+    // --- 3. Đăng bài (CẬP NHẬT QUAN TRỌNG: THÊM TITLE) ---
+    fun createPostWithImage(title: String, content: String, imageUri: Uri?) {
+        // Kiểm tra validation đơn giản
         if (content.isBlank() && imageUri == null) return
 
-        // Set trạng thái loading để UI hiển thị vòng quay hoặc disable nút bấm
         _state.value = _state.value.copy(loading = true)
 
         viewModelScope.launch {
             var finalImageUrl: String? = null
 
-            // Bước 1: Nếu có ảnh, upload lên Storage trước
+            // Bước 1: Upload ảnh nếu có
             if (imageUri != null) {
                 finalImageUrl = repo.uploadImageToStorage(imageUri)
                 if (finalImageUrl == null) {
-                    // Upload thất bại
                     _state.value = _state.value.copy(loading = false, error = "Không thể tải ảnh lên")
                     return@launch
                 }
             }
 
-            // Bước 2: Gọi Repository tạo bài viết với link ảnh (nếu có)
+            // Bước 2: Gọi Repository tạo bài viết (truyền title vào)
             runCatching {
-                repo.createPost(content, finalImageUrl)
+                repo.createPost(title, content, finalImageUrl)
             }
                 .onSuccess { newPost ->
                     val currentList = _state.value.items
-                    // Thêm bài mới vào đầu danh sách ngay lập tức
                     _state.value = _state.value.copy(
                         items = listOf(newPost) + currentList,
                         loading = false
@@ -122,18 +120,6 @@ class PostViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _state.value = _state.value.copy(loading = false, error = e.message)
-                }
-        }
-    }
-
-    // Giữ hàm cũ để tương thích nếu cần, trỏ về hàm mới
-    fun createPost(content: String, imageUrl: String?) {
-        // Hàm này ít dùng hơn vì giờ ta dùng Uri
-        viewModelScope.launch {
-            runCatching { repo.createPost(content, imageUrl) }
-                .onSuccess { newPost ->
-                    val currentList = _state.value.items
-                    _state.value = _state.value.copy(items = listOf(newPost) + currentList)
                 }
         }
     }
@@ -153,7 +139,7 @@ class PostViewModel @Inject constructor(
     fun toggleLike(post: Post) {
         val uid = auth.currentUser?.uid ?: return
 
-        // [Optimistic Update] Cập nhật UI ngay lập tức cho mượt, không cần chờ Server
+        // [Optimistic Update] Cập nhật UI ngay lập tức
         val currentItems = _state.value.items.toMutableList()
         val index = currentItems.indexOfFirst { it.id == post.id }
 
@@ -163,15 +149,12 @@ class PostViewModel @Inject constructor(
             } else {
                 post.likes + uid
             }
-            // Tạo bản sao Post mới với danh sách like mới
             val updatedPost = post.copy(likes = updatedLikes)
             currentItems[index] = updatedPost
-
-            // Cập nhật State
             _state.value = _state.value.copy(items = currentItems)
         }
 
-        // Gọi xuống server (Chạy ngầm)
+        // Gọi xuống server
         viewModelScope.launch {
             repo.toggleLike(post.id, uid)
         }

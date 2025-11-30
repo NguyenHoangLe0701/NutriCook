@@ -1,5 +1,6 @@
 package com.example.nutricook.view.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,21 +36,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.nutricook.model.user.bestName
+import com.example.nutricook.model.newsfeed.Post
+import com.example.nutricook.model.user.User
 import com.example.nutricook.viewmodel.nutrition.NutritionViewModel
-import com.example.nutricook.viewmodel.profile.ProfileUiState
 import com.example.nutricook.viewmodel.profile.ProfileViewModel
 import com.example.nutricook.data.nutrition.GeminiNutritionService
 import kotlinx.coroutines.delay
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import dagger.hilt.EntryPoint
@@ -58,16 +57,16 @@ import dagger.hilt.android.components.ActivityComponent
 import dagger.hilt.android.EntryPointAccessors
 
 // --- MÀU SẮC ---
-private val TealPrimary = Color(0xFF2BB6AD)
-private val TealLight = Color(0xFFE0F7F6)
+private val TealPrimary = Color(0xFF10B981) // Đồng bộ màu Green với Newsfeed
+private val TealLight = Color(0xFFECFDF5)
 private val TextDark = Color(0xFF1F2937)
-private val TextGray = Color(0xFF9CA3AF)
+private val TextGray = Color(0xFF6B7280)
 private val DividerColor = Color(0xFFF3F4F6)
-private val CardBg = Color(0xFFF9FAFB) // Màu nền cho biểu đồ tuần
+private val CardBg = Color(0xFFF9FAFB)
 
 // Gradient Header
 private val HeaderGradient = Brush.verticalGradient(
-    colors = listOf(Color(0xFFFFF0E8), Color(0xFFFFFBF9), Color.White)
+    colors = listOf(Color(0xFFF0FDF4), Color(0xFFF9FAFB), Color.White)
 )
 
 // EntryPoint để inject GeminiNutritionService vào Composable
@@ -91,7 +90,10 @@ fun ProfileScreen(
 ) {
     val ui by vm.uiState.collectAsState()
     val nutritionState by nutritionVm.ui.collectAsState()
+    val savedPosts by vm.savedPosts.collectAsState()
+
     var showUpdateDialog by remember { mutableStateOf(false) }
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
     
     // Inject GeminiNutritionService
     val context = LocalContext.current
@@ -108,24 +110,32 @@ fun ProfileScreen(
         }
     }
 
+    // Logic: Khi chuyển sang tab "Đã lưu" (index 2), gọi loadSavedPosts
+    LaunchedEffect(selectedTabIndex) {
+        if (selectedTabIndex == 2) {
+            vm.loadSavedPosts()
+        }
+    }
+
     Scaffold(
         bottomBar = bottomBar,
         containerColor = Color.White
     ) { padding ->
-        if (ui.loading) {
+        if (ui.loading && ui.profile == null) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = TealPrimary)
             }
         } else if (ui.profile != null) {
             val p = ui.profile!!
+            // Load nutrition data khi có user info
             LaunchedEffect(p.user.id) { nutritionVm.loadData() }
 
             LazyColumn(
                 modifier = Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 20.dp)
+                contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 // ==========================================
-                // 1. HEADER (Style Public Profile)
+                // 1. HEADER INFO
                 // ==========================================
                 item {
                     Box(modifier = Modifier.fillMaxWidth().background(HeaderGradient)) {
@@ -136,15 +146,12 @@ fun ProfileScreen(
                             // Top Bar
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween, // [UPDATED] Căn đều 2 bên
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Nút Search bên trái
                                 IconButton(onClick = onOpenSearch) {
                                     Icon(Icons.Outlined.Search, contentDescription = "Search", tint = TextDark)
                                 }
-
-                                // Cụm nút bên phải
                                 Row {
                                     IconButton(onClick = onOpenRecent) {
                                         Icon(Icons.Outlined.History, contentDescription = "Recent", tint = TextDark)
@@ -157,7 +164,9 @@ fun ProfileScreen(
 
                             // Avatar
                             val avatarUrl = p.user.avatarUrl
-                            val initial = p.user.bestName().firstOrNull()?.uppercase() ?: "?"
+                            val displayName = p.user.bestName()
+                            val initial = displayName.firstOrNull()?.uppercase() ?: "?"
+
                             Box(contentAlignment = Alignment.BottomEnd) {
                                 if (avatarUrl.isNullOrBlank()) {
                                     Box(
@@ -168,7 +177,10 @@ fun ProfileScreen(
                                     }
                                 } else {
                                     AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current).data(avatarUrl).crossfade(true).build(),
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(avatarUrl)
+                                            .crossfade(true)
+                                            .build(),
                                         contentDescription = null,
                                         modifier = Modifier.size(110.dp).clip(CircleShape).background(Color.White),
                                         contentScale = ContentScale.Crop
@@ -186,8 +198,8 @@ fun ProfileScreen(
                             }
 
                             Spacer(Modifier.height(16.dp))
-                            Text(text = p.user.bestName(), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 24.sp, color = TextDark))
-                            Text(text = "Food Blogger / Healthy Life 🌱", color = TextGray, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                            Text(text = displayName, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 24.sp, color = TextDark))
+                            Text(text = p.bio ?: "Food Blogger / Healthy Life 🌱", color = TextGray, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
 
                             Spacer(Modifier.height(24.dp))
 
@@ -197,26 +209,25 @@ fun ProfileScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                ProfileStatItem(count = p.posts.toString(), label = "Post")
+                                ProfileStatItem(count = p.posts.toString(), label = "Bài viết")
                                 ProfileVerticalDivider()
-                                ProfileStatItem(count = p.following.toString(), label = "Following")
+                                ProfileStatItem(count = p.following.toString(), label = "Đang theo dõi")
                                 ProfileVerticalDivider()
-                                ProfileStatItem(count = p.followers.toString(), label = "Follower")
+                                ProfileStatItem(count = p.followers.toString(), label = "Người theo dõi")
                             }
                         }
                     }
                 }
 
                 // ==========================================
-                // 2. THẺ CALORIES CHI TIẾT (RESTORED FULL VERSION)
+                // 2. NUTRITION TRACKING CARD
                 // ==========================================
                 item {
-                    val todayCalories = nutritionState.history.map { it.calories }.lastOrNull() ?: 0f
-                    val caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f
-                    val historyData = nutritionState.history.map { it.calories }
                     val todayLog = nutritionState.todayLog
+                    val todayCalories = todayLog?.calories ?: 0f
+                    val caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f
+                    val historyData = if (nutritionState.history.isNotEmpty()) nutritionState.history.map { it.calories } else listOf(0f,0f,0f,0f,0f,0f,0f)
 
-                    // Gọi lại Component Calories đầy đủ
                     CaloriesTrackingCard(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                         todayCalories = todayCalories,
@@ -234,9 +245,7 @@ fun ProfileScreen(
                 // 3. TABS
                 // ==========================================
                 item {
-                    var selectedTabIndex by remember { mutableIntStateOf(0) }
                     val tabs = listOf("Công thức", "Bài viết", "Đã lưu")
-
                     Column {
                         Spacer(Modifier.height(10.dp))
                         TabRow(
@@ -268,42 +277,51 @@ fun ProfileScreen(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(20.dp))
+                    }
+                }
 
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(top = 40.dp).height(200.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            when(selectedTabIndex) {
-                                0 -> {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Bếp của bạn chưa đỏ lửa 🔥", color = TextGray)
-                                        TextButton(onClick = { /* Navigate to create recipe */ }) {
-                                            Text("Tạo công thức ngay", color = TealPrimary)
-                                        }
-                                    }
+                // ==========================================
+                // 4. TAB CONTENT
+                // ==========================================
+                when (selectedTabIndex) {
+                    0 -> {
+                        item {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                                Text("Bếp của bạn chưa đỏ lửa 🔥", color = TextGray)
+                                TextButton(onClick = { }) { Text("Tạo công thức ngay", color = TealPrimary) }
+                            }
+                        }
+                    }
+                    1 -> {
+                        item {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                                Text("Chia sẻ khoảnh khắc ăn uống 📸", color = TextGray)
+                                TextButton(onClick = onOpenPosts) { Text("Xem tất cả bài viết", color = TealPrimary) }
+                            }
+                        }
+                    }
+                    2 -> {
+                        // DANH SÁCH ĐÃ LƯU
+                        if (savedPosts.isEmpty()) {
+                            item {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                                    Text("Chưa có bài viết nào được lưu ❤️", color = TextGray)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Hãy lướt Newsfeed để lưu bài nhé!", fontSize = 13.sp, color = TealPrimary)
                                 }
-                                1 -> {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Chia sẻ khoảnh khắc ăn uống 📸", color = TextGray)
-                                        TextButton(onClick = onOpenPosts) {
-                                            Text("Xem tất cả bài viết", color = TealPrimary)
-                                        }
-                                    }
-                                }
-                                2 -> {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Chưa lưu món ngon nào ❤️", color = TextGray)
-                                        TextButton(onClick = onOpenSaves) {
-                                            Text("Xem kho lưu trữ", color = TealPrimary)
-                                        }
-                                    }
-                                }
+                            }
+                        } else {
+                            items(savedPosts, key = { it.id }) { post ->
+                                SimpleSavedPostCard(post = post)
+                                Spacer(Modifier.height(16.dp))
                             }
                         }
                     }
                 }
-            }
+            } // End LazyColumn
 
+            // Dialog nhập liệu dinh dưỡng
             if (showUpdateDialog) {
                 ProfessionalNutritionDialog(
                     initialCalories = nutritionState.todayLog?.calories ?: 0f,
@@ -312,8 +330,8 @@ fun ProfileScreen(
                     initialCarb = nutritionState.todayLog?.carb ?: 0f,
                     caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f,
                     onDismiss = { showUpdateDialog = false },
-                    onSave = { c, p, f, cb ->
-                        nutritionVm.updateTodayNutrition(c, p, f, cb)
+                    onSave = { c, pr, f, cb ->
+                        nutritionVm.updateTodayNutrition(c, pr, f, cb)
                         showUpdateDialog = false
                     },
                     geminiService = geminiService
@@ -324,8 +342,76 @@ fun ProfileScreen(
 }
 
 // =====================================================
-// HELPER COMPOSABLES
+// HELPER COMPOSABLES & EXTENSIONS
 // =====================================================
+
+fun User.bestName(): String {
+    return if (!displayName.isNullOrBlank()) displayName else email.substringBefore("@")
+}
+
+@Composable
+fun SimpleSavedPostCard(post: Post) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Ảnh Thumbnail
+            val thumb = post.imageUrl
+            if (!thumb.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(thumb)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(12.dp))
+            } else {
+                Box(modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF3F4F6)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Image, contentDescription = null, tint = TextGray)
+                }
+                Spacer(Modifier.width(12.dp))
+            }
+
+            // Nội dung - ĐÃ CẬP NHẬT ĐỂ HIỂN THỊ TITLE
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = post.author.bestName(),
+                    style = MaterialTheme.typography.bodySmall.copy(color = TextGray, fontSize = 12.sp)
+                )
+                Spacer(Modifier.height(4.dp))
+
+                // [FIX] Hiển thị Title nếu có
+                if (post.title.isNotBlank()) {
+                    Text(
+                        text = post.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = TextDark
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Text(
+                    text = post.content.ifBlank { "..." },
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = if (post.title.isNotBlank()) TextDark.copy(alpha = 0.8f) else TextDark
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun ProfileStatItem(count: String, label: String) {
@@ -340,7 +426,6 @@ fun ProfileVerticalDivider() {
     Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color(0xFFE5E7EB)))
 }
 
-// --- CALORIES TRACKING CARD (PHIÊN BẢN ĐẦY ĐỦ - KHÔI PHỤC) ---
 @Composable
 fun CaloriesTrackingCard(
     modifier: Modifier = Modifier,
@@ -362,7 +447,6 @@ fun CaloriesTrackingCard(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 1. Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -391,13 +475,11 @@ fun CaloriesTrackingCard(
                 }
             }
 
-            // 2. Circular Progress & Stats
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // A. Vòng tròn Calories
                 Box(
                     modifier = Modifier.size(140.dp),
                     contentAlignment = Alignment.Center
@@ -410,7 +492,6 @@ fun CaloriesTrackingCard(
                         val radius = (size.minDimension - strokeWidth) / 2
                         val topLeft = Offset((size.width - radius * 2) / 2, (size.height - radius * 2) / 2)
 
-                        // Track (Nền xám)
                         drawArc(
                             color = Color(0xFFE5E7EB),
                             startAngle = -90f,
@@ -420,7 +501,6 @@ fun CaloriesTrackingCard(
                             topLeft = topLeft,
                             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
                         )
-                        // Progress (Màu Teal)
                         drawArc(
                             color = if(progress >= 1f) Color(0xFFEF4444) else TealPrimary,
                             startAngle = -90f,
@@ -457,7 +537,6 @@ fun CaloriesTrackingCard(
                     }
                 }
 
-                // B. Danh sách Macro (Protein/Carb/Fat)
                 Column(
                     modifier = Modifier.weight(1f).padding(start = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -490,31 +569,29 @@ fun CaloriesTrackingCard(
                         }
                     }
 
-                    // Macros
                     if (todayLog != null) {
                         MacroStatItem(
                             label = "Protein",
                             value = "${todayLog.protein.toInt()}",
                             unit = "g",
-                            color = Color(0xFF3B82F6), // Blue
+                            color = Color(0xFF3B82F6),
                             progress = (todayLog.protein / (caloriesTarget * 0.3f / 4f)).coerceIn(0f, 1f)
                         )
                         MacroStatItem(
                             label = "Carb",
                             value = "${todayLog.carb.toInt()}",
                             unit = "g",
-                            color = Color(0xFF10B981), // Green
+                            color = Color(0xFF10B981),
                             progress = (todayLog.carb / (caloriesTarget * 0.45f / 4f)).coerceIn(0f, 1f)
                         )
                         MacroStatItem(
                             label = "Fat",
                             value = "${todayLog.fat.toInt()}",
                             unit = "g",
-                            color = Color(0xFFF59E0B), // Orange
+                            color = Color(0xFFF59E0B),
                             progress = (todayLog.fat / (caloriesTarget * 0.25f / 9f)).coerceIn(0f, 1f)
                         )
                     } else {
-                        // Placeholder nếu chưa có data
                         MacroStatItem("Protein", "0", "g", Color(0xFF3B82F6), 0f)
                         MacroStatItem("Carb", "0", "g", Color(0xFF10B981), 0f)
                         MacroStatItem("Fat", "0", "g", Color(0xFFF59E0B), 0f)
@@ -522,17 +599,15 @@ fun CaloriesTrackingCard(
                 }
             }
 
-            Divider(color = DividerColor, thickness = 1.dp)
+            HorizontalDivider(color = DividerColor, thickness = 1.dp)
 
-            // 3. Biểu đồ tuần
             Column {
                 Text(
                     text = "7 ngày qua",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TextDark, fontSize = 16.sp),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                // Chart nằm trong Card luôn
-                ImprovedChartCard(dataPoints = if (weeklyData.isEmpty()) listOf(0f,0f,0f,0f,0f,0f,0f) else weeklyData, target = caloriesTarget)
+                ImprovedChartCard(dataPoints = weeklyData, target = caloriesTarget)
             }
         }
     }
@@ -700,7 +775,6 @@ fun CaloriesTargetDialog(
 
 @Composable
 fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
-    // Chart nằm trong nền xám nhẹ với padding tốt hơn
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -746,7 +820,6 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                     val height = size.height
                     val maxVal = maxOf(dataPoints.maxOrNull() ?: target, target * 1.2f)
 
-                    // Vẽ đường Target
                     val targetY = height - (target / maxVal) * height
                     drawLine(
                         color = Color(0xFF6366F1).copy(alpha = 0.5f),
@@ -756,7 +829,6 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                     )
 
-                    // Vẽ biểu đồ vùng (Area Chart)
                     val path = Path()
                     val fillPath = Path()
 
@@ -771,7 +843,6 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                             fillPath.moveTo(x, height)
                             fillPath.lineTo(x, y)
                         } else {
-                            // Bezier curve cho mượt
                             val prevX = (index - 1) * stepX
                             val prevY = height - (dataPoints[index - 1] / maxVal) * height
                             val conX1 = (prevX + x) / 2f
@@ -852,7 +923,8 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
     }
 }
 
-// --- DIALOG INPUT (GIỮ NGUYÊN) ---
+// --- DIALOG INPUT & DATA ---
+
 @Composable
 fun ProfessionalNutritionDialog(
     initialCalories: Float,
@@ -873,107 +945,241 @@ fun ProfessionalNutritionDialog(
     val remaining = caloriesTarget - currentCalories
     val progress = (currentCalories / caloriesTarget).coerceIn(0f, 1f)
 
-    // Dữ liệu calories chính xác cho món ăn Việt Nam (tính cho 1 phần ăn tiêu chuẩn)
+    // Dữ liệu món ăn
     val foodCategories = remember {
         mapOf(
-            "Phổ biến" to listOf(
-                QuickFood("Cơm trắng (1 bát)", 130f, 2.7f, 0.3f, 28f), // 100g cơm
-                QuickFood("Bánh mì (1 ổ)", 265f, 8.5f, 3.2f, 49f), // 1 ổ bánh mì ~80g
-                QuickFood("Phở bò (1 tô)", 456f, 24f, 12f, 58f), // 1 tô phở đầy đủ
-                QuickFood("Trứng ốp la (2 quả)", 180f, 12f, 14f, 1.2f), // 2 quả trứng
-                QuickFood("Bún chả (1 suất)", 398f, 22f, 15f, 42f), // 1 suất đầy đủ
-                QuickFood("Bánh cuốn (1 đĩa)", 220f, 8f, 3f, 40f), // 1 đĩa ~200g
-                QuickFood("Cháo gà (1 tô)", 185f, 15f, 5f, 22f), // 1 tô cháo
-                QuickFood("Xôi gấc (1 phần)", 280f, 5f, 2f, 60f) // 1 phần xôi
+            "⭐ Phổ biến nhất" to listOf(
+                QuickFood("Cơm trắng (1 chén vừa)", 130f, 2.7f, 0.3f, 28.2f),
+                QuickFood("Phở bò tái (1 tô)", 430f, 22f, 12f, 60f),
+                QuickFood("Bánh mì thịt đầy đủ", 450f, 18f, 20f, 50f),
+                QuickFood("Cơm tấm sườn bì chả", 627f, 32f, 28f, 65f),
+                QuickFood("Trứng ốp la (1 quả)", 90f, 6.3f, 7f, 0.6f),
+                QuickFood("Gỏi cuốn tôm thịt (1 cái)", 65f, 4f, 1f, 10f),
+                QuickFood("Cà phê sữa đá (1 ly)", 180f, 2f, 5f, 30f),
+                QuickFood("Chuối (1 quả)", 105f, 1.3f, 0.4f, 27f)
             ),
-            "Thịt & Cá" to listOf(
-                QuickFood("Thịt gà (100g)", 165f, 31f, 3.6f, 0f), // 100g thịt gà luộc
-                QuickFood("Thịt heo (100g)", 242f, 27f, 14f, 0f), // 100g thịt heo
-                QuickFood("Thịt bò (100g)", 250f, 26f, 17f, 0f), // 100g thịt bò
-                QuickFood("Cá hồi (100g)", 208f, 20f, 12f, 0f), // 100g cá hồi
-                QuickFood("Cá basa (100g)", 180f, 18f, 10f, 0f), // 100g cá basa
-                QuickFood("Tôm (100g)", 99f, 24f, 0.3f, 0f), // 100g tôm
-                QuickFood("Thịt vịt (100g)", 337f, 19f, 28f, 0f), // 100g thịt vịt
-                QuickFood("Thịt ngan (100g)", 200f, 22f, 11f, 0f) // 100g thịt ngan
+            "🍚 Cơm & Xôi" to listOf(
+                QuickFood("Cơm trắng (100g)", 130f, 2.7f, 0.3f, 28f),
+                QuickFood("Cơm gạo lứt (100g)", 110f, 2.6f, 0.9f, 23f),
+                QuickFood("Cơm tấm sườn nướng", 520f, 25f, 20f, 60f),
+                QuickFood("Cơm tấm bì chả", 590f, 28f, 25f, 62f),
+                QuickFood("Cơm gà xối mỡ", 650f, 30f, 35f, 55f),
+                QuickFood("Cơm gà Hải Nam", 550f, 28f, 22f, 60f),
+                QuickFood("Cơm rang dưa bò", 580f, 22f, 25f, 65f),
+                QuickFood("Cơm rang thập cẩm", 560f, 18f, 22f, 70f),
+                QuickFood("Cơm rang hải sản", 540f, 20f, 20f, 68f),
+                QuickFood("Cơm cháy kho quẹt", 450f, 12f, 15f, 68f),
+                QuickFood("Cơm niêu (1 thố nhỏ)", 200f, 4f, 0.5f, 45f),
+                QuickFood("Cơm lam (1 ống)", 150f, 3f, 0.5f, 35f),
+                QuickFood("Xôi mặn thập cẩm", 550f, 25f, 20f, 65f),
+                QuickFood("Xôi gà xé", 480f, 22f, 15f, 62f),
+                QuickFood("Xôi gấc", 350f, 5f, 8f, 60f),
+                QuickFood("Xôi đậu xanh", 320f, 8f, 6f, 58f),
+                QuickFood("Xôi bắp (ngô)", 300f, 5f, 8f, 55f),
+                QuickFood("Xôi khúc", 400f, 12f, 15f, 50f),
+                QuickFood("Xôi vò", 350f, 6f, 10f, 55f),
+                QuickFood("Cháo lòng", 350f, 25f, 15f, 30f),
+                QuickFood("Cháo gà", 280f, 20f, 8f, 30f),
+                QuickFood("Cháo sườn", 320f, 15f, 10f, 40f),
+                QuickFood("Cháo trắng hột vịt muối", 220f, 10f, 8f, 35f),
+                QuickFood("Cháo ếch Singapore", 450f, 25f, 12f, 55f)
             ),
-            "Món nước" to listOf(
-                QuickFood("Bún bò Huế (1 tô)", 480f, 28f, 15f, 52f), // 1 tô đầy đủ
-                QuickFood("Hủ tiếu (1 tô)", 380f, 18f, 10f, 48f), // 1 tô hủ tiếu
-                QuickFood("Bánh canh (1 tô)", 320f, 15f, 8f, 42f), // 1 tô bánh canh
-                QuickFood("Mì Quảng (1 tô)", 420f, 22f, 12f, 45f), // 1 tô mì Quảng
-                QuickFood("Bún riêu (1 tô)", 350f, 18f, 10f, 40f), // 1 tô bún riêu
-                QuickFood("Cháo lòng (1 tô)", 280f, 18f, 12f, 25f), // 1 tô cháo lòng
-                QuickFood("Súp cua (1 tô)", 220f, 12f, 8f, 28f) // 1 tô súp cua
+            "🍜 Phở, Bún & Mì" to listOf(
+                QuickFood("Phở bò tái", 430f, 22f, 12f, 60f),
+                QuickFood("Phở bò chín", 410f, 20f, 10f, 60f),
+                QuickFood("Phở bò nạm", 450f, 21f, 15f, 60f),
+                QuickFood("Phở đặc biệt (xe lửa)", 600f, 35f, 20f, 70f),
+                QuickFood("Phở gà (thịt trắng)", 400f, 25f, 12f, 55f),
+                QuickFood("Phở gà (đùi, da)", 450f, 22f, 18f, 55f),
+                QuickFood("Phở cuốn (3 cái)", 350f, 15f, 10f, 45f),
+                QuickFood("Phở xào bò", 650f, 25f, 30f, 65f),
+                QuickFood("Bún bò Huế (giò heo)", 550f, 28f, 25f, 55f),
+                QuickFood("Bún bò Huế (nạm)", 480f, 25f, 18f, 55f),
+                QuickFood("Bún riêu cua", 420f, 18f, 15f, 55f),
+                QuickFood("Bún ốc", 350f, 15f, 8f, 50f),
+                QuickFood("Bún đậu mắm tôm (1 mẹt)", 650f, 40f, 35f, 60f),
+                QuickFood("Bún thịt nướng", 450f, 18f, 15f, 60f),
+                QuickFood("Bún mắm miền Tây", 520f, 25f, 20f, 58f),
+                QuickFood("Bún thang", 380f, 20f, 10f, 50f),
+                QuickFood("Bún chả cá Nha Trang", 400f, 20f, 10f, 55f),
+                QuickFood("Hủ tiếu Nam Vang", 400f, 18f, 12f, 58f),
+                QuickFood("Hủ tiếu gõ (bình dân)", 300f, 10f, 8f, 50f),
+                QuickFood("Hủ tiếu bò kho", 500f, 25f, 20f, 55f),
+                QuickFood("Mì quảng tôm thịt", 480f, 22f, 18f, 55f),
+                QuickFood("Mì quảng gà", 500f, 25f, 20f, 55f),
+                QuickFood("Cao lầu Hội An", 450f, 20f, 15f, 60f),
+                QuickFood("Bánh canh cua", 420f, 18f, 12f, 60f),
+                QuickFood("Bánh canh ghẹ", 400f, 20f, 10f, 58f),
+                QuickFood("Bánh canh chả cá", 380f, 15f, 10f, 58f),
+                QuickFood("Mì xào bò rau cải", 580f, 25f, 28f, 60f),
+                QuickFood("Mì xào giòn hải sản", 620f, 20f, 35f, 65f),
+                QuickFood("Mì Ý sốt bò bằm", 550f, 22f, 18f, 70f),
+                QuickFood("Miến gà", 350f, 25f, 8f, 45f),
+                QuickFood("Miến lươn", 380f, 20f, 10f, 45f),
+                QuickFood("Miến trộn", 400f, 15f, 15f, 50f),
+                QuickFood("Nui xào bò", 500f, 22f, 20f, 58f)
             ),
-            "Món xào" to listOf(
-                QuickFood("Cơm rang (1 đĩa)", 350f, 12f, 12f, 50f), // 1 đĩa cơm rang
-                QuickFood("Mì xào (1 đĩa)", 420f, 15f, 15f, 48f), // 1 đĩa mì xào
-                QuickFood("Bún xào (1 đĩa)", 320f, 12f, 10f, 42f), // 1 đĩa bún xào
-                QuickFood("Rau muống xào (1 đĩa)", 95f, 4f, 5f, 12f), // 1 đĩa rau muống
-                QuickFood("Thịt bò xào (1 đĩa)", 280f, 25f, 15f, 10f), // 1 đĩa thịt bò xào
-                QuickFood("Gà xào sả ớt (1 đĩa)", 240f, 28f, 10f, 8f) // 1 đĩa gà xào
+            "🥖 Bánh Mì & Sáng" to listOf(
+                QuickFood("Bánh mì thịt đầy đủ", 450f, 18f, 20f, 50f),
+                QuickFood("Bánh mì ốp la (2 trứng)", 400f, 14f, 18f, 45f),
+                QuickFood("Bánh mì chả lụa", 350f, 12f, 10f, 45f),
+                QuickFood("Bánh mì heo quay", 480f, 18f, 25f, 45f),
+                QuickFood("Bánh mì xíu mại", 420f, 15f, 18f, 48f),
+                QuickFood("Bánh mì chảo", 550f, 25f, 30f, 40f),
+                QuickFood("Bánh mì que (Pate)", 200f, 5f, 8f, 25f),
+                QuickFood("Bánh bao thịt trứng", 320f, 10f, 12f, 40f),
+                QuickFood("Bánh bao xá xíu", 300f, 8f, 10f, 42f),
+                QuickFood("Bánh bao chay", 180f, 4f, 2f, 35f),
+                QuickFood("Bánh cuốn nóng (1 dĩa)", 350f, 10f, 12f, 50f),
+                QuickFood("Bánh cuốn trứng", 400f, 16f, 15f, 50f),
+                QuickFood("Bánh ướt chả lụa", 320f, 10f, 10f, 48f),
+                QuickFood("Bánh giò", 300f, 12f, 15f, 30f),
+                QuickFood("Bánh chưng (1 góc 1/8)", 350f, 15f, 15f, 40f),
+                QuickFood("Bánh tét (1 khoanh)", 300f, 10f, 12f, 38f),
+                QuickFood("Bánh bèo (1 chén)", 50f, 2f, 1f, 10f),
+                QuickFood("Bánh nậm (1 cái)", 60f, 3f, 2f, 8f),
+                QuickFood("Bánh bột lọc (1 dĩa nhỏ)", 300f, 8f, 10f, 45f),
+                QuickFood("Bánh xèo (1 cái)", 350f, 10f, 20f, 30f),
+                QuickFood("Bánh khọt (1 dĩa 10 cái)", 400f, 12f, 22f, 35f),
+                QuickFood("Khoai lang luộc (1 củ)", 120f, 2f, 0.5f, 28f),
+                QuickFood("Bắp luộc (1 trái)", 150f, 4f, 2f, 30f),
+                QuickFood("Ngũ cốc (1 chén)", 150f, 5f, 2f, 30f)
             ),
-            "Món chiên" to listOf(
-                QuickFood("Nem rán (2 cái)", 220f, 10f, 12f, 18f), // 2 cái nem
-                QuickFood("Chả giò (2 cái)", 240f, 8f, 14f, 20f), // 2 cái chả giò
-                QuickFood("Gà rán (1 phần)", 350f, 30f, 22f, 8f), // 1 phần gà rán
-                QuickFood("Cá chiên (1 con)", 280f, 25f, 18f, 3f), // 1 con cá chiên
-                QuickFood("Tôm chiên (5 con)", 240f, 22f, 12f, 10f), // 5 con tôm
-                QuickFood("Đậu phụ chiên (2 miếng)", 150f, 10f, 9f, 5f) // 2 miếng đậu phụ
+            "🥩 Thịt & Protein" to listOf(
+                QuickFood("Ức gà luộc (100g)", 165f, 31f, 3.6f, 0f),
+                QuickFood("Ức gà nướng (100g)", 180f, 30f, 5f, 0f),
+                QuickFood("Đùi gà chiên (1 cái)", 300f, 18f, 20f, 5f),
+                QuickFood("Cánh gà chiên nước mắm", 450f, 25f, 30f, 10f),
+                QuickFood("Gà kho gừng (100g)", 200f, 22f, 10f, 5f),
+                QuickFood("Gà rang muối (100g)", 250f, 20f, 15f, 5f),
+                QuickFood("Thịt heo ba chỉ luộc (100g)", 518f, 9f, 53f, 0f),
+                QuickFood("Thịt heo nạc luộc (100g)", 145f, 25f, 4f, 0f),
+                QuickFood("Thịt kho tàu (1 phần)", 350f, 15f, 25f, 5f),
+                QuickFood("Sườn xào chua ngọt", 350f, 15f, 20f, 15f),
+                QuickFood("Sườn cốt lết nướng", 250f, 22f, 15f, 5f),
+                QuickFood("Chả lụa (100g)", 230f, 15f, 18f, 2f),
+                QuickFood("Lạp xưởng (1 cây)", 180f, 8f, 15f, 5f),
+                QuickFood("Nem rán (1 cái)", 120f, 5f, 8f, 10f),
+                QuickFood("Thịt bò thăn (100g)", 250f, 26f, 15f, 0f),
+                QuickFood("Bò bít tết (150g)", 350f, 38f, 20f, 0f),
+                QuickFood("Bò lúc lắc (100g)", 300f, 25f, 20f, 10f),
+                QuickFood("Bò kho (1 chén)", 250f, 20f, 15f, 10f),
+                QuickFood("Thịt bò xào hành tây", 250f, 22f, 15f, 8f),
+                QuickFood("Trứng gà luộc (1 quả)", 78f, 6f, 5f, 0.5f),
+                QuickFood("Trứng chiên (2 trứng)", 250f, 14f, 20f, 2f),
+                QuickFood("Trứng cút (5 quả)", 75f, 6f, 5f, 0.5f),
+                QuickFood("Lòng trắng trứng (1 cái)", 17f, 3.6f, 0f, 0.2f),
+                QuickFood("Đậu hũ trắng (1 bìa)", 76f, 8f, 4f, 2f),
+                QuickFood("Đậu hũ chiên (1 bìa)", 150f, 10f, 10f, 5f),
+                QuickFood("Đậu hũ nhồi thịt", 200f, 15f, 12f, 8f)
             ),
-            "Món nướng" to listOf(
-                QuickFood("Thịt nướng (100g)", 280f, 32f, 16f, 3f), // 100g thịt nướng
-                QuickFood("Chả cá (2 miếng)", 220f, 24f, 11f, 2f), // 2 miếng chả cá
-                QuickFood("Nem nướng (3 xiên)", 280f, 18f, 15f, 10f), // 3 xiên nem nướng
-                QuickFood("Gà nướng (1 phần)", 320f, 30f, 15f, 5f), // 1 phần gà nướng
-                QuickFood("Cá nướng (1 con)", 240f, 26f, 12f, 2f) // 1 con cá nướng
+            "🐟 Hải Sản" to listOf(
+                QuickFood("Cá hồi áp chảo (100g)", 208f, 20f, 13f, 0f),
+                QuickFood("Cá hồi sống (Sashimi)", 200f, 20f, 12f, 0f),
+                QuickFood("Cá thu chiên (1 khúc)", 250f, 19f, 18f, 2f),
+                QuickFood("Cá lóc kho tộ (1 khúc)", 180f, 18f, 8f, 5f),
+                QuickFood("Cá diêu hồng hấp", 150f, 20f, 5f, 2f),
+                QuickFood("Cá basa kho tộ", 220f, 15f, 15f, 5f),
+                QuickFood("Canh chua cá lóc", 150f, 12f, 5f, 10f),
+                QuickFood("Tôm hấp (100g)", 99f, 24f, 0.5f, 0.2f),
+                QuickFood("Tôm rang thịt", 300f, 25f, 20f, 5f),
+                QuickFood("Tôm lăn bột chiên", 350f, 15f, 25f, 20f),
+                QuickFood("Mực hấp gừng", 100f, 16f, 1f, 3f),
+                QuickFood("Mực xào chua ngọt", 200f, 18f, 8f, 12f),
+                QuickFood("Mực nướng sa tế", 150f, 20f, 5f, 5f),
+                QuickFood("Bạch tuộc nướng", 160f, 20f, 5f, 5f),
+                QuickFood("Nghêu hấp sả (1 tô)", 100f, 15f, 2f, 5f),
+                QuickFood("Hàu nướng mỡ hành (1 con)", 80f, 5f, 5f, 3f),
+                QuickFood("Ốc hương rang muối", 200f, 15f, 10f, 5f),
+                QuickFood("Cua biển hấp (1 con)", 250f, 30f, 2f, 0f)
             ),
-            "Món canh" to listOf(
-                QuickFood("Canh chua cá (1 tô)", 150f, 18f, 5f, 10f), // 1 tô canh chua
-                QuickFood("Canh khổ qua (1 tô)", 110f, 10f, 4f, 8f), // 1 tô canh khổ qua
-                QuickFood("Canh rau củ (1 tô)", 75f, 3f, 2f, 15f), // 1 tô canh rau củ
-                QuickFood("Canh bí đỏ (1 tô)", 90f, 3f, 1f, 22f), // 1 tô canh bí đỏ
-                QuickFood("Canh măng (1 tô)", 120f, 6f, 3f, 12f) // 1 tô canh măng
+            "🥗 Rau Củ & Canh" to listOf(
+                QuickFood("Rau muống luộc", 40f, 3f, 0.5f, 6f),
+                QuickFood("Rau muống xào tỏi", 120f, 3f, 10f, 6f),
+                QuickFood("Cải thìa xào dầu hào", 90f, 2f, 7f, 5f),
+                QuickFood("Bông cải xanh luộc", 34f, 2.8f, 0.4f, 7f),
+                QuickFood("Su su luộc", 30f, 1f, 0f, 6f),
+                QuickFood("Đậu que xào thịt bò", 200f, 15f, 10f, 10f),
+                QuickFood("Khổ qua xào trứng", 150f, 8f, 10f, 8f),
+                QuickFood("Canh rau ngót thịt bằm", 120f, 8f, 5f, 5f),
+                QuickFood("Canh bí đỏ thịt bằm", 150f, 8f, 6f, 15f),
+                QuickFood("Canh chua cá", 150f, 12f, 5f, 10f),
+                QuickFood("Canh khổ qua nhồi thịt", 180f, 10f, 8f, 8f),
+                QuickFood("Canh khoai mỡ", 200f, 5f, 8f, 25f),
+                QuickFood("Salad trộn dầu giấm", 80f, 1f, 7f, 5f),
+                QuickFood("Salad cá ngừ", 250f, 20f, 15f, 5f),
+                QuickFood("Salad ức gà", 200f, 25f, 8f, 5f),
+                QuickFood("Nộm đu đủ (Gỏi)", 150f, 5f, 5f, 20f),
+                QuickFood("Gỏi ngó sen tôm thịt", 320f, 18f, 12f, 20f),
+                QuickFood("Dưa leo (1 quả)", 16f, 0.7f, 0.1f, 4f),
+                QuickFood("Cà chua (1 quả)", 22f, 1f, 0.2f, 5f)
             ),
-            "Tráng miệng" to listOf(
-                QuickFood("Chè đậu xanh (1 ly)", 220f, 6f, 3f, 45f), // 1 ly chè
-                QuickFood("Chè thái (1 ly)", 280f, 3f, 10f, 50f), // 1 ly chè thái
-                QuickFood("Bánh flan (1 phần)", 180f, 5f, 6f, 28f), // 1 phần bánh flan
-                QuickFood("Kem (1 ly)", 250f, 4f, 14f, 30f), // 1 ly kem
-                QuickFood("Sữa chua (1 hộp)", 120f, 6f, 4f, 18f) // 1 hộp sữa chua
+            "🍎 Trái cây" to listOf(
+                QuickFood("Chuối (1 quả)", 105f, 1.3f, 0.4f, 27f),
+                QuickFood("Táo (1 quả)", 95f, 0.5f, 0.3f, 25f),
+                QuickFood("Cam (1 quả)", 62f, 1.2f, 0.2f, 15f),
+                QuickFood("Quýt (1 quả)", 40f, 0.8f, 0.1f, 10f),
+                QuickFood("Bưởi (1 múi)", 40f, 0.8f, 0.1f, 10f),
+                QuickFood("Dưa hấu (1 miếng)", 46f, 0.9f, 0.2f, 11f),
+                QuickFood("Dứa (Thơm) - 100g", 50f, 0.5f, 0.1f, 13f),
+                QuickFood("Xoài chín (1 quả)", 200f, 2.8f, 1.2f, 50f),
+                QuickFood("Xoài xanh (100g)", 60f, 0.8f, 0.4f, 15f),
+                QuickFood("Thanh long (1 quả)", 200f, 2f, 0.5f, 45f),
+                QuickFood("Bơ (1/2 quả)", 160f, 2f, 15f, 9f),
+                QuickFood("Nho (100g)", 69f, 0.7f, 0.2f, 18f),
+                QuickFood("Dâu tây (100g)", 32f, 0.7f, 0.3f, 7.7f),
+                QuickFood("Sầu riêng (1 múi lớn)", 350f, 4f, 13f, 65f),
+                QuickFood("Mít (100g)", 95f, 1.7f, 0.6f, 23f),
+                QuickFood("Vải (10 quả)", 66f, 0.8f, 0.4f, 16f),
+                QuickFood("Nhãn (10 quả)", 60f, 1f, 0.1f, 15f),
+                QuickFood("Ổi (1 quả)", 60f, 2.5f, 0.9f, 14f),
+                QuickFood("Đu đủ (100g)", 43f, 0.5f, 0.3f, 11f),
+                QuickFood("Măng cụt (100g)", 73f, 0.4f, 0.6f, 18f)
             ),
-            "Trái cây" to listOf(
-                QuickFood("Táo (1 quả)", 95f, 0.5f, 0.3f, 25f), // 1 quả táo trung bình
-                QuickFood("Chuối (1 quả)", 105f, 1.3f, 0.4f, 27f), // 1 quả chuối
-                QuickFood("Cam (1 quả)", 62f, 1.2f, 0.2f, 15f), // 1 quả cam
-                QuickFood("Bơ (1 quả)", 320f, 4f, 29f, 17f), // 1 quả bơ
-                QuickFood("Xoài (1 quả)", 202f, 1.4f, 0.4f, 50f), // 1 quả xoài
-                QuickFood("Dưa hấu (100g)", 30f, 0.6f, 0.2f, 8f), // 100g dưa hấu
-                QuickFood("Dứa (100g)", 50f, 0.5f, 0.1f, 13f), // 100g dứa
-                QuickFood("Nho (100g)", 69f, 0.7f, 0.2f, 18f), // 100g nho
-                QuickFood("Dâu tây (100g)", 32f, 0.7f, 0.3f, 8f), // 100g dâu tây
-                QuickFood("Ổi (1 quả)", 112f, 2.6f, 0.4f, 24f), // 1 quả ổi
-                QuickFood("Thanh long (1 quả)", 60f, 1.2f, 0.4f, 13f), // 1 quả thanh long
-                QuickFood("Mít (100g)", 95f, 1.5f, 0.3f, 24f) // 100g mít
+            "🍧 Tráng miệng & Ăn vặt" to listOf(
+                QuickFood("Chè thái", 400f, 5f, 15f, 60f),
+                QuickFood("Chè đậu xanh", 300f, 8f, 2f, 60f),
+                QuickFood("Chè trôi nước (1 chén)", 350f, 4f, 8f, 65f),
+                QuickFood("Chè bưởi", 320f, 2f, 10f, 60f),
+                QuickFood("Sữa chua (1 hộp)", 100f, 5f, 3f, 15f),
+                QuickFood("Sữa chua nếp cẩm", 200f, 6f, 4f, 35f),
+                QuickFood("Bánh flan (1 cái)", 120f, 4f, 5f, 15f),
+                QuickFood("Kem tươi (1 cây)", 200f, 3f, 10f, 25f),
+                QuickFood("Tào phớ (Tàu hũ)", 150f, 8f, 2f, 25f),
+                QuickFood("Bánh tráng trộn", 350f, 8f, 15f, 45f),
+                QuickFood("Bánh tráng nướng", 300f, 8f, 12f, 40f),
+                QuickFood("Cá viên chiên (1 xiên)", 120f, 8f, 8f, 5f),
+                QuickFood("Xúc xích nướng (1 cây)", 150f, 6f, 12f, 2f),
+                QuickFood("Nem chua rán (1 cái)", 80f, 5f, 6f, 2f),
+                QuickFood("Khoai lang lắc", 300f, 2f, 10f, 50f),
+                QuickFood("Bắp xào tép", 350f, 8f, 15f, 45f),
+                QuickFood("Hột vịt lộn (1 quả)", 182f, 13.6f, 12.4f, 4f),
+                QuickFood("Cút lộn xào me (1 dĩa)", 300f, 15f, 18f, 10f),
+                QuickFood("Snack khoai tây (1 gói)", 160f, 2f, 10f, 15f),
+                QuickFood("Hạt điều (50g)", 280f, 9f, 22f, 15f),
+                QuickFood("Hạt hướng dương (50g)", 290f, 10f, 25f, 10f)
             ),
-            "Rau củ" to listOf(
-                QuickFood("Cà rốt (100g)", 41f, 0.9f, 0.2f, 10f), // 100g cà rốt
-                QuickFood("Cà chua (1 quả)", 22f, 1.1f, 0.2f, 5f), // 1 quả cà chua
-                QuickFood("Dưa chuột (1 quả)", 16f, 0.7f, 0.1f, 4f), // 1 quả dưa chuột
-                QuickFood("Bắp cải (100g)", 25f, 1.3f, 0.1f, 6f), // 100g bắp cải
-                QuickFood("Rau muống (100g)", 23f, 2.6f, 0.2f, 3f), // 100g rau muống
-                QuickFood("Rau cải (100g)", 27f, 2.9f, 0.4f, 4f), // 100g rau cải
-                QuickFood("Khoai tây (100g)", 77f, 2f, 0.1f, 17f), // 100g khoai tây
-                QuickFood("Khoai lang (100g)", 86f, 1.6f, 0.1f, 20f), // 100g khoai lang
-                QuickFood("Bí đỏ (100g)", 26f, 1f, 0.1f, 7f), // 100g bí đỏ
-                QuickFood("Đậu bắp (100g)", 33f, 2f, 0.2f, 7f), // 100g đậu bắp
-                QuickFood("Mướp (100g)", 20f, 1f, 0.2f, 4f), // 100g mướp
-                QuickFood("Đậu que (100g)", 31f, 1.8f, 0.2f, 7f) // 100g đậu que
+            "🥤 Đồ uống" to listOf(
+                QuickFood("Cà phê đen đá", 10f, 0.5f, 0f, 2f),
+                QuickFood("Cà phê sữa đá", 180f, 4f, 8f, 25f),
+                QuickFood("Bạc xỉu", 250f, 5f, 10f, 35f),
+                QuickFood("Trà sữa trân châu (Size M)", 450f, 2f, 15f, 80f),
+                QuickFood("Trà đào cam sả", 120f, 0f, 0f, 30f),
+                QuickFood("Nước cam vắt", 120f, 2f, 0.5f, 28f),
+                QuickFood("Nước ép dưa hấu", 80f, 1f, 0f, 20f),
+                QuickFood("Nước dừa tươi", 60f, 1f, 0.5f, 15f),
+                QuickFood("Sinh tố bơ", 350f, 4f, 20f, 40f),
+                QuickFood("Coca Cola (1 lon)", 140f, 0f, 0f, 39f),
+                QuickFood("Bia (1 lon)", 150f, 1f, 0f, 12f),
+                QuickFood("Sữa tươi không đường (200ml)", 120f, 6f, 6f, 10f),
+                QuickFood("Sữa tươi có đường (200ml)", 150f, 6f, 6f, 18f),
+                QuickFood("Sữa hạt (Hạnh nhân)", 60f, 2f, 5f, 2f),
+                QuickFood("Sữa đậu nành", 100f, 7f, 4f, 8f)
             )
         )
     }
 
-    var selectedCategory by remember { mutableStateOf("Phổ biến") }
+    var selectedCategory by remember { mutableStateOf("⭐ Phổ biến nhất") }
     var searchQuery by remember { mutableStateOf("") }
     var geminiResult by remember { mutableStateOf<QuickFood?>(null) }
     var isLoadingGemini by remember { mutableStateOf(false) }
