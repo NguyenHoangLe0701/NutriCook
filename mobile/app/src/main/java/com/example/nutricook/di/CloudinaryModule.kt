@@ -1,6 +1,7 @@
 package com.example.nutricook.di
 
 import android.content.Context
+import android.util.Log
 import com.cloudinary.android.MediaManager
 import com.example.nutricook.BuildConfig
 import dagger.Module
@@ -14,78 +15,48 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object CloudinaryModule {
 
+    private const val TAG = "CloudinaryModule"
+    private const val DEFAULT_CLOUD_NAME_PLACEHOLDER = "your_cloud_name"
+
     @Provides
     @Singleton
     fun provideCloudinary(@ApplicationContext context: Context): MediaManager {
-        // Kiểm tra xem MediaManager đã được init chưa
+        // 1. Kiểm tra xem đã init chưa để tránh crash
         try {
             val existing = MediaManager.get()
-            if (existing != null) {
-                android.util.Log.d("CloudinaryModule", "MediaManager already initialized")
-                return existing
-            }
-        } catch (e: Exception) {
-            // MediaManager chưa được init, tiếp tục init
-            android.util.Log.d("CloudinaryModule", "MediaManager not initialized yet")
+            if (existing != null) return existing
+        } catch (e: IllegalStateException) {
+            // Chưa init, tiếp tục xử lý bên dưới
         }
-        
-        // Lấy config từ BuildConfig (được tạo từ secrets.properties)
+
+        // 2. Lấy config
         val cloudName = BuildConfig.CLOUDINARY_CLOUD_NAME
         val apiKey = BuildConfig.CLOUDINARY_API_KEY
         val apiSecret = BuildConfig.CLOUDINARY_API_SECRET
-        
-        // Kiểm tra xem đã cấu hình chưa
-        if (cloudName == "your_cloud_name" || apiKey == "your_api_key" || apiSecret == "your_api_secret") {
-            // Thay vì throw exception, log warning và init với giá trị mặc định
-            android.util.Log.w("CloudinaryModule", 
-                "Cloudinary chưa được cấu hình! Upload ảnh sẽ không hoạt động.\n" +
-                "Vui lòng cập nhật các giá trị trong mobile/app/secrets.properties:\n" +
-                "- CLOUDINARY_CLOUD_NAME\n" +
-                "- CLOUDINARY_API_KEY\n" +
-                "- CLOUDINARY_API_SECRET\n" +
-                "Lấy thông tin từ: https://console.cloudinary.com/settings/api-keys"
+
+        // 3. Kiểm tra config hợp lệ
+        val isConfigured = !(cloudName == DEFAULT_CLOUD_NAME_PLACEHOLDER || cloudName.isBlank())
+
+        val configMap = if (isConfigured) {
+            hashMapOf(
+                "cloud_name" to cloudName,
+                "api_key" to apiKey,
+                "api_secret" to apiSecret
             )
-            
-            // Init với giá trị mặc định để app không crash
-            // MediaManager sẽ hoạt động nhưng upload sẽ fail
-            val defaultConfig = hashMapOf(
-                "cloud_name" to "default",
-                "api_key" to "default",
-                "api_secret" to "default"
-            )
-            try {
-                MediaManager.init(context, defaultConfig)
-                return MediaManager.get()
-            } catch (e: Exception) {
-                android.util.Log.e("CloudinaryModule", "Failed to init MediaManager: ${e.message}")
-                // Nếu init fail, vẫn trả về MediaManager.get() để không crash
-                return try {
-                    MediaManager.get()
-                } catch (e2: Exception) {
-                    // Nếu vẫn fail, tạo một instance mới (có thể không hoạt động nhưng không crash)
-                    throw IllegalStateException("Cannot initialize MediaManager. Please configure Cloudinary in secrets.properties")
-                }
-            }
+        } else {
+            Log.e(TAG, "⚠️ Missing Cloudinary config. Uploads will fail.")
+            hashMapOf("cloud_name" to "dummy", "api_key" to "dummy", "api_secret" to "dummy")
         }
-        
-        val config = hashMapOf(
-            "cloud_name" to cloudName,
-            "api_key" to apiKey,
-            "api_secret" to apiSecret
-        )
-        
+
+        // 4. Init an toàn
         try {
-            MediaManager.init(context, config)
+            MediaManager.init(context, configMap)
+            Log.d(TAG, "MediaManager init success.")
             return MediaManager.get()
         } catch (e: Exception) {
-            android.util.Log.e("CloudinaryModule", "Failed to init MediaManager with config: ${e.message}")
-            // Fallback: trả về MediaManager.get() nếu đã được init trước đó
-            return try {
-                MediaManager.get()
-            } catch (e2: Exception) {
-                throw IllegalStateException("Cannot initialize MediaManager: ${e.message}")
-            }
+            Log.e(TAG, "Init failed: ${e.message}")
+            // Trả về dummy hoặc throw tùy chiến lược, ở đây throw để biết lỗi nếu config sai
+            throw IllegalStateException("Cloudinary init error: ${e.message}")
         }
     }
 }
-
