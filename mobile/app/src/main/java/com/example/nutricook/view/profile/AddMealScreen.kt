@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nutricook.data.nutrition.GeminiNutritionService
+import com.example.nutricook.utils.DecimalInputHelper
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -537,12 +538,8 @@ fun AddMealScreen(
             OutlinedTextField(
                 value = cal,
                 onValueChange = { newValue ->
-                    // Chỉ cho phép số dương
-                    val filtered = newValue.filter { it.isDigit() || it == '.' }
-                    val dotCount = filtered.count { it == '.' }
-                    if (dotCount <= 1) {
-                        cal = filtered
-                    }
+                    // Normalize input: hỗ trợ cả dấu phẩy và dấu chấm, tự động thêm "0" nếu cần
+                    cal = DecimalInputHelper.normalizeDecimalInput(newValue)
                 },
                 label = { Text("Calories (kcal)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -552,7 +549,7 @@ fun AddMealScreen(
                     focusedBorderColor = TealPrimary,
                     unfocusedBorderColor = Color(0xFFE5E7EB)
                 ),
-                isError = cal.isNotBlank() && (cal.toFloatOrNull() == null || cal.toFloatOrNull()!! < 0)
+                isError = !DecimalInputHelper.isValid(cal)
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -580,11 +577,11 @@ fun AddMealScreen(
             // Nút Lưu
             Button(
                 onClick = {
-                    // Tính delta (phần tăng thêm) - không bao gồm initial values
-                    val calValue = cal.toFloatOrNull() ?: 0f
-                    val proValue = pro.toFloatOrNull() ?: 0f
-                    val fatValue = fat.toFloatOrNull() ?: 0f
-                    val carbValue = carb.toFloatOrNull() ?: 0f
+                    // Parse với hỗ trợ cả dấu phẩy và dấu chấm
+                    val calValue = DecimalInputHelper.parseToFloat(cal) ?: 0f
+                    val proValue = DecimalInputHelper.parseToFloat(pro) ?: 0f
+                    val fatValue = DecimalInputHelper.parseToFloat(fat) ?: 0f
+                    val carbValue = DecimalInputHelper.parseToFloat(carb) ?: 0f
                     
                     // Chỉ lưu phần tăng thêm, không lưu tổng (vì updateTodayNutrition sẽ cộng dồn)
                     onSave(
