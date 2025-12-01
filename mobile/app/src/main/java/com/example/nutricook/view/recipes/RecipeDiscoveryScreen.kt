@@ -305,6 +305,7 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
         
         methodNames.forEach { methodName ->
             try {
+                if (!currentCoroutineContext().isActive) return@LaunchedEffect
                 val viewersSnapshot = firestore.collection("methodGroupViews")
                     .document(methodName)
                     .collection("viewers")
@@ -313,6 +314,7 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     .get()
                     .await()
                 
+                if (!currentCoroutineContext().isActive) return@LaunchedEffect
                 val viewers = viewersSnapshot.documents.mapNotNull { doc ->
                     try {
                         val data = doc.data ?: return@mapNotNull null
@@ -327,11 +329,15 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     }
                 }
                 
-                methodGroupViewers.value = methodGroupViewers.value.toMutableMap().apply {
-                    put(methodName, viewers)
+                if (currentCoroutineContext().isActive) {
+                    methodGroupViewers.value = methodGroupViewers.value.toMutableMap().apply {
+                        put(methodName, viewers)
+                    }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("RecipeDiscovery", "Error loading viewers for $methodName: ${e.message}", e)
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    android.util.Log.e("RecipeDiscovery", "Error loading viewers for $methodName: ${e.message}", e)
+                }
             }
         }
     }

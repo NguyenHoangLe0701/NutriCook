@@ -2,6 +2,7 @@ package com.example.nutricook.view.recipes
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -88,10 +89,24 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
     val viewers = remember { mutableStateOf<List<MethodGroupViewer>>(emptyList()) }
     
     LaunchedEffect(methodName) {
-        // Lưu view của user hiện tại
         val currentUser = auth.currentUser
+        
+        // Thêm user hiện tại vào viewers list ngay lập tức (không cần đợi Firestore)
+        if (currentUser != null) {
+            val currentViewer = MethodGroupViewer(
+                userId = currentUser.uid,
+                userName = currentUser.displayName ?: currentUser.email?.split("@")?.firstOrNull() ?: "User",
+                avatarUrl = currentUser.photoUrl?.toString(),
+                viewedAt = com.google.firebase.Timestamp.now()
+            )
+            viewers.value = listOf(currentViewer)
+            android.util.Log.d("RecipeDetail", "Added current user to viewers: ${currentViewer.userName}")
+        }
+        
+        // Lưu view của user hiện tại vào Firestore (async, không block UI)
         if (currentUser != null) {
             try {
+                if (!currentCoroutineContext().isActive) return@LaunchedEffect
                 val viewerData = hashMapOf(
                     "userId" to currentUser.uid,
                     "userName" to (currentUser.displayName ?: currentUser.email?.split("@")?.firstOrNull() ?: "User"),
@@ -106,13 +121,17 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                     .document(currentUser.uid)
                     .set(viewerData)
                     .await()
+                android.util.Log.d("RecipeDetail", "Saved current user view to Firestore")
             } catch (e: Exception) {
-                android.util.Log.e("RecipeDetail", "Error saving view: ${e.message}", e)
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    android.util.Log.e("RecipeDetail", "Error saving view: ${e.message}", e)
+                }
             }
         }
         
-        // Load danh sách viewers
+        // Load danh sách viewers từ Firestore (cập nhật sau)
         try {
+            if (!currentCoroutineContext().isActive) return@LaunchedEffect
             val viewersSnapshot = firestore.collection("methodGroupViews")
                 .document(methodName)
                 .collection("viewers")
@@ -122,7 +141,7 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                 .await()
             
             if (currentCoroutineContext().isActive) {
-                viewers.value = viewersSnapshot.documents.mapNotNull { doc ->
+                val loadedViewers = viewersSnapshot.documents.mapNotNull { doc ->
                     try {
                         val data = doc.data ?: return@mapNotNull null
                         MethodGroupViewer(
@@ -135,14 +154,25 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                         null
                     }
                 }
+                android.util.Log.d("RecipeDetail", "Loaded ${loadedViewers.size} viewers from Firestore for method: $methodName")
+                // Cập nhật viewers list với data từ Firestore (loại bỏ duplicate)
+                val uniqueViewers = loadedViewers.distinctBy { it.userId }
+                viewers.value = uniqueViewers
             }
         } catch (e: Exception) {
-            android.util.Log.e("RecipeDetail", "Error loading viewers: ${e.message}", e)
+            if (e !is kotlinx.coroutines.CancellationException) {
+                android.util.Log.e("RecipeDetail", "Error loading viewers: ${e.message}", e)
+                // Giữ lại current user nếu load từ Firestore thất bại
+            }
         }
     }
     
     LaunchedEffect(methodName) {
         try {
+            if (!currentCoroutineContext().isActive) {
+                isLoading = false
+                return@LaunchedEffect
+            }
             val snapshot = FirebaseFirestore.getInstance()
                 .collection("userRecipes")
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
@@ -158,9 +188,13 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("RecipeDetail", "Error loading recipes: ${e.message}", e)
+            if (e !is kotlinx.coroutines.CancellationException) {
+                android.util.Log.e("RecipeDetail", "Error loading recipes: ${e.message}", e)
+            }
         } finally {
-            isLoading = false
+            if (currentCoroutineContext().isActive) {
+                isLoading = false
+            }
         }
     }
     
@@ -656,22 +690,39 @@ fun MethodGroupViewersRow(
     viewers: List<MethodGroupViewer>,
     additionalCount: Int
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        viewers.forEachIndexed { index, viewer ->
+    // Debug log
+    android.util.Log.d("MethodGroupViewersRow", "Viewers count: ${viewers.size}, additionalCount: $additionalCount")
+    
+    if (viewers.isEmpty() && additionalCount == 0) {
+        // Không hiển thị gì nếu không có viewers
+        android.util.Log.d("MethodGroupViewersRow", "No viewers to display")
+        return
+    }
+    
+    // Hiển thị tối đa 3 avatars
+    val displayViewers = viewers.take(3)
+    val remainingCount = (viewers.size - 3).coerceAtLeast(0) + additionalCount
+    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        displayViewers.forEachIndexed { index, viewer ->
             // Avatar với border overlap (như hình)
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(Color.White, CircleShape)
+                    .border(2.dp, Color.White, CircleShape)
                     .then(
                         if (index > 0) {
-                            Modifier.offset(x = (-12 * index).dp)
+                            Modifier.offset(x = (-10 * index).dp)
                         } else {
                             Modifier
                         }
                     )
-                    .zIndex((viewers.size - index).toFloat())
+                    .zIndex((displayViewers.size - index).toFloat())
             ) {
                 if (!viewer.avatarUrl.isNullOrBlank()) {
                     AsyncImage(
@@ -693,14 +744,14 @@ fun MethodGroupViewersRow(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(CircleShape)
-                            .background(Color.LightGray),
+                            .background(Color(0xFFE5E7EB)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = viewer.userName.firstOrNull()?.uppercase() ?: "?",
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Gray
+                            color = Color(0xFF6B7280)
                         )
                     }
                 }
@@ -708,16 +759,17 @@ fun MethodGroupViewersRow(
         }
         
         // Spacing sau avatars
-        if (viewers.isNotEmpty()) {
+        if (displayViewers.isNotEmpty()) {
             Spacer(modifier = Modifier.width(8.dp))
         }
         
-        // Hiển thị số người còn lại
-        if (additionalCount > 0) {
+        // Hiển thị số người còn lại (như "+3 others" trong hình)
+        if (remainingCount > 0) {
             Text(
-                text = "+$additionalCount Khác",
-                fontSize = 12.sp,
-                color = Color.Gray
+                text = "+$remainingCount others",
+                fontSize = 13.sp,
+                color = Color(0xFF374151),
+                fontWeight = FontWeight.Medium
             )
         }
     }

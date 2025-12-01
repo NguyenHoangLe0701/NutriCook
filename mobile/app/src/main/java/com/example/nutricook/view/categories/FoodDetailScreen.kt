@@ -350,21 +350,21 @@ fun FoodDetailScreen(
                 ) {
                     MacroCard(
                         title = "Chất béo",
-                        value = "${String.format("%.2f", nutritionData.fat)}g",
+                        value = "${String.format("%.2f", nutritionData.fat).replace('.', ',')}g",
                         iconColor = Color(0xFF3B82F6),
                         iconSymbol = "%",
                         modifier = Modifier.weight(1f)
                     )
                     MacroCard(
                         title = "Tinh bột",
-                        value = "${String.format("%.2f", nutritionData.carbs)}g",
+                        value = "${String.format("%.2f", nutritionData.carbs).replace('.', ',')}g",
                         iconColor = Color(0xFFFF9800),
                         iconSymbol = "0",
                         modifier = Modifier.weight(1f)
                     )
                     MacroCard(
                         title = "Chất đạm",
-                        value = "${String.format("%.2f", nutritionData.protein)}g",
+                        value = "${String.format("%.2f", nutritionData.protein).replace('.', ',')}g",
                         iconColor = Color(0xFF00BFA5),
                         iconSymbol = "•",
                         modifier = Modifier.weight(1f)
@@ -452,7 +452,7 @@ fun FoodDetailScreen(
                         
                         NutritionFactItem(
                             label = "Tổng chất béo",
-                            value = "${String.format("%.2f", nutritionData.fat)}g",
+                            value = "${String.format("%.2f", nutritionData.fat).replace('.', ',')}g",
                             percent = nutritionData.getFatPercent()
                         )
                         NutritionFactItem(
@@ -469,13 +469,13 @@ fun FoodDetailScreen(
                         )
                         NutritionFactItem(
                             label = "Tổng carbohydrate",
-                            value = "${String.format("%.2f", nutritionData.carbs)}g",
+                            value = "${String.format("%.2f", nutritionData.carbs).replace('.', ',')}g",
                             percent = nutritionData.getCarbsPercent(),
                             valueColor = Color(0xFF10B981)
                         )
                         NutritionFactItem(
                             label = "Chất đạm",
-                            value = "${String.format("%.2f", nutritionData.protein)}g",
+                            value = "${String.format("%.2f", nutritionData.protein).replace('.', ',')}g",
                             percent = nutritionData.getProteinPercent(),
                             valueColor = Color(0xFF10B981)
                         )
@@ -616,9 +616,9 @@ private fun MacroCard(
 ) {
     Surface(
         modifier = modifier,
-        color = Color(0xFFF9FAFB),
+        color = Color.White,
         shape = RoundedCornerShape(16.dp),
-        shadowElevation = 1.dp
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier
@@ -626,17 +626,18 @@ private fun MacroCard(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Icon tròn với màu nền đầy đủ (như NutritionFactsScreen)
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.2f)),
+                    .background(iconColor),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = iconSymbol,
-                    fontSize = 20.sp,
-                    color = iconColor,
+                    fontSize = 24.sp,
+                    color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -647,6 +648,7 @@ private fun MacroCard(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1C1C1E)
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = title,
                 fontSize = 13.sp,
@@ -674,19 +676,12 @@ private fun NutritionFactItem(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF00BFA5).copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "⚡",
-                    fontSize = 12.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
+            // Icon lightning bolt (như NutritionFactsScreen)
+            Text(
+                text = "⚡",
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = label,
                 fontSize = 15.sp,
@@ -697,21 +692,31 @@ private fun NutritionFactItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = value,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = valueColor
-            )
-            Text(
-                text = "$percent%",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1C1C1E)
-            )
+            if (value.isNotEmpty()) {
+                Text(
+                    text = value,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = valueColor
+                )
+            }
+            // Hiển thị phần trăm trong rounded rectangle màu xanh lá (như NutritionFactsScreen)
+            Surface(
+                color = Color(0xFF00BFA5).copy(alpha = 0.1f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "$percent%",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF00BFA5),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
         }
     }
     
+    // Divider
     HorizontalDivider(
         modifier = Modifier.padding(top = 12.dp),
         color = Color(0xFFE5E7EB),
