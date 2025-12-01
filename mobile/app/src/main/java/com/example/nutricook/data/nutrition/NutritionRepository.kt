@@ -45,6 +45,15 @@ class NutritionRepository @Inject constructor(
     // 2. Cập nhật dinh dưỡng (Cộng dồn vào ngày hôm nay)
     suspend fun updateTodayNutrition(calories: Float, protein: Float, fat: Float, carb: Float) {
         if (auth.currentUser == null) return
+        
+        // Validation: Đảm bảo giá trị hợp lệ
+        val validCalories = calories.coerceIn(0f, 10000f) // Giới hạn tối đa 10000 kcal
+        val validProtein = protein.coerceIn(0f, 1000f)
+        val validFat = fat.coerceIn(0f, 1000f)
+        val validCarb = carb.coerceIn(0f, 2000f)
+        
+        android.util.Log.d("NutritionRepo", "Adding nutrition - Calories: $validCalories, Protein: $validProtein, Fat: $validFat, Carb: $validCarb")
+        
         val todayId = getTodayDateId()
         val docRef = logsCol().document(todayId)
 
@@ -54,25 +63,35 @@ class NutritionRepository @Inject constructor(
             if (snapshot.exists()) {
                 // Trường hợp 1: Đã có dữ liệu hôm nay -> CỘNG DỒN
                 val current = snapshot.toObject(DailyLog::class.java)!!
+                val newCalories = current.calories + validCalories
+                val newProtein = current.protein + validProtein
+                val newFat = current.fat + validFat
+                val newCarb = current.carb + validCarb
+                
+                android.util.Log.d("NutritionRepo", "Current: Calories=${current.calories}, Protein=${current.protein}, Fat=${current.fat}, Carb=${current.carb}")
+                android.util.Log.d("NutritionRepo", "New: Calories=$newCalories, Protein=$newProtein, Fat=$newFat, Carb=$newCarb")
+                
                 transaction.update(docRef, mapOf(
-                    "calories" to current.calories + calories,
-                    "protein" to current.protein + protein,
-                    "fat" to current.fat + fat,
-                    "carb" to current.carb + carb
+                    "calories" to newCalories,
+                    "protein" to newProtein,
+                    "fat" to newFat,
+                    "carb" to newCarb
                 ))
             } else {
                 // Trường hợp 2: Chưa có (Sáng sớm ngày mới) -> TẠO MỚI
+                android.util.Log.d("NutritionRepo", "Creating new log for today: $todayId")
                 val newLog = DailyLog(
                     dateId = todayId,
-                    calories = calories,
-                    protein = protein,
-                    fat = fat,
-                    carb = carb
-                    // ĐÃ XÓA dòng createdAt gây lỗi
+                    calories = validCalories,
+                    protein = validProtein,
+                    fat = validFat,
+                    carb = validCarb
                 )
                 transaction.set(docRef, newLog)
             }
         }.await()
+        
+        android.util.Log.d("NutritionRepo", "Nutrition updated successfully")
     }
 
     // 3. Lấy lịch sử 7 ngày gần nhất (để vẽ biểu đồ)
@@ -93,6 +112,30 @@ class NutritionRepository @Inject constructor(
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
+        }
+    }
+
+    // 4. Reset dữ liệu ngày hôm nay về 0
+    suspend fun resetTodayNutrition() {
+        if (auth.currentUser == null) return
+        val todayId = getTodayDateId()
+        val docRef = logsCol().document(todayId)
+        
+        android.util.Log.d("NutritionRepo", "Resetting today's nutrition data")
+        
+        try {
+            val newLog = DailyLog(
+                dateId = todayId,
+                calories = 0f,
+                protein = 0f,
+                fat = 0f,
+                carb = 0f
+            )
+            docRef.set(newLog).await()
+            android.util.Log.d("NutritionRepo", "Today's nutrition data reset successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("NutritionRepo", "Error resetting nutrition data: ${e.message}", e)
+            throw e
         }
     }
 
