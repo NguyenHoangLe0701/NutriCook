@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import com.example.nutricook.view.nav.Routes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -141,34 +140,7 @@ fun RecipeInfoScreen(navController: NavController, recipeTitle: String, imageRes
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = { navController.navigate(Routes.RECIPE_STEP) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3AC7BF)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Start Cooking",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_next_arrow), // ← icon bạn thêm vào drawable
-                            contentDescription = "Next",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                // Note: Navigation to recipe steps removed - use UserRecipeInfoScreen for user recipes
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }

@@ -278,12 +278,12 @@ fun NutritionFactsScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Review",
+                    contentDescription = "Đánh giá",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Review",
+                    text = "Đánh giá",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )

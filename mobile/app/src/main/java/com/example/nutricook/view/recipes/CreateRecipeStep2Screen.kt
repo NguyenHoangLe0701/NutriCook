@@ -51,8 +51,28 @@ fun CreateRecipeStep2Screen(
 ) {
     val context = LocalContext.current
     
-    // State variables
-    var cookingSteps by remember { mutableStateOf<List<CookingStep>>(listOf(CookingStep())) }
+    // Lấy dữ liệu từ ViewModel
+    val recipeState by createRecipeViewModel.state.collectAsState()
+    
+    // State variables - khôi phục từ ViewModel nếu có
+    var cookingSteps by remember { mutableStateOf(
+        if (recipeState.cookingSteps.isNotEmpty()) recipeState.cookingSteps else listOf(CookingStep())
+    ) }
+    
+    // Khôi phục dữ liệu từ ViewModel khi màn hình được tạo
+    LaunchedEffect(Unit) {
+        if (recipeState.cookingSteps.isNotEmpty()) {
+            cookingSteps = recipeState.cookingSteps
+        }
+    }
+    
+    // Lưu dữ liệu tự động vào ViewModel khi có thay đổi
+    LaunchedEffect(cookingSteps) {
+        // Chỉ lưu nếu có ít nhất một bước đã được nhập
+        if (cookingSteps.any { it.description.isNotBlank() }) {
+            createRecipeViewModel.setStep2Data(cookingSteps)
+        }
+    }
     
     LazyColumn(
         modifier = Modifier

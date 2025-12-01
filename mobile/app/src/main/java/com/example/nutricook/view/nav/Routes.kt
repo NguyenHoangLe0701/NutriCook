@@ -30,9 +30,6 @@ internal object Routes {
     const val NOTIFICATIONS = "notifications"
 
     const val RECIPE_INFO = "recipe_info/{recipeTitle}/{imageRes}"
-    const val RECIPE_STEP = "recipe_step"
-    const val RECIPE_STEP_FINAL = "recipe_step_final"
-    const val RECIPE_STEP2 = "recipe_step2"
     const val NUTRITIONFACTS = "nutrition_facts"
     const val REVIEWSCREEN = "review_screen"
     const val ARTICLEDETAIL = "article_detail"

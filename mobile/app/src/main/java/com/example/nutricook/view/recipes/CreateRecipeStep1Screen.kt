@@ -45,6 +45,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.nutricook.R
 import com.example.nutricook.viewmodel.CategoriesViewModel
+import com.example.nutricook.viewmodel.CreateRecipeViewModel
 import com.example.nutricook.utils.CookingMethod
 import com.example.nutricook.utils.IngredientUnit
 
@@ -61,16 +62,50 @@ data class IngredientItem(
 @Composable
 fun CreateRecipeStep1Screen(
     navController: NavController,
+    createRecipeViewModel: CreateRecipeViewModel,
     categoriesViewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     
-    // State variables
-    var recipeName by remember { mutableStateOf("") }
-    var estimatedTime by remember { mutableStateOf("") }
-    var servings by remember { mutableStateOf("") }
-    var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var ingredients by remember { mutableStateOf<List<IngredientItem>>(listOf(IngredientItem())) }
+    // Lấy dữ liệu từ ViewModel
+    val recipeState by createRecipeViewModel.state.collectAsState()
+    
+    // State variables - khôi phục từ ViewModel nếu có
+    var recipeName by remember { mutableStateOf(recipeState.recipeName) }
+    var estimatedTime by remember { mutableStateOf(recipeState.estimatedTime) }
+    var servings by remember { mutableStateOf(recipeState.servings) }
+    var selectedImageUris by remember { mutableStateOf(recipeState.selectedImageUris) }
+    var ingredients by remember { mutableStateOf(
+        if (recipeState.ingredients.isNotEmpty()) recipeState.ingredients else listOf(IngredientItem())
+    ) }
+    
+    // Khôi phục dữ liệu từ ViewModel khi màn hình được tạo
+    LaunchedEffect(Unit) {
+        if (recipeState.recipeName.isNotEmpty() || recipeState.estimatedTime.isNotEmpty() || 
+            recipeState.servings.isNotEmpty() || recipeState.selectedImageUris.isNotEmpty() || 
+            recipeState.ingredients.isNotEmpty()) {
+            recipeName = recipeState.recipeName
+            estimatedTime = recipeState.estimatedTime
+            servings = recipeState.servings
+            selectedImageUris = recipeState.selectedImageUris
+            ingredients = if (recipeState.ingredients.isNotEmpty()) recipeState.ingredients else listOf(IngredientItem())
+        }
+    }
+    
+    // Lưu dữ liệu tự động vào ViewModel khi có thay đổi (debounce để tránh lưu quá nhiều)
+    LaunchedEffect(recipeName, estimatedTime, servings, selectedImageUris, ingredients) {
+        // Chỉ lưu nếu có ít nhất một trường đã được nhập
+        if (recipeName.isNotBlank() || estimatedTime.isNotBlank() || servings.isNotBlank() || 
+            selectedImageUris.isNotEmpty() || ingredients.any { it.name.isNotBlank() || it.quantity.isNotBlank() }) {
+            createRecipeViewModel.setStep1Data(
+                recipeName = recipeName,
+                estimatedTime = estimatedTime,
+                servings = servings,
+                selectedImageUris = selectedImageUris,
+                ingredients = ingredients
+            )
+        }
+    }
     
     // Categories và FoodItems từ ViewModel
     val categories by categoriesViewModel.categories.collectAsState()
@@ -1022,6 +1057,15 @@ fun CreateRecipeStep1Screen(
                         Toast.makeText(context, "Vui lòng nhập ít nhất một nguyên liệu", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+                    
+                    // Lưu dữ liệu vào ViewModel trước khi chuyển bước
+                    createRecipeViewModel.setStep1Data(
+                        recipeName = recipeName,
+                        estimatedTime = estimatedTime,
+                        servings = servings,
+                        selectedImageUris = selectedImageUris,
+                        ingredients = validIngredients
+                    )
                     
                     // Chuyển sang bước 2
                     navController.navigate("create_recipe_step2")

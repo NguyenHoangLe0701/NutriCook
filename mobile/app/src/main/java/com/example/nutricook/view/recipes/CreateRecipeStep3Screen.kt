@@ -36,10 +36,25 @@ fun CreateRecipeStep3Screen(
 ) {
     val context = LocalContext.current
     
-    // State variables
-    var description by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    var tips by remember { mutableStateOf("") }
+    // Lấy dữ liệu từ ViewModel
+    val recipeState by createRecipeViewModel.state.collectAsState()
+    
+    // State variables - khôi phục từ ViewModel nếu có
+    var description by remember { mutableStateOf(recipeState.description) }
+    var notes by remember { mutableStateOf(recipeState.notes) }
+    var tips by remember { mutableStateOf(recipeState.tips) }
+    
+    // Khôi phục dữ liệu từ ViewModel khi màn hình được tạo
+    LaunchedEffect(Unit) {
+        description = recipeState.description
+        notes = recipeState.notes
+        tips = recipeState.tips
+    }
+    
+    // Lưu dữ liệu tự động vào ViewModel khi có thay đổi
+    LaunchedEffect(description, notes, tips) {
+        createRecipeViewModel.setStep3Data(description, notes, tips)
+    }
     
     LazyColumn(
         modifier = Modifier

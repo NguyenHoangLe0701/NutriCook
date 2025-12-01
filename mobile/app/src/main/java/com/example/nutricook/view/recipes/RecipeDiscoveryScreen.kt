@@ -637,16 +637,6 @@ fun TodayRecipeItem(recipe: TodayRecipe, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (recipe.description.isNotBlank()) {
-                    Text(
-                        text = recipe.description,
-                        fontSize = 13.sp,
-                        color = Color(0xFF757575),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
                 // Hiển thị tên người upload nếu có
                 if (!recipe.userName.isNullOrBlank()) {
                     Text(

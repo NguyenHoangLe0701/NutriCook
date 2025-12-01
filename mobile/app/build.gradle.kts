@@ -177,6 +177,12 @@ dependencies {
     // --- Cloudinary ---
     implementation("com.cloudinary:cloudinary-android:3.0.2")
 
+    // --- Room Database (Offline Support) ---
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    kapt("androidx.room:room-compiler:$roomVersion")
+
     // --- Test ---
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

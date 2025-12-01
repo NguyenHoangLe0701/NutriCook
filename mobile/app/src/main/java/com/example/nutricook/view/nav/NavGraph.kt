@@ -62,9 +62,6 @@ import com.example.nutricook.view.recipes.RecipeDirectionsScreen
 import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
 import com.example.nutricook.view.recipes.RecipeInfoScreen
 import com.example.nutricook.view.recipes.MethodGroupDetailScreen
-import com.example.nutricook.view.recipes.RecipeStep2Screen
-import com.example.nutricook.view.recipes.RecipeStepFinalScreen
-import com.example.nutricook.view.recipes.RecipeStepScreen
 import com.example.nutricook.view.recipes.RecipeUploadSuccessScreen
 import com.example.nutricook.view.recipes.ReviewScreen
 import com.example.nutricook.view.recipes.UserRecipeInfoScreen
@@ -92,7 +89,7 @@ fun NavGraph(navController: NavHostController) {
             if (authState.currentUser != null) {
                 LaunchedEffect(Unit) { navController.navigate("home") { popUpTo("intro") { inclusive = true } } }
             } else {
-                IntroScreen(navController)
+                IntroScreen(navController = navController)
             }
         }
         composable("onboarding") {
@@ -361,7 +358,8 @@ fun NavGraph(navController: NavHostController) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     CreateRecipeStep1Screen(
-                        navController = navController
+                        navController = navController,
+                        createRecipeViewModel = createRecipeViewModel
                     )
                 }
             }
@@ -370,7 +368,8 @@ fun NavGraph(navController: NavHostController) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                     CreateRecipeStep1Screen(
-                        navController = navController
+                        navController = navController,
+                        createRecipeViewModel = createRecipeViewModel
                     )
                 }
             }
@@ -428,23 +427,6 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
-        composable("recipe_step") { RecipeStepScreen(navController) }
-        composable("recipe_step2") { RecipeStep2Screen(navController) }
-        composable("recipe_step_final") { RecipeStepFinalScreen(navController) }
-
-        // Dynamic routes for user recipe steps - số màn hình dựa vào số bước đã tạo
-        composable(
-            route = "recipe_step_{stepIndex}",
-            arguments = listOf(navArgument("stepIndex") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val stepIndex = backStackEntry.arguments?.getInt("stepIndex") ?: 0
-            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    UserRecipeStepScreen(navController = navController, recipeId = "", stepIndex = stepIndex)
-                }
-            }
-        }
-
         // User recipe info screen
         composable("user_recipe_info/{recipeId}") { backStackEntry ->
             val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
@@ -488,7 +470,13 @@ fun NavGraph(navController: NavHostController) {
         composable("recipe_direction") { RecipeDirectionsScreen(navController) }
         composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
         composable("nutrition_facts") { NutritionFactsScreen(navController) }
-        composable("review_screen") { ReviewScreen(navController) }
+        composable(
+            route = "review_screen/{recipeId}",
+            arguments = listOf(navArgument("recipeId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+            ReviewScreen(navController = navController, recipeId = recipeId)
+        }
 
         // ========== INGREDIENTS & EXERCISES ==========
         composable("ingredients") {

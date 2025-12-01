@@ -296,8 +296,7 @@ fun UserRecipeNutritionFactsScreen(
         item {
             Button(
                 onClick = {
-                    Toast.makeText(context, "Xem lại công thức", Toast.LENGTH_SHORT).show()
-                    navController.popBackStack()
+                    navController.navigate("review_screen/$recipeId")
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -315,12 +314,12 @@ fun UserRecipeNutritionFactsScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Review",
+                    contentDescription = "Đánh giá",
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Review",
+                    text = "Đánh giá",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
