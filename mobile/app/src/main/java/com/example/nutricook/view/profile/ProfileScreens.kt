@@ -1966,18 +1966,14 @@ fun MacroInputField(label: String, value: String, onValueChange: (String) -> Uni
     OutlinedTextField(
         value = value,
         onValueChange = { newValue ->
-            // Chỉ cho phép số dương
-            val filtered = newValue.filter { it.isDigit() || it == '.' }
-            val dotCount = filtered.count { it == '.' }
-            if (dotCount <= 1) {
-                onValueChange(filtered)
-            }
+            // Normalize input: hỗ trợ cả dấu phẩy và dấu chấm, tự động thêm "0" nếu cần
+            onValueChange(com.example.nutricook.utils.DecimalInputHelper.normalizeDecimalInput(newValue))
         },
         label = { Text(label, fontSize = 12.sp) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(focusedLabelColor = color),
-        isError = value.isNotBlank() && (value.toFloatOrNull() == null || value.toFloatOrNull()!! < 0)
+        isError = !com.example.nutricook.utils.DecimalInputHelper.isValid(value)
     )
 }
