@@ -1,5 +1,6 @@
 package com.example.nutricook.view.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
@@ -64,14 +66,16 @@ fun AddMealScreen(
         }
     }
     
-    var cal by remember { mutableStateOf(if(initialCalories > 0) initialCalories.toString() else "") }
-    var pro by remember { mutableStateOf(if(initialProtein > 0) initialProtein.toString() else "") }
-    var fat by remember { mutableStateOf(if(initialFat > 0) initialFat.toString() else "") }
-    var carb by remember { mutableStateOf(if(initialCarb > 0) initialCarb.toString() else "") }
+    // KHÔNG khởi tạo với initial values - chỉ nhập phần tăng thêm
+    var cal by remember { mutableStateOf("") }
+    var pro by remember { mutableStateOf("") }
+    var fat by remember { mutableStateOf("") }
+    var carb by remember { mutableStateOf("") }
 
-    val currentCalories = cal.toFloatOrNull() ?: 0f
-    val remaining = caloriesTarget - currentCalories
-    val progress = (currentCalories / caloriesTarget).coerceIn(0f, 1f)
+    // Tính tổng để hiển thị (initial + nhập thêm)
+    val totalCalories = (initialCalories + (cal.toFloatOrNull() ?: 0f))
+    val remaining = caloriesTarget - totalCalories
+    val progress = (totalCalories / caloriesTarget).coerceIn(0f, 1f)
 
     // Dữ liệu món ăn (copy từ ProfessionalNutritionDialog)
     val foodCategories = remember {
@@ -276,7 +280,7 @@ fun AddMealScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            "Đã nạp: ${currentCalories.toInt()}",
+                            "Đã nạp: ${totalCalories.toInt()}",
                             fontWeight = FontWeight.Bold,
                             color = TealPrimary,
                             fontSize = 16.sp
@@ -469,10 +473,16 @@ fun AddMealScreen(
                         items(displayedFoods) { food ->
                             val isFromGemini = food == geminiResult
                             QuickFoodChip(food, isFromGemini = isFromGemini) {
-                                cal = (currentCalories + food.calories).toString()
-                                pro = ((pro.toFloatOrNull() ?: 0f) + food.protein).toString()
-                                fat = ((fat.toFloatOrNull() ?: 0f) + food.fat).toString()
-                                carb = ((carb.toFloatOrNull() ?: 0f) + food.carb).toString()
+                                // Cộng vào giá trị hiện tại (chỉ phần nhập thêm, không bao gồm initial)
+                                val currentCal = cal.toFloatOrNull() ?: 0f
+                                val currentPro = pro.toFloatOrNull() ?: 0f
+                                val currentFat = fat.toFloatOrNull() ?: 0f
+                                val currentCarb = carb.toFloatOrNull() ?: 0f
+                                
+                                cal = (currentCal + food.calories).toString()
+                                pro = (currentPro + food.protein).toString()
+                                fat = (currentFat + food.fat).toString()
+                                carb = (currentCarb + food.carb).toString()
                             }
                         }
                     }
@@ -481,25 +491,68 @@ fun AddMealScreen(
 
             Divider()
 
-            // Manual Input
-            Text(
-                "Hoặc nhập thủ công",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = TextDark
-            )
+            // Manual Input với nút Reset
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Hoặc nhập thủ công",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = TextDark
+                )
+                // Nút Reset - Đẹp hơn
+                if (cal.isNotBlank() || pro.isNotBlank() || fat.isNotBlank() || carb.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = {
+                            cal = ""
+                            pro = ""
+                            fat = ""
+                            carb = ""
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFEF4444)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = "Reset",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Reset",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
 
             OutlinedTextField(
                 value = cal,
-                onValueChange = { cal = it },
+                onValueChange = { newValue ->
+                    // Chỉ cho phép số dương
+                    val filtered = newValue.filter { it.isDigit() || it == '.' }
+                    val dotCount = filtered.count { it == '.' }
+                    if (dotCount <= 1) {
+                        cal = filtered
+                    }
+                },
                 label = { Text("Calories (kcal)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = TealPrimary,
                     unfocusedBorderColor = Color(0xFFE5E7EB)
-                )
+                ),
+                isError = cal.isNotBlank() && (cal.toFloatOrNull() == null || cal.toFloatOrNull()!! < 0)
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -527,11 +580,18 @@ fun AddMealScreen(
             // Nút Lưu
             Button(
                 onClick = {
+                    // Tính delta (phần tăng thêm) - không bao gồm initial values
+                    val calValue = cal.toFloatOrNull() ?: 0f
+                    val proValue = pro.toFloatOrNull() ?: 0f
+                    val fatValue = fat.toFloatOrNull() ?: 0f
+                    val carbValue = carb.toFloatOrNull() ?: 0f
+                    
+                    // Chỉ lưu phần tăng thêm, không lưu tổng (vì updateTodayNutrition sẽ cộng dồn)
                     onSave(
-                        cal.toFloatOrNull() ?: 0f,
-                        pro.toFloatOrNull() ?: 0f,
-                        fat.toFloatOrNull() ?: 0f,
-                        carb.toFloatOrNull() ?: 0f
+                        calValue,
+                        proValue,
+                        fatValue,
+                        carbValue
                     )
                     navController.popBackStack()
                 },

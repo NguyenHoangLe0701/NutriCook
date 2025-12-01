@@ -66,4 +66,15 @@ class NutritionViewModel @Inject constructor(
             _ui.update { it.copy(message = "Lỗi: ${e.message}") }
         }
     }
+    
+    // Reset dữ liệu ngày hôm nay về 0
+    fun resetTodayNutrition() = viewModelScope.launch {
+        try {
+            repo.resetTodayNutrition()
+            loadData()
+            _ui.update { it.copy(message = "Đã reset dữ liệu hôm nay!") }
+        } catch (e: Exception) {
+            _ui.update { it.copy(message = "Lỗi khi reset: ${e.message}") }
+        }
+    }
 }

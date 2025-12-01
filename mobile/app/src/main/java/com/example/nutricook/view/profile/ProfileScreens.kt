@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Restaurant
@@ -242,6 +243,9 @@ fun ProfileScreen(
                         onAddClick = { onNavigateToCalculator() },
                         onTargetChange = { newTarget ->
                             vm.updateCaloriesTarget(newTarget)
+                        },
+                        onResetClick = {
+                            nutritionVm.resetTodayNutrition()
                         }
                     )
                 }
@@ -431,7 +435,8 @@ fun CaloriesTrackingCard(
     todayLog: com.example.nutricook.model.nutrition.DailyLog?,
     weeklyData: List<Float>,
     onAddClick: () -> Unit,
-    onTargetChange: ((Float) -> Unit)? = null
+    onTargetChange: ((Float) -> Unit)? = null,
+    onResetClick: (() -> Unit)? = null
 ) {
     var showTargetDialog by remember { mutableStateOf(false) }
     Card(
@@ -459,16 +464,42 @@ fun CaloriesTrackingCard(
                         style = MaterialTheme.typography.bodyMedium.copy(color = TextGray, fontSize = 14.sp)
                     )
                 }
-                Button(
-                    onClick = onAddClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    modifier = Modifier.height(36.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Thêm", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    // Nút Reset - chỉ hiển thị khi có dữ liệu
+                    if (todayCalories > 0 && onResetClick != null) {
+                        OutlinedButton(
+                            onClick = onResetClick,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFEF4444)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.6f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = "Reset",
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Button(
+                        onClick = onAddClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Thêm", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
@@ -481,14 +512,18 @@ fun CaloriesTrackingCard(
                     modifier = Modifier.size(140.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    val progress = (todayCalories / caloriesTarget).coerceIn(0f, 1f)
+                    // Tính progress không giới hạn để hiển thị đúng khi vượt quá
+                    val progress = todayCalories / caloriesTarget
                     val remaining = caloriesTarget - todayCalories
+                    val isOverTarget = progress > 1f
+                    val displayProgress = if (isOverTarget) 1f else progress.coerceIn(0f, 1f)
 
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val strokeWidth = 14.dp.toPx()
                         val radius = (size.minDimension - strokeWidth) / 2
                         val topLeft = Offset((size.width - radius * 2) / 2, (size.height - radius * 2) / 2)
 
+                        // Vẽ background circle
                         drawArc(
                             color = Color(0xFFE5E7EB),
                             startAngle = -90f,
@@ -498,21 +533,37 @@ fun CaloriesTrackingCard(
                             topLeft = topLeft,
                             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
                         )
+                        
+                        // Vẽ progress circle - màu đỏ nếu vượt quá
                         drawArc(
-                            color = if(progress >= 1f) Color(0xFFEF4444) else TealPrimary,
+                            color = if(isOverTarget) Color(0xFFEF4444) else TealPrimary,
                             startAngle = -90f,
-                            sweepAngle = progress * 360f,
+                            sweepAngle = displayProgress * 360f,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
                             topLeft = topLeft,
                             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
                         )
+                        
+                        // Nếu vượt quá, vẽ thêm một vòng tròn cảnh báo
+                        if (isOverTarget) {
+                            drawCircle(
+                                color = Color(0xFFEF4444).copy(alpha = 0.2f),
+                                radius = radius + strokeWidth / 2 + 4.dp.toPx(),
+                                center = Offset(size.width / 2, size.height / 2),
+                                style = Stroke(width = 3f)
+                            )
+                        }
                     }
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "${todayCalories.toInt()}",
-                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = TextDark, fontSize = 30.sp)
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold, 
+                                color = if (progress > 1f) Color(0xFFEF4444) else TextDark, 
+                                fontSize = 30.sp
+                            )
                         )
                         Text(
                             text = "kcal",
@@ -527,8 +578,24 @@ fun CaloriesTrackingCard(
                         } else {
                             Text(
                                 text = "Vượt ${(-remaining).toInt()}",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFFEF4444), 
+                                    fontSize = 12.sp, 
+                                    fontWeight = FontWeight.Bold
+                                ),
                                 modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                        // Hiển thị phần trăm nếu vượt quá
+                        if (progress > 1f) {
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFFEF4444), 
+                                    fontSize = 10.sp, 
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.padding(top = 2.dp)
                             )
                         }
                     }
@@ -857,44 +924,86 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                         }
                     }
 
-                    // Tô màu vùng bên dưới với gradient đẹp hơn
+                    // Tô màu vùng bên dưới - màu đỏ nếu có điểm vượt quá target
+                    val hasOverTarget = dataPoints.any { it >= target }
                     drawPath(
                         path = fillPath,
                         brush = Brush.verticalGradient(
-                            colors = listOf(
-                                TealPrimary.copy(alpha = 0.4f),
-                                TealPrimary.copy(alpha = 0.15f),
-                                TealPrimary.copy(alpha = 0.0f)
-                            ),
+                            colors = if (hasOverTarget) {
+                                listOf(
+                                    Color(0xFFEF4444).copy(alpha = 0.4f),
+                                    Color(0xFFEF4444).copy(alpha = 0.15f),
+                                    Color(0xFFEF4444).copy(alpha = 0.0f)
+                                )
+                            } else {
+                                listOf(
+                                    TealPrimary.copy(alpha = 0.4f),
+                                    TealPrimary.copy(alpha = 0.15f),
+                                    TealPrimary.copy(alpha = 0.0f)
+                                )
+                            },
                             startY = 0f,
                             endY = height
                         )
                     )
 
-                    // Vẽ đường Line chính với độ dày hơn
-                    drawPath(
-                        path = path,
-                        color = TealPrimary,
-                        style = Stroke(width = 4f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-                    )
+                    // Vẽ đường Line chính - màu đỏ nếu vượt quá target
+                    dataPoints.forEachIndexed { index, value ->
+                        if (index > 0) {
+                            val prevValue = dataPoints[index - 1]
+                            val prevX = (index - 1) * stepX
+                            val prevY = height - (prevValue / maxVal) * height
+                            val x = index * stepX
+                            val y = height - (value / maxVal) * height
+                            
+                            // Màu đỏ nếu cả hai điểm đều vượt quá target
+                            val lineColor = if (value >= target || prevValue >= target) {
+                                Color(0xFFEF4444)
+                            } else {
+                                TealPrimary
+                            }
+                            
+                            drawLine(
+                                color = lineColor,
+                                start = Offset(prevX, prevY),
+                                end = Offset(x, y),
+                                strokeWidth = 4f,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                    }
 
-                    // Vẽ tất cả các điểm dữ liệu
+                    // Vẽ tất cả các điểm dữ liệu với màu rõ ràng hơn khi vượt quá
                     dataPoints.forEachIndexed { index, value ->
                         val x = index * stepX
                         val y = height - (value / maxVal) * height
-                        val pointColor = if (value >= target) Color(0xFFEF4444) else TealPrimary
+                        val isOverTarget = value >= target
+                        val pointColor = if (isOverTarget) Color(0xFFEF4444) else TealPrimary
+                        
+                        // Vòng tròn ngoài với màu cảnh báo
                         drawCircle(
-                            color = pointColor,
-                            radius = 5f,
-                            center = Offset(x, y)
-                        )
-                        // Vòng tròn ngoài
-                        drawCircle(
-                            color = pointColor.copy(alpha = 0.3f),
+                            color = pointColor.copy(alpha = if (isOverTarget) 0.4f else 0.3f),
                             radius = 8f,
                             center = Offset(x, y),
-                            style = Stroke(width = 2f)
+                            style = Stroke(width = if (isOverTarget) 3f else 2f)
                         )
+                        
+                        // Điểm chính
+                        drawCircle(
+                            color = pointColor,
+                            radius = if (isOverTarget) 6f else 5f,
+                            center = Offset(x, y)
+                        )
+                        
+                        // Vẽ dấu cảnh báo nếu vượt quá target
+                        if (isOverTarget && value > 0) {
+                            // Vẽ dấu chấm than nhỏ
+                            drawCircle(
+                                color = Color(0xFFEF4444),
+                                radius = 3f,
+                                center = Offset(x, y - 20f)
+                            )
+                        }
                     }
                 }
 
@@ -1855,11 +1964,20 @@ fun QuickFoodChip(food: QuickFood, isFromGemini: Boolean = false, onClick: () ->
 @Composable
 fun MacroInputField(label: String, value: String, onValueChange: (String) -> Unit, color: Color, modifier: Modifier) {
     OutlinedTextField(
-        value = value, onValueChange = onValueChange,
+        value = value,
+        onValueChange = { newValue ->
+            // Chỉ cho phép số dương
+            val filtered = newValue.filter { it.isDigit() || it == '.' }
+            val dotCount = filtered.count { it == '.' }
+            if (dotCount <= 1) {
+                onValueChange(filtered)
+            }
+        },
         label = { Text(label, fontSize = 12.sp) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(focusedLabelColor = color)
+        colors = OutlinedTextFieldDefaults.colors(focusedLabelColor = color),
+        isError = value.isNotBlank() && (value.toFloatOrNull() == null || value.toFloatOrNull()!! < 0)
     )
 }
