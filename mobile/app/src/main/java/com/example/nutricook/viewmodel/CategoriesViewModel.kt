@@ -25,7 +25,19 @@ data class FoodItemUI(
     val protein: Double = 0.0, // g
     val cholesterol: Double = 0.0, // mg
     val sodium: Double = 0.0, // mg
-    val vitamin: Double = 0.0 // % daily value
+    val vitamin: Double = 0.0, // % daily value (tổng trung bình)
+    // Chi tiết các loại vitamin (% daily value)
+    val vitaminA: Double = 0.0,
+    val vitaminB1: Double = 0.0,
+    val vitaminB2: Double = 0.0,
+    val vitaminB3: Double = 0.0,
+    val vitaminB6: Double = 0.0,
+    val vitaminB9: Double = 0.0,
+    val vitaminB12: Double = 0.0,
+    val vitaminC: Double = 0.0,
+    val vitaminD: Double = 0.0,
+    val vitaminE: Double = 0.0,
+    val vitaminK: Double = 0.0
 )
 
 data class CategoryUI(

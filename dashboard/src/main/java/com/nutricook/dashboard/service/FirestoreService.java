@@ -384,6 +384,19 @@ public class FirestoreService {
         data.put("sodium", food.getSodium() != null ? food.getSodium() : 0.0);
         data.put("vitamin", food.getVitamin() != null ? food.getVitamin() : 0.0);
         
+        // Lưu chi tiết các loại vitamin
+        data.put("vitaminA", food.getVitaminA() != null ? food.getVitaminA() : 0.0);
+        data.put("vitaminB1", food.getVitaminB1() != null ? food.getVitaminB1() : 0.0);
+        data.put("vitaminB2", food.getVitaminB2() != null ? food.getVitaminB2() : 0.0);
+        data.put("vitaminB3", food.getVitaminB3() != null ? food.getVitaminB3() : 0.0);
+        data.put("vitaminB6", food.getVitaminB6() != null ? food.getVitaminB6() : 0.0);
+        data.put("vitaminB9", food.getVitaminB9() != null ? food.getVitaminB9() : 0.0);
+        data.put("vitaminB12", food.getVitaminB12() != null ? food.getVitaminB12() : 0.0);
+        data.put("vitaminC", food.getVitaminC() != null ? food.getVitaminC() : 0.0);
+        data.put("vitaminD", food.getVitaminD() != null ? food.getVitaminD() : 0.0);
+        data.put("vitaminE", food.getVitaminE() != null ? food.getVitaminE() : 0.0);
+        data.put("vitaminK", food.getVitaminK() != null ? food.getVitaminK() : 0.0);
+        
         if (food.getCategory() != null) {
             data.put("categoryId", food.getCategory().getId());
             data.put("categoryName", food.getCategory().getName()); 

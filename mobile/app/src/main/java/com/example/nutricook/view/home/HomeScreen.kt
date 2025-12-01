@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,7 +25,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Brush
@@ -46,11 +49,19 @@ import com.example.nutricook.model.search.SearchResult
 import com.example.nutricook.model.search.SearchType
 import com.example.nutricook.view.search.*
 import kotlinx.coroutines.delay
+import com.example.nutricook.viewmodel.CategoriesViewModel
+import com.example.nutricook.viewmodel.CategoryUI
+import com.example.nutricook.viewmodel.FoodItemUI
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlin.random.Random
 
 data class Category(val name: String, val icon: Int)
 data class NutritionItem(val name: String, val calories: String, val weight: String, val icon: Int)
 data class RecipeSuggestion(val name: String, val image: Int)
-data class Exercise(val name: String, val icon: Int)
+data class Exercise(val name: String, val icon: Int, val duration: String = "", val caloriesBurned: Int = 0, val difficulty: String = "")
 
 data class NutritionData(
     val value: String,
@@ -62,7 +73,8 @@ data class FruitNutrition(
     val name: String,
     val kcal: String,
     val weight: String,
-    val image: Int,
+    val image: Int = R.drawable.pineapple, // Fallback
+    val imageUrl: String? = null, // URL từ Firestore
     val nutrition: List<NutritionData>
 )
 
@@ -83,15 +95,29 @@ fun ExpandableFruitCard(fruit: FruitNutrition) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = painterResource(id = fruit.image),
-                    contentDescription = fruit.name,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFFFF8E1)),
-                    contentScale = ContentScale.Crop
-                )
+                if (fruit.imageUrl != null && fruit.imageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = fruit.imageUrl,
+                        contentDescription = fruit.name,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFF8E1)),
+                        contentScale = ContentScale.Crop,
+                        error = painterResource(id = fruit.image),
+                        placeholder = painterResource(id = fruit.image)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = fruit.image),
+                        contentDescription = fruit.name,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFF8E1)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
@@ -153,7 +179,8 @@ fun ExpandableFruitCard(fruit: FruitNutrition) {
 fun HomeScreen(
     navController: NavController,
     hotNewsViewModel: HotNewsViewModel = hiltViewModel(),
-    searchViewModel: SearchViewModel = hiltViewModel()
+    searchViewModel: SearchViewModel = hiltViewModel(),
+    categoriesViewModel: CategoriesViewModel = hiltViewModel()
 ) {
     var isActive by remember { mutableStateOf(true) }
     var showSearchResults by remember { mutableStateOf(false) }
@@ -162,8 +189,96 @@ fun HomeScreen(
     val hotNewsState by hotNewsViewModel.uiState.collectAsState()
     val searchState by searchViewModel.uiState.collectAsState()
     
+    // Load categories from CategoriesViewModel
+    val categoriesState by categoriesViewModel.categories.collectAsState()
+    val foodItemsState by categoriesViewModel.foodItems.collectAsState()
+    
+    // Load recent food items (nguyên liệu mới)
+    val recentFoodItems = remember { mutableStateOf<List<FoodItemUI>>(emptyList()) }
+    
+    // Load user recipes
+    val userRecipes = remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    
     LaunchedEffect(Unit) {
         hotNewsViewModel.loadHotNews()
+        
+        // Load recent food items from all categories
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val snapshot = firestore.collection("foodItems")
+                .orderBy("id", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(10)
+                .get()
+                .await()
+            
+            if (currentCoroutineContext().isActive) {
+                recentFoodItems.value = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val data = doc.data ?: return@mapNotNull null
+                        
+                        // Parse calories - có thể là string hoặc number
+                        val caloriesValue = when {
+                            data["calories"] is String -> {
+                                val calStr = data["calories"] as String
+                                // Nếu đã có "kcal" thì giữ nguyên, nếu không thì thêm "kcal"
+                                if (calStr.contains("kcal", ignoreCase = true)) {
+                                    calStr
+                                } else {
+                                    "$calStr kcal"
+                                }
+                            }
+                            data["calories"] is Number -> {
+                                "${(data["calories"] as Number).toDouble().toInt()} kcal"
+                            }
+                            else -> "0 kcal"
+                        }
+                        
+                        FoodItemUI(
+                            id = (data["id"] as? Number)?.toLong() ?: 0L,
+                            name = data["name"] as? String ?: "",
+                            calories = caloriesValue,
+                            imageUrl = data["imageUrl"] as? String ?: "",
+                            unit = data["unit"] as? String ?: "g",
+                            fat = (data["fat"] as? Number)?.toDouble() ?: 0.0,
+                            carbs = (data["carbs"] as? Number)?.toDouble() ?: 0.0,
+                            protein = (data["protein"] as? Number)?.toDouble() ?: 0.0,
+                            cholesterol = (data["cholesterol"] as? Number)?.toDouble() ?: 0.0,
+                            sodium = (data["sodium"] as? Number)?.toDouble() ?: 0.0,
+                            vitamin = (data["vitamin"] as? Number)?.toDouble() ?: 0.0
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeScreen", "Error parsing food item: ${e.message}", e)
+                        null
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            if (e !is kotlinx.coroutines.CancellationException && currentCoroutineContext().isActive) {
+                android.util.Log.e("HomeScreen", "Error loading recent food items: ${e.message}", e)
+            }
+        }
+        
+        // Load user recipes
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val snapshot = firestore.collection("userRecipes")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(20)
+                .get()
+                .await()
+            
+            if (currentCoroutineContext().isActive) {
+                userRecipes.value = snapshot.documents.mapNotNull { doc ->
+                    doc.data?.toMutableMap()?.apply {
+                        put("docId", doc.id)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            if (e !is kotlinx.coroutines.CancellationException && currentCoroutineContext().isActive) {
+                android.util.Log.e("HomeScreen", "Error loading user recipes: ${e.message}", e)
+            }
+        }
     }
     
     // Show search results when query is not blank
@@ -175,22 +290,28 @@ fun HomeScreen(
     val displayedNews = remember(hotNewsState.articles) {
         hotNewsState.articles.take(3)
     }
-
-    val categories = listOf(
-        Category("Rau củ", R.drawable.vegetable),
-        Category("Trái cây", R.drawable.fruit),
-        Category("Thịt", R.drawable.meat)
-    )
+    
+    // Get random 4 recipes from user recipes
+    val randomRecipes = remember(userRecipes.value) {
+        if (userRecipes.value.isNotEmpty()) {
+            userRecipes.value.shuffled().take(4)
+        } else {
+            emptyList()
+        }
+    }
     val recipeSuggestions = listOf(
         RecipeSuggestion("Gà chiên nước mắm", R.drawable.recipe_chicken),
         RecipeSuggestion("Cá hấp bia", R.drawable.recipe_fish)
     )
-    val exercises = listOf(
-        Exercise("Cycling", R.drawable.cycling), // Giả sử các icon đã có
-        Exercise("Running", R.drawable.run),
-        Exercise("Tennis", R.drawable.tenis),
-        Exercise("Baseball", R.drawable.baseball) // Thêm bài tập thứ tư để hỗ trợ vuốt
-    )
+    // Lấy exercises từ ExerciseSuggestionsScreen (đồng bộ) - Tên tiếng Việt
+    val exercises = remember {
+        listOf(
+            Exercise("Chạy bộ", R.drawable.run, "20 phút", 200, "Cao"),
+            Exercise("Quần vợt", R.drawable.tenis, "20 phút", 200, "Cao"),
+            Exercise("Bóng chày", R.drawable.baseball, "20 phút", 200, "Trung bình"),
+            Exercise("Đạp xe", R.drawable.cycling, "15 phút", 100, "Trung bình")
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -210,8 +331,8 @@ fun HomeScreen(
                     painter = painterResource(id = R.drawable.logo),
                     contentDescription = "Logo ứng dụng",
                     modifier = Modifier
-                        .width(120.dp) // 👈 giảm từ 150 xuống 120 cho cân
-                        .height(50.dp)
+                        .width(130.dp) // 👈 giảm từ 150 xuống 120 cho cân
+                        .height(60.dp)
                         .padding(vertical = 4.dp),
                     contentScale = ContentScale.Fit
                 )
@@ -454,7 +575,7 @@ fun HomeScreen(
                             if (result is SearchResult.RecipeResult) {
                                 RecipeResultItem(
                                     result,
-                                    onClick = { navController.navigate("recipe_detail/${result.title}") }
+                                    onClick = { navController.navigate("user_recipe_info/${result.id}") }
                                 )
                             }
                         }
@@ -659,7 +780,7 @@ fun HomeScreen(
             }
         }
 
-        // 🔹 Phân loại
+        // 🔹 Nguyên liệu (từ categories)
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -669,11 +790,11 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Phân loại", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Nguyên liệu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
-                    modifier = Modifier.clickable { /* TODO */ }
+                    modifier = Modifier.clickable { navController.navigate("categories") }
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -681,7 +802,7 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(categories) { category ->
+                items(categoriesState) { category ->
                     Card(
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -690,7 +811,10 @@ fun HomeScreen(
                         modifier = Modifier
                             .width(120.dp)
                             .height(50.dp)
-                            .clickable { navController.navigate("categories") }
+                            .clickable { 
+                                categoriesViewModel.selectCategory(category.id)
+                                navController.navigate("categories")
+                            }
                     ) {
                         Row(
                             modifier = Modifier
@@ -699,16 +823,17 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = category.icon),
-                                contentDescription = category.name,
-                                modifier = Modifier.size(24.dp)
+                            Text(
+                                text = category.icon,
+                                fontSize = 24.sp
                             )
                             Text(
                                 text = category.name,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF1B1B1B)
+                                color = Color(0xFF1B1B1B),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -716,7 +841,7 @@ fun HomeScreen(
             }
         }
 
-        // 🔹 Giá trị dinh dưỡng
+        // 🔹 Giá trị dinh dưỡng (từ nguyên liệu mới)
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -731,47 +856,41 @@ fun HomeScreen(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
                     modifier = Modifier.clickable {
-                        navController.navigate("nutrition_detail")
+                        navController.navigate("categories")
                     }
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ✅ Danh sách nhiều loại trái cây
-            val fruits: List<FruitNutrition> = listOf(
-                FruitNutrition(
-                    name = "Dứa/Thơm",
-                    kcal = "48 kcal",
-                    weight = "100 g",
-                    image = R.drawable.pineapple,
-                    nutrition = listOf(
-                        NutritionData("0.12g", R.drawable.fat, "Fat"),
-                        NutritionData("12.63g", R.drawable.finger_cricle, "Carbs"),
-                        NutritionData("0.12g", R.drawable.protein, "Protein")
-                        )
-                    ),
-                FruitNutrition(
-                    name = "Sầu riêng",
-                    kcal = "885 kcal",
-                    weight = "100 g",
-                    image = R.drawable.durian,
-                    nutrition = listOf(
-                        NutritionData("0.12g", R.drawable.fat, "Fat"),
-                        NutritionData("12.63g", R.drawable.finger_cricle, "Carbs"),
-                        NutritionData("0.12g", R.drawable.protein, "Protein")
-                    )
-                )
-            )
-
+            // Hiển thị các nguyên liệu mới được thêm
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                fruits.forEach { fruit: FruitNutrition ->
-                    ExpandableFruitCard(fruit)
+                recentFoodItems.value.take(3).forEach { foodItem ->
+                    // Parse calories để lấy số (bỏ "kcal" nếu có)
+                    val caloriesNumber = foodItem.calories
+                        .replace("kcal", "", ignoreCase = true)
+                        .replace(" ", "")
+                        .toDoubleOrNull() ?: 0.0
+                    
+                    ExpandableFruitCard(
+                        fruit = FruitNutrition(
+                            name = foodItem.name,
+                            kcal = foodItem.calories, // Giữ nguyên format từ database (có thể là "100 kcal" hoặc "100")
+                            weight = "100 ${foodItem.unit}", // Sử dụng unit từ database
+                            image = R.drawable.pineapple, // Fallback image
+                            imageUrl = foodItem.imageUrl, // URL từ Firestore
+                            nutrition = listOf(
+                                NutritionData("${String.format("%.2f", foodItem.fat)}g", R.drawable.fat, "Fat"),
+                                NutritionData("${String.format("%.2f", foodItem.carbs)}g", R.drawable.finger_cricle, "Carbs"),
+                                NutritionData("${String.format("%.2f", foodItem.protein)}g", R.drawable.protein, "Protein")
+                            )
+                        )
+                    )
                 }
             }
         }
 
-        // 🔹 Gợi ý món ăn
+        // 🔹 Gợi ý món ăn (từ user recipes, random 4 món)
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -785,76 +904,107 @@ fun HomeScreen(
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
-                    modifier = Modifier.clickable { navController.navigate("recipe_suggestions") }
+                    modifier = Modifier.clickable { navController.navigate("recipe_discovery") }
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            LazyRow(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(recipeSuggestions) { recipe ->
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        modifier = Modifier
-                            .width(180.dp)
-                            .clickable { navController.navigate("recipe_detail/${recipe.name}") }
-                    ) {
-                        Column(
+            if (randomRecipes.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(randomRecipes) { recipe ->
+                        val recipeName = recipe["recipeName"] as? String ?: "Món ăn"
+                        val imageUrl = recipe["imageUrls"] as? List<String> ?: emptyList()
+                        val firstImage = imageUrl.firstOrNull() ?: ""
+                        val estimatedTime = recipe["estimatedTime"] as? String ?: "15 phút"
+                        val servings = recipe["servings"] as? String ?: "2"
+                        val rating = (recipe["rating"] as? Number)?.toDouble() ?: 0.0
+                        val docId = recipe["docId"] as? String ?: ""
+                        
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                             modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .width(180.dp)
+                                .clickable { 
+                                    if (docId.isNotEmpty()) {
+                                        navController.navigate("user_recipe_info/$docId")
+                                    }
+                                }
                         ) {
-                            Image(
-                                painter = painterResource(id = recipe.image),
-                                contentDescription = recipe.name,
+                            Column(
                                 modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Text(
-                                text = recipe.name,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1B1B1B),
-                                maxLines = 2,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    .padding(12.dp)
+                                    .fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                repeat(5) { index ->
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Sao",
-                                        tint = if (index < 4) Color(0xFFFFC107) else Color(0xFFE0E0E0),
-                                        modifier = Modifier.size(16.dp)
+                                if (firstImage.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = firstImage,
+                                        contentDescription = recipeName,
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop,
+                                        error = painterResource(id = R.drawable.pizza),
+                                        placeholder = painterResource(id = R.drawable.pizza)
+                                    )
+                                } else {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.pizza),
+                                        contentDescription = recipeName,
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop
                                     )
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                Text("15 phút", fontSize = 12.sp, color = Color.Gray)
-                                Text("2 khẩu phần", fontSize = 12.sp, color = Color.Gray)
+                                Text(
+                                    text = recipeName,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1B1B1B),
+                                    maxLines = 2,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                ) {
+                                    repeat(5) { index ->
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "Sao",
+                                            tint = if (index < rating.toInt()) Color(0xFFFFC107) else Color(0xFFE0E0E0),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    Text(
+                                        text = if (estimatedTime.contains("phút") || estimatedTime.contains("giờ")) estimatedTime else "$estimatedTime phút",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text("$servings khẩu phần", fontSize = 12.sp, color = Color.Gray)
+                                }
                             }
                         }
                     }
@@ -862,7 +1012,7 @@ fun HomeScreen(
             }
         }
 
-        // 🔹 Tin mới (Hot News)
+        // 🔹 Tin mới (Hot News) - Đổi thành tiếng Việt
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -872,7 +1022,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Hot News", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Tin tức nổi bật", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(
                     "Xem tất cả",
                     color = Color(0xFF20B2AA),
@@ -985,7 +1135,7 @@ fun HomeScreen(
             }
         }
 
-        // 🔹 Activity and Exercise
+        // 🔹 Activity and Exercise - Đổi thành tiếng Việt
         item {
             Spacer(modifier = Modifier.height(24.dp))
             Row(
@@ -996,7 +1146,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Activity and Exercise \uD83C\uDFCB", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Hoạt động và tập luyện \uD83C\uDFCB", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(
                     "Xem tất cả",
@@ -1013,7 +1163,7 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(exercises) { exercise ->
+                items(exercises.take(3)) { exercise ->
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -1023,8 +1173,14 @@ fun HomeScreen(
                             .width(120.dp)
                             .height(140.dp)
                             .clickable { 
-                                // Navigate to exercise suggestions screen
-                                navController.navigate("exercise_suggestions")
+                                // Navigate to exercise detail screen với thông tin đầy đủ
+                                if (exercise.duration.isNotEmpty() && exercise.caloriesBurned > 0) {
+                                    navController.navigate(
+                                        "exercise_detail/${exercise.name}/${exercise.icon}/${exercise.duration}/${exercise.caloriesBurned}/${exercise.difficulty}"
+                                    )
+                                } else {
+                                    navController.navigate("exercise_suggestions")
+                                }
                             }
                     ) {
                         Column(
@@ -1034,14 +1190,23 @@ fun HomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Image(
-                                painter = painterResource(id = exercise.icon),
-                                contentDescription = exercise.name,
+                            // Icon với nền trắng, icon màu teal (ngược lại)
+                            Box(
                                 modifier = Modifier
                                     .size(60.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Fit
-                            )
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .border(2.dp, Color(0xFF20B2AA), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = exercise.icon),
+                                    contentDescription = exercise.name,
+                                    modifier = Modifier.size(40.dp),
+                                    contentScale = ContentScale.Fit,
+                                    colorFilter = ColorFilter.tint(Color(0xFF20B2AA))
+                                )
+                            }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = exercise.name,

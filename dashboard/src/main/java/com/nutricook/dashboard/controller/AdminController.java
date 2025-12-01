@@ -693,6 +693,17 @@ public class AdminController {
                            @RequestParam(value = "category.id", required = false) Long categoryId,
                            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
                            @RequestParam(value = "returnToCategory", required = false) Long returnToCategory,
+                           @RequestParam(value = "vitaminA", required = false) Double vitaminA,
+                           @RequestParam(value = "vitaminB1", required = false) Double vitaminB1,
+                           @RequestParam(value = "vitaminB2", required = false) Double vitaminB2,
+                           @RequestParam(value = "vitaminB3", required = false) Double vitaminB3,
+                           @RequestParam(value = "vitaminB6", required = false) Double vitaminB6,
+                           @RequestParam(value = "vitaminB9", required = false) Double vitaminB9,
+                           @RequestParam(value = "vitaminB12", required = false) Double vitaminB12,
+                           @RequestParam(value = "vitaminC", required = false) Double vitaminC,
+                           @RequestParam(value = "vitaminD", required = false) Double vitaminD,
+                           @RequestParam(value = "vitaminE", required = false) Double vitaminE,
+                           @RequestParam(value = "vitaminK", required = false) Double vitaminK,
                            RedirectAttributes redirectAttributes) {
         try {
             // Nếu có returnToCategory (từ trang category-ingredients), ưu tiên sử dụng nó
@@ -792,6 +803,23 @@ public class AdminController {
             } else {
                 System.out.println("⚠️ No image file provided or file is empty");
             }
+            
+            // Set các giá trị vitamin chi tiết
+            foodItem.setVitaminA(vitaminA);
+            foodItem.setVitaminB1(vitaminB1);
+            foodItem.setVitaminB2(vitaminB2);
+            foodItem.setVitaminB3(vitaminB3);
+            foodItem.setVitaminB6(vitaminB6);
+            foodItem.setVitaminB9(vitaminB9);
+            foodItem.setVitaminB12(vitaminB12);
+            foodItem.setVitaminC(vitaminC);
+            foodItem.setVitaminD(vitaminD);
+            foodItem.setVitaminE(vitaminE);
+            foodItem.setVitaminK(vitaminK);
+            
+            // Tính tổng vitamin (trung bình)
+            foodItem.calculateTotalVitamin();
+            
             FoodItem savedFood = foodItemRepository.save(foodItem);
             System.out.println("💾 Saved FoodItem to database. ID: " + savedFood.getId() + ", ImageURL: " + savedFood.getImageUrl());
             try {
@@ -898,6 +926,17 @@ public class AdminController {
                            @ModelAttribute FoodItem foodItem, // Đây là foodItem chỉ có ID category
                            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
                            @RequestParam(value = "returnToCategory", required = false) Long returnToCategory,
+                           @RequestParam(value = "vitaminA", required = false) Double vitaminA,
+                           @RequestParam(value = "vitaminB1", required = false) Double vitaminB1,
+                           @RequestParam(value = "vitaminB2", required = false) Double vitaminB2,
+                           @RequestParam(value = "vitaminB3", required = false) Double vitaminB3,
+                           @RequestParam(value = "vitaminB6", required = false) Double vitaminB6,
+                           @RequestParam(value = "vitaminB9", required = false) Double vitaminB9,
+                           @RequestParam(value = "vitaminB12", required = false) Double vitaminB12,
+                           @RequestParam(value = "vitaminC", required = false) Double vitaminC,
+                           @RequestParam(value = "vitaminD", required = false) Double vitaminD,
+                           @RequestParam(value = "vitaminE", required = false) Double vitaminE,
+                           @RequestParam(value = "vitaminK", required = false) Double vitaminK,
                            RedirectAttributes redirectAttributes) {
         try {
             FoodItem existingFood = foodItemRepository.findById(id).orElse(null);
@@ -951,7 +990,23 @@ public class AdminController {
                 existingFood.setProtein(foodItem.getProtein());
                 existingFood.setCholesterol(foodItem.getCholesterol());
                 existingFood.setSodium(foodItem.getSodium());
-                existingFood.setVitamin(foodItem.getVitamin());
+                
+                // Cập nhật các giá trị vitamin chi tiết
+                existingFood.setVitaminA(vitaminA);
+                existingFood.setVitaminB1(vitaminB1);
+                existingFood.setVitaminB2(vitaminB2);
+                existingFood.setVitaminB3(vitaminB3);
+                existingFood.setVitaminB6(vitaminB6);
+                existingFood.setVitaminB9(vitaminB9);
+                existingFood.setVitaminB12(vitaminB12);
+                existingFood.setVitaminC(vitaminC);
+                existingFood.setVitaminD(vitaminD);
+                existingFood.setVitaminE(vitaminE);
+                existingFood.setVitaminK(vitaminK);
+                
+                // Tính tổng vitamin (trung bình)
+                existingFood.calculateTotalVitamin();
+                
                 existingFood.setUpdatedAt(LocalDateTime.now());
                 
                 if (imageFile != null && !imageFile.isEmpty()) {

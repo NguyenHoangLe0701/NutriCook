@@ -1,5 +1,10 @@
 package com.example.nutricook.view.categories
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +53,7 @@ fun FoodDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var selectedQuantity by remember { mutableStateOf("100 g") }
     var isBookmarked by remember { mutableStateOf(false) }
+    var showVitaminDetails by remember { mutableStateOf(false) }
     
     // Load food item by ID
     LaunchedEffect(foodId) {
@@ -483,8 +491,92 @@ fun FoodDetailScreen(
                             label = "Vitamin",
                             value = "",
                             percent = nutritionData.getVitaminPercent(),
-                            valueColor = Color(0xFF1C1C1E)
+                            valueColor = Color(0xFF1C1C1E),
+                            onClick = { showVitaminDetails = !showVitaminDetails }
                         )
+                    }
+                }
+            }
+            
+            // Hiển thị chi tiết vitamin khi click
+            item {
+                AnimatedVisibility(
+                    visible = showVitaminDetails && foodItem != null,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    foodItem?.let { currentFoodItem ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 8.dp)
+                                .background(
+                                    Color(0xFF00BFA5).copy(alpha = 0.05f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "Chi tiết Vitamin (% Daily Value)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1C1C1E),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            
+                            val vitaminDetails = listOf(
+                                "Vitamin A" to currentFoodItem.vitaminA,
+                                "Vitamin B1 (Thiamin)" to currentFoodItem.vitaminB1,
+                                "Vitamin B2 (Riboflavin)" to currentFoodItem.vitaminB2,
+                                "Vitamin B3 (Niacin)" to currentFoodItem.vitaminB3,
+                                "Vitamin B6" to currentFoodItem.vitaminB6,
+                                "Vitamin B9 (Folate)" to currentFoodItem.vitaminB9,
+                                "Vitamin B12" to currentFoodItem.vitaminB12,
+                                "Vitamin C" to currentFoodItem.vitaminC,
+                                "Vitamin D" to currentFoodItem.vitaminD,
+                                "Vitamin E" to currentFoodItem.vitaminE,
+                                "Vitamin K" to currentFoodItem.vitaminK
+                            )
+                            
+                            vitaminDetails.forEach { (name, value) ->
+                                if (value > 0) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = name,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF6B7280)
+                                        )
+                                        Surface(
+                                            color = Color(0xFF00BFA5).copy(alpha = 0.1f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "${String.format("%.1f", value)}%",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFF00BFA5),
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (vitaminDetails.all { it.second == 0.0 }) {
+                                Text(
+                                    text = "Chưa có thông tin chi tiết về vitamin",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF9CA3AF),
+                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -663,12 +755,14 @@ private fun NutritionFactItem(
     label: String,
     value: String,
     percent: Int,
-    valueColor: Color = Color(0xFF1C1C1E)
+    valueColor: Color = Color(0xFF1C1C1E),
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
+            .padding(vertical = 12.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

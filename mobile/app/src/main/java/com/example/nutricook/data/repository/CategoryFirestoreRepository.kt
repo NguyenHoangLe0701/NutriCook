@@ -99,7 +99,18 @@ class CategoryFirestoreRepository @Inject constructor(
                     protein = (doc.getDouble("protein") ?: doc.getLong("protein")?.toDouble()) ?: 0.0,
                     cholesterol = (doc.getDouble("cholesterol") ?: doc.getLong("cholesterol")?.toDouble()) ?: 0.0,
                     sodium = (doc.getDouble("sodium") ?: doc.getLong("sodium")?.toDouble()) ?: 0.0,
-                    vitamin = (doc.getDouble("vitamin") ?: doc.getLong("vitamin")?.toDouble()) ?: 0.0
+                    vitamin = (doc.getDouble("vitamin") ?: doc.getLong("vitamin")?.toDouble()) ?: 0.0,
+                    vitaminA = (doc.getDouble("vitaminA") ?: doc.getLong("vitaminA")?.toDouble()) ?: 0.0,
+                    vitaminB1 = (doc.getDouble("vitaminB1") ?: doc.getLong("vitaminB1")?.toDouble()) ?: 0.0,
+                    vitaminB2 = (doc.getDouble("vitaminB2") ?: doc.getLong("vitaminB2")?.toDouble()) ?: 0.0,
+                    vitaminB3 = (doc.getDouble("vitaminB3") ?: doc.getLong("vitaminB3")?.toDouble()) ?: 0.0,
+                    vitaminB6 = (doc.getDouble("vitaminB6") ?: doc.getLong("vitaminB6")?.toDouble()) ?: 0.0,
+                    vitaminB9 = (doc.getDouble("vitaminB9") ?: doc.getLong("vitaminB9")?.toDouble()) ?: 0.0,
+                    vitaminB12 = (doc.getDouble("vitaminB12") ?: doc.getLong("vitaminB12")?.toDouble()) ?: 0.0,
+                    vitaminC = (doc.getDouble("vitaminC") ?: doc.getLong("vitaminC")?.toDouble()) ?: 0.0,
+                    vitaminD = (doc.getDouble("vitaminD") ?: doc.getLong("vitaminD")?.toDouble()) ?: 0.0,
+                    vitaminE = (doc.getDouble("vitaminE") ?: doc.getLong("vitaminE")?.toDouble()) ?: 0.0,
+                    vitaminK = (doc.getDouble("vitaminK") ?: doc.getLong("vitaminK")?.toDouble()) ?: 0.0
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -159,7 +170,18 @@ class CategoryFirestoreRepository @Inject constructor(
                     protein = (it.getDouble("protein") ?: it.getLong("protein")?.toDouble()) ?: 0.0,
                     cholesterol = (it.getDouble("cholesterol") ?: it.getLong("cholesterol")?.toDouble()) ?: 0.0,
                     sodium = (it.getDouble("sodium") ?: it.getLong("sodium")?.toDouble()) ?: 0.0,
-                    vitamin = (it.getDouble("vitamin") ?: it.getLong("vitamin")?.toDouble()) ?: 0.0
+                    vitamin = (it.getDouble("vitamin") ?: it.getLong("vitamin")?.toDouble()) ?: 0.0,
+                    vitaminA = (it.getDouble("vitaminA") ?: it.getLong("vitaminA")?.toDouble()) ?: 0.0,
+                    vitaminB1 = (it.getDouble("vitaminB1") ?: it.getLong("vitaminB1")?.toDouble()) ?: 0.0,
+                    vitaminB2 = (it.getDouble("vitaminB2") ?: it.getLong("vitaminB2")?.toDouble()) ?: 0.0,
+                    vitaminB3 = (it.getDouble("vitaminB3") ?: it.getLong("vitaminB3")?.toDouble()) ?: 0.0,
+                    vitaminB6 = (it.getDouble("vitaminB6") ?: it.getLong("vitaminB6")?.toDouble()) ?: 0.0,
+                    vitaminB9 = (it.getDouble("vitaminB9") ?: it.getLong("vitaminB9")?.toDouble()) ?: 0.0,
+                    vitaminB12 = (it.getDouble("vitaminB12") ?: it.getLong("vitaminB12")?.toDouble()) ?: 0.0,
+                    vitaminC = (it.getDouble("vitaminC") ?: it.getLong("vitaminC")?.toDouble()) ?: 0.0,
+                    vitaminD = (it.getDouble("vitaminD") ?: it.getLong("vitaminD")?.toDouble()) ?: 0.0,
+                    vitaminE = (it.getDouble("vitaminE") ?: it.getLong("vitaminE")?.toDouble()) ?: 0.0,
+                    vitaminK = (it.getDouble("vitaminK") ?: it.getLong("vitaminK")?.toDouble()) ?: 0.0
                 )
             }
         } catch (e: Exception) {

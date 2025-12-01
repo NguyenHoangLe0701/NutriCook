@@ -163,7 +163,18 @@
                                                 th:data-protein="${ingredient.protein ?: 0.0}"
                                                 th:data-cholesterol="${ingredient.cholesterol ?: 0.0}"
                                                 th:data-sodium="${ingredient.sodium ?: 0.0}"
-                                                th:data-vitamin="${ingredient.vitamin ?: 0.0}">
+                                                th:data-vitamin="${ingredient.vitamin ?: 0.0}"
+                                                th:data-vitamin-a="${ingredient.vitaminA ?: 0.0}"
+                                                th:data-vitamin-b1="${ingredient.vitaminB1 ?: 0.0}"
+                                                th:data-vitamin-b2="${ingredient.vitaminB2 ?: 0.0}"
+                                                th:data-vitamin-b3="${ingredient.vitaminB3 ?: 0.0}"
+                                                th:data-vitamin-b6="${ingredient.vitaminB6 ?: 0.0}"
+                                                th:data-vitamin-b9="${ingredient.vitaminB9 ?: 0.0}"
+                                                th:data-vitamin-b12="${ingredient.vitaminB12 ?: 0.0}"
+                                                th:data-vitamin-c="${ingredient.vitaminC ?: 0.0}"
+                                                th:data-vitamin-d="${ingredient.vitaminD ?: 0.0}"
+                                                th:data-vitamin-e="${ingredient.vitaminE ?: 0.0}"
+                                                th:data-vitamin-k="${ingredient.vitaminK ?: 0.0}">
                                             <i class="fa-solid fa-pen h-4 w-4"></i>
                                             <span class="sr-only">Sửa</span>
                                         </button>
@@ -288,16 +299,71 @@
                                                     <input type="number" name="cholesterol" id="cholesterol" step="0.1" min="0" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
                                                 </div>
                                             </div>
-                                            <div class="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label for="sodium" class="block text-sm font-semibold text-gray-700 mb-1.5">Sodium (mg)</label>
-                                                    <input type="number" name="sodium" id="sodium" step="0.1" min="0" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
-                                                </div>
-                                                <div>
-                                                    <label for="vitamin" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin (%)</label>
-                                                    <input type="number" name="vitamin" id="vitamin" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
-                                                </div>
+                                            <div>
+                                                <label for="sodium" class="block text-sm font-semibold text-gray-700 mb-1.5">Sodium (mg)</label>
+                                                <input type="number" name="sodium" id="sodium" step="0.1" min="0" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
                                             </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Section Chi tiết Vitamin -->
+                                    <div class="bg-white/60 rounded-xl p-4 border border-emerald-100 mt-4">
+                                        <h4 class="text-base font-bold text-emerald-800 mb-4 flex items-center">
+                                            <span class="mr-2">💊</span> Chi tiết Vitamin (% Daily Value)
+                                        </h4>
+                                        <p class="text-xs text-emerald-700 mb-4 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                                            <strong>💡 Lưu ý:</strong> Nhập % Daily Value cho từng loại vitamin. Hệ thống sẽ tự động tính tổng % vitamin trung bình.
+                                        </p>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label for="vitaminA" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin A (%)</label>
+                                                <input type="number" name="vitaminA" id="vitaminA" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminB1" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B1 - Thiamin (%)</label>
+                                                <input type="number" name="vitaminB1" id="vitaminB1" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminB2" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B2 - Riboflavin (%)</label>
+                                                <input type="number" name="vitaminB2" id="vitaminB2" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminB3" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B3 - Niacin (%)</label>
+                                                <input type="number" name="vitaminB3" id="vitaminB3" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminB6" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B6 (%)</label>
+                                                <input type="number" name="vitaminB6" id="vitaminB6" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminB9" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B9 - Folate (%)</label>
+                                                <input type="number" name="vitaminB9" id="vitaminB9" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminB12" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B12 (%)</label>
+                                                <input type="number" name="vitaminB12" id="vitaminB12" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminC" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin C (%)</label>
+                                                <input type="number" name="vitaminC" id="vitaminC" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminD" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin D (%)</label>
+                                                <input type="number" name="vitaminD" id="vitaminD" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminE" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin E (%)</label>
+                                                <input type="number" name="vitaminE" id="vitaminE" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="vitaminK" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin K (%)</label>
+                                                <input type="number" name="vitaminK" id="vitaminK" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <label for="vitamin" class="block text-sm font-semibold text-gray-700 mb-1.5">Tổng Vitamin (%) - Tự động tính</label>
+                                            <input type="number" name="vitamin" id="vitamin" step="0.1" min="0" max="100" value="0.0" readonly class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-300 bg-emerald-50 shadow-sm text-sm transition-all" placeholder="0.0">
+                                            <p class="mt-1 text-xs text-gray-500">Giá trị này được tính tự động từ trung bình của tất cả các vitamin trên.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -410,16 +476,71 @@
                                                     <input type="number" id="edit-cholesterol" name="cholesterol" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
                                                 </div>
                                             </div>
-                                            <div class="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label for="edit-sodium" class="block text-sm font-semibold text-gray-700 mb-1.5">Sodium (mg)</label>
-                                                    <input type="number" id="edit-sodium" name="sodium" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
-                                                </div>
-                                                <div>
-                                                    <label for="edit-vitamin" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin (%)</label>
-                                                    <input type="number" id="edit-vitamin" name="vitamin" step="0.1" min="0" max="100" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
-                                                </div>
+                                            <div>
+                                                <label for="edit-sodium" class="block text-sm font-semibold text-gray-700 mb-1.5">Sodium (mg)</label>
+                                                <input type="number" id="edit-sodium" name="sodium" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
                                             </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Section Chi tiết Vitamin -->
+                                    <div class="bg-white/60 rounded-xl p-4 border border-emerald-100 mt-4">
+                                        <h4 class="text-base font-bold text-emerald-800 mb-4 flex items-center">
+                                            <span class="mr-2">💊</span> Chi tiết Vitamin (% Daily Value)
+                                        </h4>
+                                        <p class="text-xs text-emerald-700 mb-4 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                                            <strong>💡 Lưu ý:</strong> Nhập % Daily Value cho từng loại vitamin. Hệ thống sẽ tự động tính tổng % vitamin trung bình.
+                                        </p>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label for="edit-vitaminA" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin A (%)</label>
+                                                <input type="number" id="edit-vitaminA" name="vitaminA" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminB1" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B1 - Thiamin (%)</label>
+                                                <input type="number" id="edit-vitaminB1" name="vitaminB1" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminB2" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B2 - Riboflavin (%)</label>
+                                                <input type="number" id="edit-vitaminB2" name="vitaminB2" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminB3" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B3 - Niacin (%)</label>
+                                                <input type="number" id="edit-vitaminB3" name="vitaminB3" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminB6" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B6 (%)</label>
+                                                <input type="number" id="edit-vitaminB6" name="vitaminB6" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminB9" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B9 - Folate (%)</label>
+                                                <input type="number" id="edit-vitaminB9" name="vitaminB9" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminB12" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin B12 (%)</label>
+                                                <input type="number" id="edit-vitaminB12" name="vitaminB12" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminC" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin C (%)</label>
+                                                <input type="number" id="edit-vitaminC" name="vitaminC" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminD" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin D (%)</label>
+                                                <input type="number" id="edit-vitaminD" name="vitaminD" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminE" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin E (%)</label>
+                                                <input type="number" id="edit-vitaminE" name="vitaminE" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                            <div>
+                                                <label for="edit-vitaminK" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin K (%)</label>
+                                                <input type="number" id="edit-vitaminK" name="vitaminK" step="0.1" min="0" max="100" value="0.0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 text-sm transition-all" placeholder="0.0">
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <label for="edit-vitamin" class="block text-sm font-semibold text-gray-700 mb-1.5">Tổng Vitamin (%) - Tự động tính</label>
+                                            <input type="number" id="edit-vitamin" name="vitamin" step="0.1" min="0" max="100" value="0.0" readonly class="block w-full px-4 py-2.5 rounded-lg border-2 border-emerald-300 bg-emerald-50 shadow-sm text-sm transition-all" placeholder="0.0">
+                                            <p class="mt-1 text-xs text-gray-500">Giá trị này được tính tự động từ trung bình của tất cả các vitamin trên.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -455,6 +576,89 @@
             }
         }
         
+        function calculateTotalVitamin() {
+            const vitamins = ['vitaminA', 'vitaminB1', 'vitaminB2', 'vitaminB3', 'vitaminB6', 
+                            'vitaminB9', 'vitaminB12', 'vitaminC', 'vitaminD', 'vitaminE', 'vitaminK'];
+            let total = 0;
+            let count = 0;
+            
+            vitamins.forEach(function(vitaminId) {
+                const input = document.getElementById(vitaminId);
+                if (input && input.value) {
+                    const value = parseFloat(input.value) || 0;
+                    total += value;
+                    count++;
+                }
+            });
+            
+            const totalVitaminInput = document.getElementById('vitamin');
+            if (totalVitaminInput) {
+                const average = count > 0 ? (total / count).toFixed(1) : 0.0;
+                totalVitaminInput.value = average;
+            }
+        }
+        
+        function calculateTotalVitaminEdit() {
+            const vitamins = ['edit-vitaminA', 'edit-vitaminB1', 'edit-vitaminB2', 'edit-vitaminB3', 'edit-vitaminB6', 
+                            'edit-vitaminB9', 'edit-vitaminB12', 'edit-vitaminC', 'edit-vitaminD', 'edit-vitaminE', 'edit-vitaminK'];
+            let total = 0;
+            let count = 0;
+            
+            vitamins.forEach(function(vitaminId) {
+                const input = document.getElementById(vitaminId);
+                if (input && input.value) {
+                    const value = parseFloat(input.value) || 0;
+                    total += value;
+                    count++;
+                }
+            });
+            
+            const totalVitaminInput = document.getElementById('edit-vitamin');
+            if (totalVitaminInput) {
+                const average = count > 0 ? (total / count).toFixed(1) : 0.0;
+                totalVitaminInput.value = average;
+            }
+        }
+        
+        // Tính tổng vitamin khi người dùng nhập
+        document.addEventListener('DOMContentLoaded', function() {
+            const vitaminInputs = ['vitaminA', 'vitaminB1', 'vitaminB2', 'vitaminB3', 'vitaminB6', 
+                                 'vitaminB9', 'vitaminB12', 'vitaminC', 'vitaminD', 'vitaminE', 'vitaminK'];
+            vitaminInputs.forEach(function(vitaminId) {
+                const input = document.getElementById(vitaminId);
+                if (input) {
+                    input.addEventListener('input', calculateTotalVitamin);
+                    input.addEventListener('change', calculateTotalVitamin);
+                }
+            });
+            
+            // Tính tổng vitamin cho form edit
+            const editVitaminInputs = ['edit-vitaminA', 'edit-vitaminB1', 'edit-vitaminB2', 'edit-vitaminB3', 'edit-vitaminB6', 
+                                     'edit-vitaminB9', 'edit-vitaminB12', 'edit-vitaminC', 'edit-vitaminD', 'edit-vitaminE', 'edit-vitaminK'];
+            editVitaminInputs.forEach(function(vitaminId) {
+                const input = document.getElementById(vitaminId);
+                if (input) {
+                    input.addEventListener('input', calculateTotalVitaminEdit);
+                    input.addEventListener('change', calculateTotalVitaminEdit);
+                }
+            });
+            
+            // Tính tổng vitamin khi form được submit
+            const form = document.querySelector('form[th\\:action="@{/admin/foods}"]');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    calculateTotalVitamin();
+                });
+            }
+            
+            const editForm = document.getElementById('editFoodForm');
+            if (editForm) {
+                editForm.addEventListener('submit', function(e) {
+                    calculateTotalVitaminEdit();
+                });
+            }
+        });
+        
         // Update calories when form is submitted
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.querySelector('form[th\\:action="@{/admin/foods}"]');
@@ -479,6 +683,17 @@
                     const cholesterol = this.getAttribute('data-cholesterol') || '0.0';
                     const sodium = this.getAttribute('data-sodium') || '0.0';
                     const vitamin = this.getAttribute('data-vitamin') || '0.0';
+                    const vitaminA = this.getAttribute('data-vitamin-a') || '0.0';
+                    const vitaminB1 = this.getAttribute('data-vitamin-b1') || '0.0';
+                    const vitaminB2 = this.getAttribute('data-vitamin-b2') || '0.0';
+                    const vitaminB3 = this.getAttribute('data-vitamin-b3') || '0.0';
+                    const vitaminB6 = this.getAttribute('data-vitamin-b6') || '0.0';
+                    const vitaminB9 = this.getAttribute('data-vitamin-b9') || '0.0';
+                    const vitaminB12 = this.getAttribute('data-vitamin-b12') || '0.0';
+                    const vitaminC = this.getAttribute('data-vitamin-c') || '0.0';
+                    const vitaminD = this.getAttribute('data-vitamin-d') || '0.0';
+                    const vitaminE = this.getAttribute('data-vitamin-e') || '0.0';
+                    const vitaminK = this.getAttribute('data-vitamin-k') || '0.0';
                     
                     // Set form action
                     document.getElementById('editFoodForm').action = '/admin/foods/' + id + '/edit';
@@ -510,7 +725,22 @@
                     document.getElementById('edit-protein').value = protein;
                     document.getElementById('edit-cholesterol').value = cholesterol;
                     document.getElementById('edit-sodium').value = sodium;
-                    document.getElementById('edit-vitamin').value = vitamin;
+                    
+                    // Set vitamin chi tiết
+                    document.getElementById('edit-vitaminA').value = vitaminA;
+                    document.getElementById('edit-vitaminB1').value = vitaminB1;
+                    document.getElementById('edit-vitaminB2').value = vitaminB2;
+                    document.getElementById('edit-vitaminB3').value = vitaminB3;
+                    document.getElementById('edit-vitaminB6').value = vitaminB6;
+                    document.getElementById('edit-vitaminB9').value = vitaminB9;
+                    document.getElementById('edit-vitaminB12').value = vitaminB12;
+                    document.getElementById('edit-vitaminC').value = vitaminC;
+                    document.getElementById('edit-vitaminD').value = vitaminD;
+                    document.getElementById('edit-vitaminE').value = vitaminE;
+                    document.getElementById('edit-vitaminK').value = vitaminK;
+                    
+                    // Tính tổng vitamin sau khi set các giá trị
+                    calculateTotalVitaminEdit();
                     
                     // Open modal
                     openModal('editFoodModal');

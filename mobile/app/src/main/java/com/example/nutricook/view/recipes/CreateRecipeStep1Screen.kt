@@ -34,12 +34,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.nutricook.R
 import com.example.nutricook.viewmodel.CategoriesViewModel
 import com.example.nutricook.utils.CookingMethod
 import com.example.nutricook.utils.IngredientUnit
@@ -104,6 +108,7 @@ fun CreateRecipeStep1Screen(
     ) {
         /** 🔹 Header */
         item {
+            Spacer(modifier = Modifier.height(16.dp))
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
@@ -141,14 +146,18 @@ fun CreateRecipeStep1Screen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Bước 1: Thông tin cơ bản",
-                            fontSize = 20.sp,
+                            fontSize = 16.sp, // Thu nhỏ từ 20.sp xuống 16.sp
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1C1C1E)
+                            color = Color(0xFF1C1C1E),
+                            maxLines = 1, // Không cho xuống dòng
+                            overflow = TextOverflow.Ellipsis // Cắt bớt nếu quá dài
                         )
                         Text(
-                            text = "Nhập thông tin cơ bản về món ăn",
+                            text = "Nhập thông tin về món ăn",
                             fontSize = 13.sp,
-                            color = Color(0xFF6B7280)
+                            color = Color(0xFF6B7280),
+                            maxLines = 1, // Không cho xuống dòng
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     // Step indicator

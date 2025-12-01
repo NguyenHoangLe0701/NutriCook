@@ -58,10 +58,10 @@ import com.example.nutricook.view.recipes.IngredientBrowserScreen
 import com.example.nutricook.view.recipes.IngredientDetailScreen
 import com.example.nutricook.view.recipes.IngredientsFilterScreen
 import com.example.nutricook.view.recipes.NutritionFactsScreen
-import com.example.nutricook.view.recipes.RecipeDetailScreen
 import com.example.nutricook.view.recipes.RecipeDirectionsScreen
 import com.example.nutricook.view.recipes.RecipeDiscoveryScreen
 import com.example.nutricook.view.recipes.RecipeInfoScreen
+import com.example.nutricook.view.recipes.MethodGroupDetailScreen
 import com.example.nutricook.view.recipes.RecipeStep2Screen
 import com.example.nutricook.view.recipes.RecipeStepFinalScreen
 import com.example.nutricook.view.recipes.RecipeStepScreen
@@ -414,19 +414,18 @@ fun NavGraph(navController: NavHostController) {
         }
         composable("upload_success") { RecipeUploadSuccessScreen(navController) }
 
-        composable("recipe_detail/{recipeTitle}/{imageRes}") { backStackEntry ->
-            val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: ""
-            val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
-            RecipeDetailScreen(navController, recipeTitle, imageRes)
-        }
-        composable("method_group_detail/{methodName}") { backStackEntry ->
-            val methodName = backStackEntry.arguments?.getString("methodName") ?: ""
-            RecipeDetailScreen(navController, methodName)
-        }
         composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown"
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
             RecipeInfoScreen(navController, recipeTitle, imageRes)
+        }
+        composable("method_group_detail/{methodName}") { backStackEntry ->
+            val methodName = backStackEntry.arguments?.getString("methodName") ?: ""
+            Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                    MethodGroupDetailScreen(navController, methodName)
+                }
+            }
         }
 
         composable("recipe_step") { RecipeStepScreen(navController) }

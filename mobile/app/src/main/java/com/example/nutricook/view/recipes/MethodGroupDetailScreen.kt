@@ -21,63 +21,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.offset
 import androidx.navigation.NavController
-import com.example.nutricook.R
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
+import com.example.nutricook.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.auth.FirebaseAuth
-
-data class Exercise(
-    val name: String,
-    val duration: String,
-    val caloriesBurned: Int,
-    val imageRes: Int,
-    val difficulty: String
-)
-
-data class NutritionItem(
-    val name: String,
-    val calories: Int,
-    val protein: String,
-    val fat: String,
-    val carbs: String,
-    val imageRes: Int
-)
-
-data class NotificationItem(
-    val title: String,
-    val subtitle: String,
-    val time: String,
-    val imageRes: Int
-)
-
-// Data class cho người đã xem
-data class MethodGroupViewer(
-    val userId: String,
-    val userName: String,
-    val avatarUrl: String?,
-    val viewedAt: com.google.firebase.Timestamp
-)
 
 @Composable
-fun RecipeDetailScreen(navController: NavController, recipeTitle: String, imageRes: Int) {
-    RecipeDetailScreenContent(navController, recipeTitle, null, emptyList(), imageRes)
-}
-
-@Composable
-fun RecipeDetailScreen(navController: NavController, methodName: String) {
+fun MethodGroupDetailScreen(navController: NavController, methodName: String) {
     val auth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
     
@@ -91,7 +56,7 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
     LaunchedEffect(methodName) {
         val currentUser = auth.currentUser
         
-        // Thêm user hiện tại vào viewers list ngay lập tức (không cần đợi Firestore)
+        // Thêm user hiện tại vào viewers list ngay lập tức
         if (currentUser != null) {
             val currentViewer = MethodGroupViewer(
                 userId = currentUser.uid,
@@ -100,10 +65,9 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                 viewedAt = com.google.firebase.Timestamp.now()
             )
             viewers.value = listOf(currentViewer)
-            android.util.Log.d("RecipeDetail", "Added current user to viewers: ${currentViewer.userName}")
         }
         
-        // Lưu view của user hiện tại vào Firestore (async, không block UI)
+        // Lưu view vào Firestore
         if (currentUser != null) {
             try {
                 if (!currentCoroutineContext().isActive) return@LaunchedEffect
@@ -114,22 +78,20 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                     "viewedAt" to com.google.firebase.Timestamp.now()
                 )
                 
-                // Lưu vào collection methodGroupViews/{methodName}/viewers/{userId}
                 firestore.collection("methodGroupViews")
                     .document(methodName)
                     .collection("viewers")
                     .document(currentUser.uid)
                     .set(viewerData)
                     .await()
-                android.util.Log.d("RecipeDetail", "Saved current user view to Firestore")
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) {
-                    android.util.Log.e("RecipeDetail", "Error saving view: ${e.message}", e)
+                    android.util.Log.e("MethodGroupDetail", "Error saving view: ${e.message}", e)
                 }
             }
         }
         
-        // Load danh sách viewers từ Firestore (cập nhật sau)
+        // Load viewers từ Firestore
         try {
             if (!currentCoroutineContext().isActive) return@LaunchedEffect
             val viewersSnapshot = firestore.collection("methodGroupViews")
@@ -154,15 +116,12 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                         null
                     }
                 }
-                android.util.Log.d("RecipeDetail", "Loaded ${loadedViewers.size} viewers from Firestore for method: $methodName")
-                // Cập nhật viewers list với data từ Firestore (loại bỏ duplicate)
                 val uniqueViewers = loadedViewers.distinctBy { it.userId }
                 viewers.value = uniqueViewers
             }
         } catch (e: Exception) {
             if (e !is kotlinx.coroutines.CancellationException) {
-                android.util.Log.e("RecipeDetail", "Error loading viewers: ${e.message}", e)
-                // Giữ lại current user nếu load từ Firestore thất bại
+                android.util.Log.e("MethodGroupDetail", "Error loading viewers: ${e.message}", e)
             }
         }
     }
@@ -189,7 +148,7 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
             }
         } catch (e: Exception) {
             if (e !is kotlinx.coroutines.CancellationException) {
-                android.util.Log.e("RecipeDetail", "Error loading recipes: ${e.message}", e)
+                android.util.Log.e("MethodGroupDetail", "Error loading recipes: ${e.message}", e)
             }
         } finally {
             if (currentCoroutineContext().isActive) {
@@ -243,14 +202,14 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
         }
     }
     
-    // Get method group info với viewers thực tế
+    // Get method group info
     val methodGroupInfo = remember(viewers.value, methodRecipes, methodName) {
         when (methodName) {
             "Xào" -> RecipeMethodGroup(
                 methodName = "Xào",
                 displayName = "Công thức Xào",
                 category = "Xào",
-                title ="Công thức Xào thơm ngon",
+                title = "Công thức Xào thơm ngon",
                 description = "Khám phá các món xào thơm ngon, đậm đà. Phương pháp xào giữ được hương vị tự nhiên của nguyên liệu, tạo nên những món ăn hấp dẫn và bổ dưỡng.",
                 color = Color(0xFFE8F5E9),
                 icon = "⚡",
@@ -305,28 +264,24 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
         }
     }
     
-    if (methodGroupInfo != null) {
-        RecipeDetailScreenContent(
-            navController = navController,
-            recipeTitle = methodGroupInfo.displayName,
-            methodGroup = methodGroupInfo,
-            viewers = viewers.value,
-            imageRes = R.drawable.beefandcabbage
-        )
-    } else {
+    if (methodGroupInfo == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Không tìm thấy phương pháp nấu: $methodName")
         }
+    } else {
+        MethodGroupDetailContent(
+            navController = navController,
+            methodGroup = methodGroupInfo,
+            viewers = viewers.value
+        )
     }
 }
 
 @Composable
-private fun RecipeDetailScreenContent(
+private fun MethodGroupDetailContent(
     navController: NavController,
-    recipeTitle: String,
-    methodGroup: RecipeMethodGroup?,
-    viewers: List<MethodGroupViewer> = emptyList(),
-    imageRes: Int
+    methodGroup: RecipeMethodGroup,
+    viewers: List<MethodGroupViewer> = emptyList()
 ) {
     val scrollState = rememberScrollState()
     var isFavorite by remember { mutableStateOf(false) }
@@ -343,24 +298,21 @@ private fun RecipeDetailScreenContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(methodGroup?.color ?: Color(0xFFFFEBD2))
+                    .background(methodGroup.color)
                     .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
                     .padding(bottom = 20.dp)
             ) {
-                // Layout với Row để text và hình ảnh không overlap
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 48.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Phần text bên trái - có weight để không bị che
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .padding(end = 16.dp)
                     ) {
-                        // Category với icon
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -378,8 +330,8 @@ private fun RecipeDetailScreenContent(
                                 )
                             }
                             Text(
-                                text = methodGroup?.category ?: "Salmon Recipes",
-                                color = when(methodGroup?.methodName) {
+                                text = methodGroup.category,
+                                color = when(methodGroup.methodName) {
                                     "Xào" -> Color(0xFF1B8A5A)
                                     "Chiên" -> Color(0xFFFF7A00)
                                     "Hấp" -> Color(0xFF2196F3)
@@ -392,7 +344,7 @@ private fun RecipeDetailScreenContent(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = methodGroup?.title ?: "7 Sheet Pan Salmon Recipes for Busy Weeknights",
+                            text = methodGroup.title,
                             color = Color.Black,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
@@ -400,8 +352,7 @@ private fun RecipeDetailScreenContent(
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
-                        // Mô tả ngắn bên dưới title
-                        if (methodGroup?.description != null && methodGroup.description != "Đang cập nhật" && methodGroup.description.isNotBlank()) {
+                        if (methodGroup.description != "Đang cập nhật" && methodGroup.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = methodGroup.description,
@@ -413,18 +364,17 @@ private fun RecipeDetailScreenContent(
                             )
                         }
                         
-                        // Hiển thị avatars của người đã xem (dưới mô tả)
+                        // Hiển thị avatars của người đã xem
                         Spacer(modifier = Modifier.height(8.dp))
-                        
                         MethodGroupViewersRow(
                             viewers = viewers.take(3),
                             additionalCount = (viewers.size - 3).coerceAtLeast(0)
                         )
                     }
 
-                    // Hình ảnh bên phải (hình tròn như hình)
+                    // Hình ảnh bên phải
                     Image(
-                        painter = painterResource(id = methodGroup?.imageRes ?: imageRes),
+                        painter = painterResource(id = methodGroup.imageRes),
                         contentDescription = null,
                         modifier = Modifier
                             .size(140.dp)
@@ -446,7 +396,7 @@ private fun RecipeDetailScreenContent(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = methodGroup?.description ?: "There's nothing like a one-pan meal to make hectic weeknights (or Sunday meal prep) so much simpler. These healthy salmon and vegetable dinners come together like a dream — just throw everything onto a sheet pan, season, and bake. From simple salmon bakes with roasted asparagus to deceptively easy, restaurant-worthy recipes that'll impress everyone at your table, you'll find a convenient new favorite in this collection of our best sheet pan salmon recipes.",
+                    text = methodGroup.description,
                     color = Color.Gray,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
@@ -467,7 +417,7 @@ private fun RecipeDetailScreenContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            val recipes = if (methodGroup != null && methodGroup.recipes.isNotEmpty()) {
+            val recipes = if (methodGroup.recipes.isNotEmpty()) {
                 methodGroup.recipes.map { recipe ->
                     RecipeItem(
                         title = recipe.name,
@@ -483,19 +433,11 @@ private fun RecipeDetailScreenContent(
                         reviews = recipe.reviews
                     )
                 }
-            } else if (methodGroup == null) {
-                // Fallback data for old route
-                listOf(
-                    RecipeItem("Everything Salmon Sheet Pan Dinner", "30 minutes", "4 Servings", "Nicolemmom", R.drawable.sample_food_1, null, null),
-                    RecipeItem("Sheet Pan Lemon Garlic Salmon", "25 minutes", "4 Servings", "Fioa", R.drawable.sample_food_2, null, null),
-                    RecipeItem("Best Salmon Bake", "35 minutes", "4 Servings", "MAGGIE120", R.drawable.sample_food_3, null, null),
-                    RecipeItem("Simple Seafood Sheet Pan Meal", "40 minutes", "8 Servings", "Juliana Hale", R.drawable.sample_food_4, null, null)
-                )
             } else {
                 emptyList()
             }
 
-            if (methodGroup?.isUpdating == true) {
+            if (methodGroup.isUpdating == true) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -533,7 +475,6 @@ private fun RecipeDetailScreenContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Nút Back
             Box(
                 modifier = Modifier
                     .size(42.dp)
@@ -552,7 +493,6 @@ private fun RecipeDetailScreenContent(
                 }
             }
 
-            // Nút Tim (Favorite)
             Box(
                 modifier = Modifier
                     .size(42.dp)
@@ -636,7 +576,6 @@ fun RecipeCardItem(recipe: RecipeItem, navController: NavController? = null) {
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 
-                // Người đăng
                 if (!recipe.userEmail.isNullOrBlank()) {
                     Text(
                         text = "Người đăng: ${recipe.userEmail}",
@@ -648,7 +587,6 @@ fun RecipeCardItem(recipe: RecipeItem, navController: NavController? = null) {
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 
-                // Đăng ngày
                 if (!recipe.createdAt.isNullOrBlank()) {
                     Text(
                         text = "Đăng ngày: ${recipe.createdAt}",
@@ -690,16 +628,10 @@ fun MethodGroupViewersRow(
     viewers: List<MethodGroupViewer>,
     additionalCount: Int
 ) {
-    // Debug log
-    android.util.Log.d("MethodGroupViewersRow", "Viewers count: ${viewers.size}, additionalCount: $additionalCount")
-    
     if (viewers.isEmpty() && additionalCount == 0) {
-        // Không hiển thị gì nếu không có viewers
-        android.util.Log.d("MethodGroupViewersRow", "No viewers to display")
         return
     }
     
-    // Hiển thị tối đa 3 avatars
     val displayViewers = viewers.take(3)
     val remainingCount = (viewers.size - 3).coerceAtLeast(0) + additionalCount
     
@@ -708,7 +640,6 @@ fun MethodGroupViewersRow(
         modifier = Modifier.padding(vertical = 4.dp)
     ) {
         displayViewers.forEachIndexed { index, viewer ->
-            // Avatar với border overlap (như hình)
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -739,7 +670,6 @@ fun MethodGroupViewersRow(
                         placeholder = painterResource(id = R.drawable.avatar_sample)
                     )
                 } else {
-                    // Hiển thị chữ cái đầu nếu không có avatar (màu xám nhạt như hình)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -748,7 +678,7 @@ fun MethodGroupViewersRow(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = viewer.userName.firstOrNull()?.uppercase() ?: "?",
+                            text = (viewer.userName.firstOrNull()?.toString() ?: "?").uppercase(),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF6B7280)
@@ -758,12 +688,10 @@ fun MethodGroupViewersRow(
             }
         }
         
-        // Spacing sau avatars
         if (displayViewers.isNotEmpty()) {
             Spacer(modifier = Modifier.width(8.dp))
         }
         
-        // Hiển thị số người còn lại (như "+3 others" trong hình)
         if (remainingCount > 0) {
             Text(
                 text = "+$remainingCount others",
@@ -774,3 +702,4 @@ fun MethodGroupViewersRow(
         }
     }
 }
+

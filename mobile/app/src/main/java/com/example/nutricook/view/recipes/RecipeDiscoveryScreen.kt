@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.offset
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -87,6 +89,14 @@ data class MethodGroupRecipe(
     val createdAt: String? = null,
     val rating: Double = 0.0,
     val reviews: Int = 0
+)
+
+// Data class cho người đã xem
+data class MethodGroupViewer(
+    val userId: String,
+    val userName: String,
+    val avatarUrl: String?,
+    val viewedAt: com.google.firebase.Timestamp
 )
 
 @Composable
@@ -344,10 +354,10 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
     
     // 🏷️ Tạo các nhóm phương pháp nấu
     val methodGroups = remember(stirFryRecipes, methodGroupViewers.value) {
-        val xaoViewers = methodGroupViewers.value["Xào"] ?: emptyList()
-        val chienViewers = methodGroupViewers.value["Chiên"] ?: emptyList()
-        val hapViewers = methodGroupViewers.value["Hấp"] ?: emptyList()
-        val nuongViewers = methodGroupViewers.value["Nướng"] ?: emptyList()
+        val xaoViewers: List<MethodGroupViewer> = methodGroupViewers.value["Xào"] ?: emptyList()
+        val chienViewers: List<MethodGroupViewer> = methodGroupViewers.value["Chiên"] ?: emptyList()
+        val hapViewers: List<MethodGroupViewer> = methodGroupViewers.value["Hấp"] ?: emptyList()
+        val nuongViewers: List<MethodGroupViewer> = methodGroupViewers.value["Nướng"] ?: emptyList()
         
         listOf(
             RecipeMethodGroup(
@@ -708,7 +718,7 @@ fun MethodGroupSection(
 ) {
     // Header Section (như hình) - chỉ hiển thị header, không hiển thị recipes ở ngoài
     MethodGroupHeader(group, viewers) {
-        // Navigate đến RecipeDetailScreen với methodName
+        // Navigate đến method group detail screen
         navController.navigate("method_group_detail/${group.methodName}")
     }
 }
@@ -943,7 +953,7 @@ fun MethodGroupViewersRowCompact(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = viewer.userName.firstOrNull()?.uppercase() ?: "?",
+                            text = (viewer.userName.firstOrNull()?.toString() ?: "?").uppercase(),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Gray
