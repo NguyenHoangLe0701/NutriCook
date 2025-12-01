@@ -36,6 +36,8 @@ private val Bg     = Color(0xFFF8F9FA)
 fun RegisterScreen(
     onGoLogin: () -> Unit,
     onBack: () -> Unit = {},
+    // 👇 QUAN TRỌNG: Đã thêm tham số này để khớp với NavGraph
+    onRegisterSuccess: (String) -> Unit,
     vm: AuthViewModel = hiltViewModel()
 ) {
     val state by vm.uiState.collectAsState()
@@ -43,7 +45,6 @@ fun RegisterScreen(
     val scope = rememberCoroutineScope()
 
     var fullName by rememberSaveable { mutableStateOf("") }
-    var confirmPassword by rememberSaveable { mutableStateOf("") }
     var agreed by rememberSaveable { mutableStateOf(false) }
 
     val showSnack: (String) -> Unit = { msg ->
@@ -54,6 +55,13 @@ fun RegisterScreen(
         state.message?.let {
             snackbarHostState.showSnackbar(it)
             vm.onEvent(AuthEvent.ConsumeMessage)
+        }
+    }
+
+    // Khi đăng ký thành công -> Gọi callback chuyển màn hình
+    LaunchedEffect(state.isRegisterSuccess) {
+        if (state.isRegisterSuccess) {
+            onRegisterSuccess(state.email)
         }
     }
 
@@ -70,7 +78,6 @@ fun RegisterScreen(
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Nút back tròn nhỏ giống mock
             Surface(
                 modifier = Modifier
                     .align(Alignment.Start)
@@ -87,7 +94,6 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // Header
             Text(
                 text = "Tạo tài khoản mới",
                 fontSize = 26.sp,
@@ -103,7 +109,6 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Form trong card trắng bo góc
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -177,8 +182,8 @@ fun RegisterScreen(
                     Spacer(Modifier.height(12.dp))
 
                     OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
+                        value = state.confirmPassword,
+                        onValueChange = { vm.onEvent(AuthEvent.ConfirmPasswordChanged(it)) },
                         label = { Text("Nhập lại mật khẩu") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -200,7 +205,6 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // Checkbox điều khoản (nhiều dòng, giống mock)
             Row(
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
@@ -221,19 +225,21 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Nút đăng ký xanh ngọc bo tròn
             Button(
                 enabled = agreed && !state.isLoading,
                 onClick = {
                     val email = state.email.trim()
                     val pass = state.password
+                    val confirmPass = state.confirmPassword
+                    val name = fullName.trim()
+
                     when {
-                        fullName.isBlank() -> showSnack("Vui lòng nhập họ tên")
+                        name.isBlank()     -> showSnack("Vui lòng nhập họ tên")
                         email.isBlank()    -> showSnack("Vui lòng nhập email")
                         pass.length < 6    -> showSnack("Mật khẩu tối thiểu 6 ký tự")
-                        confirmPassword != pass -> showSnack("Mật khẩu nhập lại không khớp")
+                        confirmPass != pass -> showSnack("Mật khẩu nhập lại không khớp")
                         !agreed            -> showSnack("Bạn cần đồng ý điều khoản")
-                        else               -> vm.onEvent(AuthEvent.SubmitRegister)
+                        else               -> vm.onEvent(AuthEvent.SubmitRegister(name))
                     }
                 },
                 modifier = Modifier
@@ -256,7 +262,7 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Footer: “Đã có tài khoản? Đăng nhập”
+            // Footer chuyển qua đăng nhập
             Row {
                 Text("Đã có tài khoản? ")
                 Text(
