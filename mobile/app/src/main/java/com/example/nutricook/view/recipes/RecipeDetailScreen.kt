@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -176,6 +179,12 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                     val firstImageUrl = imageUrls.firstOrNull() as? String
                     val docId = map["docId"] as? String ?: ""
                     val userEmail = map["userEmail"] as? String ?: ""
+                    val createdAt = map["createdAt"] as? com.google.firebase.Timestamp
+                    val createdAtStr = createdAt?.toDate()?.let { date ->
+                        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(date)
+                    }
+                    val rating = (map["rating"] as? Number)?.toDouble() ?: 0.0
+                    val reviews = (map["reviews"] as? Number)?.toInt() ?: 0
                     
                     MethodGroupRecipe(
                         recipeId = docId,
@@ -185,7 +194,11 @@ fun RecipeDetailScreen(navController: NavController, methodName: String) {
                         servings = map["servings"] as? String ?: "1",
                         imageUrl = firstImageUrl,
                         author = userEmail.split("@").firstOrNull() ?: "Unknown",
-                        imageRes = R.drawable.beefandcabbage
+                        imageRes = R.drawable.beefandcabbage,
+                        userEmail = userEmail,
+                        createdAt = createdAtStr,
+                        rating = rating,
+                        reviews = reviews
                     )
                 } else {
                     null
@@ -392,7 +405,7 @@ private fun RecipeDetailScreenContent(
             // 🔹 Description Section
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Text(
-                    text = "Description 🧑‍🍳",
+                    text = "Description",
                     color = Color(0xFF2A2D34),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -411,7 +424,7 @@ private fun RecipeDetailScreenContent(
 
             // 🔹 Recipes Section
             Text(
-                text = "Recipes 🍚",
+                text = "Recipes",
                 color = Color(0xFF2A2D34),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -429,7 +442,11 @@ private fun RecipeDetailScreenContent(
                         author = recipe.author,
                         image = recipe.imageRes,
                         imageUrl = recipe.imageUrl,
-                        recipeId = recipe.recipeId
+                        recipeId = recipe.recipeId,
+                        userEmail = recipe.userEmail,
+                        createdAt = recipe.createdAt,
+                        rating = recipe.rating,
+                        reviews = recipe.reviews
                     )
                 }
             } else if (methodGroup == null) {
@@ -530,7 +547,11 @@ data class RecipeItem(
     val author: String,
     val image: Int,
     val imageUrl: String? = null,
-    val recipeId: String? = null
+    val recipeId: String? = null,
+    val userEmail: String? = null,
+    val createdAt: String? = null,
+    val rating: Double = 0.0,
+    val reviews: Int = 0
 )
 
 @Composable
@@ -542,7 +563,7 @@ fun RecipeCardItem(recipe: RecipeItem, navController: NavController? = null) {
             .clickable(enabled = navController != null && recipe.recipeId != null) {
                 navController?.navigate("user_recipe_info/${recipe.recipeId}")
             },
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Row(modifier = Modifier.padding(12.dp)) {
             if (recipe.imageUrl != null) {
@@ -553,7 +574,7 @@ fun RecipeCardItem(recipe: RecipeItem, navController: NavController? = null) {
                         .build(),
                     contentDescription = recipe.title,
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(100.dp)
                         .clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Crop,
                     error = painterResource(id = recipe.image),
@@ -564,34 +585,65 @@ fun RecipeCardItem(recipe: RecipeItem, navController: NavController? = null) {
                     painter = painterResource(id = recipe.image),
                     contentDescription = recipe.title,
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     recipe.title,
-                    fontSize = 15.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("${recipe.time} | ${recipe.servings}", color = Color.Gray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(6.dp))
+                
+                // Người đăng
+                if (!recipe.userEmail.isNullOrBlank()) {
+                    Text(
+                        text = "Người đăng: ${recipe.userEmail}",
+                        fontSize = 13.sp,
+                        color = Color(0xFF00BFA5),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                
+                // Đăng ngày
+                if (!recipe.createdAt.isNullOrBlank()) {
+                    Text(
+                        text = "Đăng ngày: ${recipe.createdAt}",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+                
+                // Rating
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
+                    repeat(5) { index ->
+                        Icon(
+                            imageVector = if (index < recipe.rating.toInt()) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (index < recipe.rating.toInt()) Color(0xFFFFD700) else Color(0xFFE5E7EB)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "!",
+                        text = "${String.format("%.1f", recipe.rating)}/5 (${recipe.reviews} đánh giá)",
                         fontSize = 12.sp,
-                        color = Color(0xFF20B2AA),
-                        fontWeight = FontWeight.Bold
+                        color = Color.Gray
                     )
-                    Text(recipe.author, color = Color(0xFF20B2AA), fontSize = 12.sp)
                 }
             }
         }
@@ -614,11 +666,12 @@ fun MethodGroupViewersRow(
                     .background(Color.White, CircleShape)
                     .then(
                         if (index > 0) {
-                            Modifier.offset(x = (-8 * index).dp)
+                            Modifier.offset(x = (-12 * index).dp)
                         } else {
                             Modifier
                         }
                     )
+                    .zIndex((viewers.size - index).toFloat())
             ) {
                 if (!viewer.avatarUrl.isNullOrBlank()) {
                     AsyncImage(

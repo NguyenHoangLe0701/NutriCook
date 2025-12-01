@@ -82,7 +82,11 @@ data class MethodGroupRecipe(
     val servings: String,
     val imageUrl: String?,
     val author: String,
-    val imageRes: Int = R.drawable.beefandcabbage
+    val imageRes: Int = R.drawable.beefandcabbage,
+    val userEmail: String? = null,
+    val createdAt: String? = null,
+    val rating: Double = 0.0,
+    val reviews: Int = 0
 )
 
 @Composable
@@ -261,6 +265,12 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     val firstImageUrl = imageUrls.firstOrNull() as? String
                     val docId = map["docId"] as? String ?: ""
                     val userEmail = map["userEmail"] as? String ?: ""
+                    val createdAt = map["createdAt"] as? com.google.firebase.Timestamp
+                    val createdAtStr = createdAt?.toDate()?.let { date ->
+                        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(date)
+                    }
+                    val rating = (map["rating"] as? Number)?.toDouble() ?: 0.0
+                    val reviews = (map["reviews"] as? Number)?.toInt() ?: 0
                     
                     MethodGroupRecipe(
                         recipeId = docId,
@@ -270,7 +280,11 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                         servings = map["servings"] as? String ?: "1",
                         imageUrl = firstImageUrl,
                         author = userEmail.split("@").firstOrNull() ?: "Unknown",
-                        imageRes = R.drawable.beefandcabbage
+                        imageRes = R.drawable.beefandcabbage,
+                        userEmail = userEmail,
+                        createdAt = createdAtStr,
+                        rating = rating,
+                        reviews = reviews
                     )
                 } else {
                     null

@@ -443,7 +443,7 @@ fun FoodDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Nutrition Facts",
+                                text = "Thông tin dinh dưỡng",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1C1C1E)
@@ -451,7 +451,7 @@ fun FoodDetailScreen(
                         }
                         
                         NutritionFactItem(
-                            label = "Total Fat",
+                            label = "Tổng chất béo",
                             value = "${String.format("%.2f", nutritionData.fat)}g",
                             percent = nutritionData.getFatPercent()
                         )
@@ -462,27 +462,28 @@ fun FoodDetailScreen(
                             valueColor = Color(0xFF00BFA5)
                         )
                         NutritionFactItem(
-                            label = "Sodium",
+                            label = "Natri",
                             value = "${nutritionData.sodium.toInt()}mg",
                             percent = nutritionData.getSodiumPercent(),
                             valueColor = Color(0xFF10B981)
                         )
                         NutritionFactItem(
-                            label = "Total Carbohydrate",
+                            label = "Tổng carbohydrate",
                             value = "${String.format("%.2f", nutritionData.carbs)}g",
                             percent = nutritionData.getCarbsPercent(),
                             valueColor = Color(0xFF10B981)
                         )
                         NutritionFactItem(
-                            label = "Protein",
+                            label = "Chất đạm",
                             value = "${String.format("%.2f", nutritionData.protein)}g",
                             percent = nutritionData.getProteinPercent(),
                             valueColor = Color(0xFF10B981)
                         )
-                        
-                        // Vitamin section (expandable)
-                        ExpandableVitaminSection(
-                            vitaminPercent = nutritionData.getVitaminPercent()
+                        NutritionFactItem(
+                            label = "Vitamin",
+                            value = "",
+                            percent = nutritionData.getVitaminPercent(),
+                            valueColor = Color(0xFF1C1C1E)
                         )
                     }
                 }
@@ -716,131 +717,6 @@ private fun NutritionFactItem(
         color = Color(0xFFE5E7EB),
         thickness = 1.dp
     )
-}
-
-@Composable
-private fun ExpandableVitaminSection(vitaminPercent: Int) {
-    var isExpanded by remember { mutableStateOf(false) }
-    
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { isExpanded = !isExpanded }
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFF9800).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "⚡",
-                        fontSize = 12.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Vitamin",
-                    fontSize = 15.sp,
-                    color = Color(0xFF1C1C1E)
-                )
-            }
-            Text(
-                text = "$vitaminPercent%",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1C1C1E)
-            )
-        }
-        
-        if (isExpanded) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 36.dp)
-            ) {
-                VitaminSubItem("Vitamin D", "-", null, Color(0xFFEF4444))
-                VitaminSubItem("Calcium", "13mg", 1, Color(0xFF1C1C1E))
-                VitaminSubItem("Iron", "0.28mg", 2, Color(0xFF1C1C1E))
-                VitaminSubItem("Potassium", "115mg", 2, Color(0xFF1C1C1E))
-                VitaminSubItem("Vitamin A", "3mcg", 0, Color(0xFF3B82F6))
-                VitaminSubItem("Vitamin C", "36.2mg", 40, Color(0xFFFFD700))
-            }
-        }
-        
-        HorizontalDivider(
-            modifier = Modifier.padding(top = 12.dp),
-            color = Color(0xFFE5E7EB),
-            thickness = 1.dp
-        )
-    }
-}
-
-@Composable
-private fun VitaminSubItem(
-    label: String,
-    value: String,
-    percent: Int?,
-    labelColor: Color
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFFF9800).copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "⚡",
-                    fontSize = 10.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = label,
-                    fontSize = 14.sp,
-                    color = labelColor,
-                    fontWeight = FontWeight.Medium
-                )
-                if (value != "-") {
-                    Text(
-                        text = value,
-                        fontSize = 12.sp,
-                        color = Color(0xFF9CA3AF)
-                    )
-                }
-            }
-        }
-        if (percent != null) {
-            Text(
-                text = "$percent%",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1C1C1E)
-            )
-        }
-    }
 }
 
 private fun parseCalories(caloriesStr: String): Double {
