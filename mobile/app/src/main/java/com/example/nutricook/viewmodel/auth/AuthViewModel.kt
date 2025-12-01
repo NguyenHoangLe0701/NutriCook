@@ -9,17 +9,21 @@ import com.example.nutricook.model.repository.auth.LoginRepository
 import com.example.nutricook.model.repository.auth.RegisterRepository
 import com.example.nutricook.model.repository.auth.SessionRepository
 import com.google.firebase.FirebaseException
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -36,6 +40,7 @@ class AuthViewModel @Inject constructor(
     val uiState: StateFlow<AuthState> = _uiState.asStateFlow()
 
     init {
+        // Lắng nghe trạng thái đăng nhập (Session)
         viewModelScope.launch {
             sessionRepo.currentUser
                 .distinctUntilChanged()
@@ -58,7 +63,7 @@ class AuthViewModel @Inject constructor(
             is AuthEvent.ConfirmPasswordChanged -> _uiState.update { it.copy(confirmPassword = event.value) }
 
             AuthEvent.SubmitLogin -> signInEmailPassword()
-            AuthEvent.SubmitRegister -> signUpEmailPassword()
+            is AuthEvent.SubmitRegister -> signUpEmailPassword(event.fullName)
 
             is AuthEvent.SubmitForgotPassword -> forgotPassword(event.email)
             is AuthEvent.SubmitResetNewPassword -> resetNewPassword(event.oobCode, event.newPass)
@@ -69,6 +74,10 @@ class AuthViewModel @Inject constructor(
 
             is AuthEvent.GoogleIdToken -> signInWithGoogle(event.idToken)
             AuthEvent.ConsumeMessage -> _uiState.update { it.copy(message = null) }
+
+            // 👇 LOGIC MỚI: Reset cờ isAuthSuccess/isRegisterSuccess sau khi điều hướng
+            AuthEvent.ConsumeAuthSuccess -> _uiState.update { it.copy(isAuthSuccess = false, isRegisterSuccess = false) }
+
             AuthEvent.Logout -> signOut()
         }
     }
@@ -88,35 +97,69 @@ class AuthViewModel @Inject constructor(
 
         val result = loginRepo.signIn(email, pass)
         result.onSuccess {
-            _uiState.update { it.copy(isLoading = false, message = "Đăng nhập thành công", isAuthSuccess = true) }
+            // [LOGIC MỚI] Kiểm tra Email Verified ngay sau khi đăng nhập thành công
+            val isVerified = verificationRepo.checkEmailVerified()
+            if (isVerified) {
+                _uiState.update { it.copy(isLoading = false, message = "Đăng nhập thành công", isAuthSuccess = true) }
+            } else {
+                // Nếu chưa xác thực -> Đăng xuất ngay lập tức
+                sessionRepo.signOut()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        message = "Email chưa được xác thực. Vui lòng kiểm tra hộp thư!",
+                        isAuthSuccess = false // Chặn không cho vào Home
+                    )
+                }
+            }
         }.onFailure { e ->
             _uiState.update { it.copy(isLoading = false, message = e.message ?: "Đăng nhập thất bại") }
         }
     }
 
-    private fun signUpEmailPassword() = viewModelScope.launch {
+    // Hàm đăng ký đã cập nhật logic lưu tên và verify email
+    private fun signUpEmailPassword(fullName: String) = viewModelScope.launch {
         val email = _uiState.value.email.trim()
         val pass = _uiState.value.password
         val confirmPass = _uiState.value.confirmPassword
 
+        if (fullName.isBlank()) {
+            _uiState.update { it.copy(message = "Vui lòng nhập họ tên") }
+            return@launch
+        }
         if (email.isEmpty() || pass.length < 6) {
             _uiState.update { it.copy(message = "Mật khẩu >= 6 ký tự & email hợp lệ") }
             return@launch
         }
         if (pass != confirmPass) {
-            _uiState.update { it.copy(message = "Mật khẩu xác nhận không khớp") }
+            _uiState.update { it.copy(message = "Mật khẩu không khớp") }
             return@launch
         }
 
         _uiState.update { it.copy(isLoading = true, message = null) }
 
+        // 1. Gọi Repo tạo tài khoản
         val result = registerRepo.signUp(email, pass)
+
         result.onSuccess {
+            // 2. Cập nhật Display Name lên Firebase ngay lập tức
+            try {
+                val user = FirebaseAuth.getInstance().currentUser
+                val profileUpdates = UserProfileChangeRequest.Builder()
+                    .setDisplayName(fullName)
+                    .build()
+                user?.updateProfile(profileUpdates)
+            } catch (e: Exception) {
+                // Log lỗi cập nhật tên nếu cần
+            }
+
+            // 3. Báo thành công về UI -> Chuyển sang màn hình Verify Email
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    message = "Đăng ký thành công! Đã gửi email xác thực.",
-                    isAuthSuccess = true
+                    message = "Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt.",
+                    isRegisterSuccess = true, // Báo UI chuyển màn hình
+                    isAuthSuccess = false     // Không vào Home ngay
                 )
             }
         }.onFailure { e ->
@@ -124,6 +167,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // 👇 HÀM FORGOT PASSWORD MỚI: Chỉ gửi email và set cờ chuyển màn hình
     private fun forgotPassword(email: String) = viewModelScope.launch {
         if (email.isBlank()) {
             _uiState.update { it.copy(message = "Vui lòng nhập email") }
@@ -134,12 +178,21 @@ class AuthViewModel @Inject constructor(
 
         val result = forgotPasswordRepo.sendPasswordResetEmail(email)
         result.onSuccess {
-            _uiState.update { it.copy(isLoading = false, message = "Đã gửi email khôi phục. Vui lòng kiểm tra hộp thư.") }
+            // 👇 QUAN TRỌNG: Dùng isAuthSuccess để trigger chuyển màn hình sang Manual Reset
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    // Message này được ForgotPasswordScreen dùng để phân biệt sự kiện thành công
+                    message = "Đã gửi email khôi phục. Vui lòng kiểm tra hộp thư.",
+                    isAuthSuccess = true
+                )
+            }
         }.onFailure { e ->
             _uiState.update { it.copy(isLoading = false, message = e.message ?: "Gửi email thất bại") }
         }
     }
 
+    // 👇 HÀM RESET NEW PASSWORD MỚI: Xử lý nhập mã thủ công và set cờ chuyển Login
     private fun resetNewPassword(oobCode: String, newPass: String) = viewModelScope.launch {
         val confirmPass = _uiState.value.confirmPassword
 
@@ -159,12 +212,26 @@ class AuthViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    message = "Đổi mật khẩu thành công! Vui lòng đăng nhập lại.",
-                    isAuthSuccess = true
+                    message = "Đổi mật khẩu thành công!", // ManualResetCodeScreen sẽ đọc message này
+                    isAuthSuccess = true // <-- Trigger ManualResetCodeScreen chuyển về Login
                 )
             }
         }.onFailure { e ->
             _uiState.update { it.copy(isLoading = false, message = e.message ?: "Đổi mật khẩu thất bại") }
+        }
+    }
+
+    // Hàm tự động kiểm tra trạng thái verify (được gọi từ VerifyEmailScreen)
+    fun startEmailVerificationCheck() = viewModelScope.launch {
+        while (isActive) {
+            val isVerified = verificationRepo.checkEmailVerified()
+
+            if (isVerified) {
+                _uiState.update { it.copy(isEmailVerified = true, message = "Xác thực thành công!") }
+                break
+            }
+
+            delay(3000) // Chờ 3 giây rồi check lại
         }
     }
 
@@ -174,7 +241,6 @@ class AuthViewModel @Inject constructor(
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                 viewModelScope.launch {
-                    // [ĐÃ SỬA] Gọi linkPhoneCredential từ repo
                     verificationRepo.linkPhoneCredential(credential)
                     _uiState.update { it.copy(isLoading = false, message = "Tự động xác thực thành công!") }
                 }
@@ -248,7 +314,6 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // [ĐÃ SỬA] Đổi từ private -> public để NavGraph gọi được
     fun signOut() = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true) }
         sessionRepo.signOut()

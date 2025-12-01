@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ⚠️ Bổ sung quyền gửi thông báo cho Android 13+ -->
+    <!-- Các quyền cần thiết -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
-    <!-- Quyền Foreground Service cho Android 14+ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
-    
-    <!-- Quyền đọc ảnh từ bộ sưu tập -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
@@ -22,29 +19,52 @@
         android:theme="@style/Theme.NutriCook"
         android:usesCleartextTraffic="true">
 
+        <!-- Chặn Facebook Init tự động gây lỗi -->
+        <provider
+            android:name="com.facebook.internal.FacebookInitProvider"
+            android:authorities="${applicationId}.FacebookInitProvider"
+            android:exported="false"
+            tools:node="remove" />
+
+        <!-- Cập nhật launchMode="singleTop" để xử lý Deep Link mượt mà -->
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- 👇 CẤU HÌNH DEEP LINK ĐỂ BẮT LINK TỪ EMAIL 👇 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <!-- Scheme https -->
+                <data android:scheme="https" />
+                <!-- Host của Firebase App (Lấy từ link trong email của bạn) -->
+                <data android:host="nutricook-fff8f.firebaseapp.com" />
+                <!-- Path bắt buộc phải là /__/auth/action để khớp với link Firebase gửi -->
+                <data android:pathPrefix="/__/auth/action" />
+            </intent-filter>
+            <!-- 👆 KẾT THÚC CẤU HÌNH DEEP LINK 👆 -->
+
         </activity>
 
-        <!-- 👇 Khai báo BroadcastReceiver để nhận lịch nhắc -->
         <receiver
             android:name=".view.notifications.ReminderReceiver"
             android:exported="true" />
-        
-        <!-- 👇 Khai báo ExerciseService cho timer tập thể dục -->
+
         <service
             android:name=".service.ExerciseService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="health" />
-        
-        <!-- 👇 Khai báo FirebaseMessagingService để nhận push notifications -->
+
         <service
             android:name=".service.NutriCookMessagingService"
             android:exported="false">

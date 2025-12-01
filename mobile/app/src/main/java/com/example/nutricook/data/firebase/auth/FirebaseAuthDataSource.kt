@@ -1,6 +1,7 @@
 package com.example.nutricook.data.firebase.auth
 
 import android.app.Activity
+import com.google.firebase.auth.ActionCodeSettings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.PhoneAuthCredential
@@ -41,10 +42,23 @@ class FirebaseAuthDataSource @Inject constructor(
 
     fun signOut() = auth.signOut()
 
-    // --- Chức năng: Quên mật khẩu ---
+    // --- Chức năng: Quên mật khẩu (CÓ SỬA ĐỔI) ---
 
     suspend fun sendPasswordResetEmail(email: String) {
-        auth.sendPasswordResetEmail(email).await()
+        // Cấu hình để khi bấm link sẽ mở App thay vì mở Web
+        val actionCodeSettings = ActionCodeSettings.newBuilder()
+            // URL này phải là link Hosting của Firebase hoặc Dynamic Link
+            // Khi bấm vào, nó sẽ chuyển tiếp kèm theo oobCode
+            .setUrl("https://nutricook-fff8f.firebaseapp.com/reset_password")
+            .setHandleCodeInApp(true) // Quan trọng: Báo Firebase là xử lý trong App
+            .setAndroidPackageName(
+                "com.example.nutricook", // Package name của app bạn
+                true, // installIfNotAvailable
+                "1"   // minimumVersion
+            )
+            .build()
+
+        auth.sendPasswordResetEmail(email, actionCodeSettings).await()
     }
 
     // Xác nhận đổi mật khẩu mới từ mã code (Deep Link)

@@ -19,13 +19,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.example.nutricook.R
-// Import các màn hình Auth mới
+// Import các màn hình Auth
 import com.example.nutricook.view.auth.ForgotPasswordScreen
+import com.example.nutricook.view.auth.ManualResetCodeScreen // 👇 IMPORT MỚI
 import com.example.nutricook.view.auth.NewPasswordScreen
 import com.example.nutricook.view.auth.PhoneVerificationScreen
 import com.example.nutricook.view.articles.ArticleDetailScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
+import com.example.nutricook.view.auth.VerifyEmailScreen
 import com.example.nutricook.view.categories.CategoriesScreen
 import com.example.nutricook.view.categories.FoodDetailScreen
 import com.example.nutricook.view.debug.DataSeedScreen
@@ -77,7 +79,6 @@ fun NavGraph(navController: NavHostController) {
     val authVm: AuthViewModel = hiltViewModel()
     val authState by authVm.uiState.collectAsState()
 
-    // Share CreateRecipeViewModel across all recipe creation steps
     val createRecipeViewModel: CreateRecipeViewModel = hiltViewModel()
 
     val startDestination = if (authState.currentUser != null) "home" else "intro"
@@ -113,36 +114,68 @@ fun NavGraph(navController: NavHostController) {
             LoginScreen(
                 onGoRegister = { navController.navigate("register") },
                 onBack = { navController.popBackStack() },
-                // [ĐÃ SỬA] Điều hướng sang màn hình quên mật khẩu
                 onForgotPassword = { navController.navigate("forgot_password") },
                 vm = authVm
             )
         }
+
+        // Màn hình Đăng ký: Xong thì sang Verify Email
         composable("register") {
             RegisterScreen(
                 onGoLogin = { navController.navigate("login") { launchSingleTop = true } },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onRegisterSuccess = { email ->
+                    navController.navigate("verify_email/$email") {
+                        popUpTo("register") { inclusive = true }
+                    }
+                }
             )
         }
 
-        // [MỚI] Màn hình Quên Mật Khẩu
+        // Màn hình Verify Email: Xong thì vào Home
+        composable(
+            route = "verify_email/{email}",
+            arguments = listOf(navArgument("email") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: ""
+            VerifyEmailScreen(
+                email = email,
+                onNavigateToHome = {
+                    navController.navigate("home") {
+                        popUpTo("intro") { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        // 👇 ĐÃ SỬA: Forgot Password -> Chuyển sang Manual Code Reset
         composable("forgot_password") {
             ForgotPasswordScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToManualCodeReset = { navController.navigate("manual_code_reset") }
             )
         }
 
-        // [MỚI] Màn hình Xác thực SĐT (OTP)
-        // Lưu ý: Có thể gọi từ Settings hoặc sau khi Register tùy logic của bạn
+        // 👇 THÊM MÀN HÌNH: Nhập Mã Khôi Phục Thủ Công
+        composable("manual_code_reset") {
+            ManualResetCodeScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToLogin = {
+                    navController.navigate("login") {
+                        popUpTo("forgot_password") { inclusive = true } // Xóa màn hình Forgot Password khỏi backstack
+                    }
+                }
+            )
+        }
+
         composable("phone_verification") {
             PhoneVerificationScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
-        // [MỚI] Màn hình Đặt lại Mật khẩu mới
-        // Route này nhận tham số oobCode (Mã xác thực từ email deep link)
-        // Ví dụ deep link: nutricook://auth/reset_password?oobCode=...
+        // Màn hình New Password (Giữ lại cho Deep Link, nhưng sẽ dẫn đến ManualResetCodeScreen nếu cần)
         composable(
             route = "new_password?oobCode={oobCode}",
             arguments = listOf(
@@ -151,21 +184,32 @@ fun NavGraph(navController: NavHostController) {
                     defaultValue = ""
                 }
             ),
-            // Cấu hình Deep Link (Cần khai báo thêm trong AndroidManifest.xml để hoạt động thật)
             deepLinks = listOf(
-                navDeepLink { uriPattern = "https://nutricook.example.com/reset_password?oobCode={oobCode}" }
+                navDeepLink { uriPattern = "https://nutricook-fff8f.firebaseapp.com/__/auth/action?apiKey={apiKey}&mode=resetPassword&oobCode={oobCode}&continueUrl={continueUrl}&lang={lang}" }
             )
         ) { backStackEntry ->
             val oobCode = backStackEntry.arguments?.getString("oobCode") ?: ""
-            NewPasswordScreen(
-                oobCode = oobCode,
-                onNavigateToLogin = {
-                    // Quay về login và xóa backstack để user phải đăng nhập lại với pass mới
-                    navController.navigate("login") {
-                        popUpTo("intro") { inclusive = true }
+
+            // Xử lý luồng: Nếu app được mở bằng Deep Link, ta dùng oobCode đó
+            // và chuyển hướng đến màn hình nhập mật khẩu mới.
+            if (oobCode.isNotBlank()) {
+                // Nếu có Deep Link, chuyển đến màn hình nhập mã thủ công,
+                // nhưng phải truyền oobCode này cho ManualResetCodeScreen nếu nó có hỗ trợ (hiện tại thì không)
+                // Tốt nhất là giữ nguyên NewPasswordScreen cho luồng Deep Link
+                NewPasswordScreen(
+                    oobCode = oobCode,
+                    onNavigateToLogin = {
+                        navController.navigate("login") {
+                            popUpTo("intro") { inclusive = true }
+                        }
                     }
+                )
+            } else {
+                // Nếu không có Deep Link, quay về màn Forgot Password hoặc Login
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Lỗi: Không tìm thấy mã khôi phục oobCode. Vui lòng thử lại từ email.")
                 }
-            )
+            }
         }
 
 
@@ -230,7 +274,6 @@ fun NavGraph(navController: NavHostController) {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("recent_activity/$uid")
                 },
-                // [ĐÃ SỬA] Xóa onEditAvatar vì ProfileScreen không cần nữa
                 onOpenPosts = {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen
                     navController.navigate("posts/$uid")
@@ -253,7 +296,7 @@ fun NavGraph(navController: NavHostController) {
         ) {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    NewsfeedScreen() // Có thể custom để filter theo userId sau này
+                    NewsfeedScreen()
                 }
             }
         }
@@ -502,7 +545,7 @@ fun NavGraph(navController: NavHostController) {
             val nutritionVm: com.example.nutricook.viewmodel.nutrition.NutritionViewModel = hiltViewModel()
             CustomFoodCalculatorScreen(
                 navController = navController,
-                onSave = { name, calories, protein, fat, carb ->
+                onSave = { _, calories, protein, fat, carb ->
                     nutritionVm.updateTodayNutrition(calories, protein, fat, carb)
                 }
             )

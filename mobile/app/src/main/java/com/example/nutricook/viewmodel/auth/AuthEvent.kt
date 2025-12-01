@@ -7,18 +7,20 @@ sealed class AuthEvent {
     data class EmailChanged(val value: String) : AuthEvent()
     data class PasswordChanged(val value: String) : AuthEvent()
 
-    // Thêm: Nhập lại mật khẩu (Dùng cho Đăng ký & Đổi mật khẩu mới)
+    // Nhập lại mật khẩu (Dùng cho Đăng ký & Đổi mật khẩu mới)
     data class ConfirmPasswordChanged(val value: String) : AuthEvent()
 
     // --- Các hành động Submit (Nút bấm) ---
     data object SubmitLogin : AuthEvent()
-    data object SubmitRegister : AuthEvent()
+
+    // ĐÃ SỬA: Thêm tham số fullName để truyền tên người dùng vào ViewModel
+    data class SubmitRegister(val fullName: String) : AuthEvent()
 
     // --- Chức năng Quên Mật Khẩu ---
     // Màn hình 1: Gửi yêu cầu reset qua email
     data class SubmitForgotPassword(val email: String) : AuthEvent()
 
-    // Màn hình 2: Đặt lại mật khẩu mới (cần mã oobCode từ link email và mật khẩu mới user nhập)
+    // Màn hình 2: Đặt lại mật khẩu mới (cần mã oobCode từ email và mật khẩu mới user nhập)
     data class SubmitResetNewPassword(val oobCode: String, val newPass: String) : AuthEvent()
 
     // --- Chức năng Xác thực (Phone & Email) ---
@@ -37,6 +39,9 @@ sealed class AuthEvent {
 
     // Xóa thông báo lỗi sau khi đã hiển thị (Toast/Snackbar)
     data object ConsumeMessage : AuthEvent()
+
+    // 👇 THÊM: Xóa trạng thái isAuthSuccess sau khi đã điều hướng
+    data object ConsumeAuthSuccess : AuthEvent()
 
     // Đăng xuất
     data object Logout : AuthEvent()

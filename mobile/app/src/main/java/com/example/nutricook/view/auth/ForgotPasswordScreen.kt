@@ -19,14 +19,35 @@ import com.example.nutricook.viewmodel.auth.AuthViewModel
 @Composable
 fun ForgotPasswordScreen(
     onNavigateBack: () -> Unit,
+    // 👇 THÊM: Callback điều hướng đến màn hình nhập mã thủ công
+    onNavigateToManualCodeReset: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    // Xử lý khi gửi email thành công -> Chuyển màn hình
+    LaunchedEffect(uiState.isAuthSuccess) {
+        // Kiểm tra cờ isAuthSuccess (được set true khi gửi email thành công trong ViewModel)
+        if (uiState.isAuthSuccess && uiState.message?.contains("khôi phục") == true) {
+            // Hiển thị thông báo (Toast)
+            Toast.makeText(context, "Đã gửi email khôi phục. Kiểm tra hộp thư.", Toast.LENGTH_LONG).show()
+
+            // Xóa cờ thành công để không bị kích hoạt lại khi quay lại màn hình
+            viewModel.onEvent(AuthEvent.ConsumeAuthSuccess)
+
+            // Điều hướng sang màn hình nhập mã
+            onNavigateToManualCodeReset()
+        }
+    }
+
+    // Xử lý thông báo lỗi/thành công từ ViewModel (Toast)
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            // Chỉ hiện Toast nếu không phải là thông báo thành công (tránh double-Toast khi chuyển trang)
+            if (it.contains("khôi phục").not()) {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            }
             viewModel.onEvent(AuthEvent.ConsumeMessage)
         }
     }
@@ -49,7 +70,7 @@ fun ForgotPasswordScreen(
 
             BigAuthTitle("Quên mật khẩu")
             Spacer(modifier = Modifier.height(12.dp))
-            BigAuthSubtitle("Đừng lo! Nhập email của bạn để lấy lại mật khẩu nhé. \uD83E\uDD14")
+            BigAuthSubtitle("Đừng lo! Nhập email của bạn để gửi yêu cầu lấy lại mật khẩu. Bạn sẽ nhận được Mã khôi phục (oobCode) qua email. \uD83E\uDD14")
 
             Spacer(modifier = Modifier.height(50.dp))
 
@@ -65,7 +86,14 @@ fun ForgotPasswordScreen(
             BigAuthButton(
                 text = "Gửi yêu cầu",
                 isLoading = uiState.isLoading,
-                onClick = { viewModel.onEvent(AuthEvent.SubmitForgotPassword(uiState.email)) }
+                onClick = {
+                    if (uiState.email.isBlank()) {
+                        Toast.makeText(context, "Vui lòng nhập Email", Toast.LENGTH_SHORT).show()
+                    } else {
+                        // Gửi sự kiện gửi email
+                        viewModel.onEvent(AuthEvent.SubmitForgotPassword(uiState.email))
+                    }
+                }
             )
         }
     }
