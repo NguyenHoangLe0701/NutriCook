@@ -278,7 +278,7 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f),
                         placeholder = {
                             Text(
-                                "Tìm kiếm công thức, thực phẩm, tin tức...",
+                                "Tìm kiếm nguyên liệu...",
                                 color = Color.Gray
                             )
                         },
