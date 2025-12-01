@@ -25,6 +25,11 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor 
             String dbName = dotenv.get("DB_NAME");
             String dbUser = dotenv.get("DB_USER");
             String dbPass = dotenv.get("DB_PASS");
+            
+            // Cloudinary credentials
+            String cloudName = dotenv.get("CLOUDINARY_CLOUD_NAME");
+            String apiKey = dotenv.get("CLOUDINARY_API_KEY");
+            String apiSecret = dotenv.get("CLOUDINARY_API_SECRET");
 
             if (dbHost != null) {
                 map.put("DB_HOST", dbHost);
@@ -41,6 +46,20 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor 
             if (dbPass != null) {
                 map.put("DB_PASS", dbPass);
                 System.setProperty("DB_PASS", dbPass);
+            }
+            
+            // Set Cloudinary environment variables
+            if (cloudName != null) {
+                map.put("CLOUDINARY_CLOUD_NAME", cloudName);
+                System.setProperty("CLOUDINARY_CLOUD_NAME", cloudName);
+            }
+            if (apiKey != null) {
+                map.put("CLOUDINARY_API_KEY", apiKey);
+                System.setProperty("CLOUDINARY_API_KEY", apiKey);
+            }
+            if (apiSecret != null) {
+                map.put("CLOUDINARY_API_SECRET", apiSecret);
+                System.setProperty("CLOUDINARY_API_SECRET", apiSecret);
             }
 
             // Additionally set spring.datasource.* properties directly so DataSource resolves

@@ -167,7 +167,7 @@ fun FoodItemCard(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Hiển thị ảnh từ URL nếu có, nếu không thì hiển thị placeholder
-            if (food.imageUrl.isNotBlank()) {
+            if (food.imageUrl.isNotBlank() && food.imageUrl.isNotEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(food.imageUrl)
@@ -179,7 +179,10 @@ fun FoodItemCard(
                         .clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.Crop,
                     error = painterResource(id = R.drawable.cabbage),
-                    placeholder = painterResource(id = R.drawable.cabbage)
+                    placeholder = painterResource(id = R.drawable.cabbage),
+                    onError = { 
+                        android.util.Log.e("CategoriesScreen", "Error loading image: ${food.imageUrl}")
+                    }
                 )
             } else {
                 // Hiển thị placeholder khi không có imageUrl

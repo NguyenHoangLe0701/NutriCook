@@ -57,6 +57,11 @@ fun FoodDetailScreen(
                 selectedQuantity = when (it.unit.lowercase()) {
                     "ml", "l" -> "100 ml"
                     "quả", "cái" -> "1 quả"
+                    "cốc" -> "1 cốc"
+                    "thìa canh" -> "1 thìa canh"
+                    "thìa cà phê" -> "1 thìa cà phê"
+                    "lát" -> "1 lát"
+                    "tép" -> "1 tép"
                     else -> "100 g"
                 }
             }
@@ -79,28 +84,47 @@ fun FoodDetailScreen(
             vitamin = foodItem!!.vitamin
         )
         
-        // Parse quantity và tính multiplier
+        // Parse quantity và tính multiplier dựa trên unit của foodItem
         val multiplier = when {
-            selectedQuantity.contains("oz", ignoreCase = true) -> {
-                // 1 oz ≈ 28.35g, tính trên 100g
-                val ozValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 1.0
-                (ozValue * 28.35) / 100.0
-            }
             selectedQuantity.contains("ml", ignoreCase = true) -> {
                 val mlValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 100.0
                 mlValue / 100.0
+            }
+            selectedQuantity.contains("l", ignoreCase = true) && !selectedQuantity.contains("ml", ignoreCase = true) -> {
+                val lValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 1.0
+                (lValue * 1000.0) / 100.0 // 1 l = 1000ml, tính trên 100ml
+            }
+            selectedQuantity.contains("kg", ignoreCase = true) -> {
+                val kgValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 1.0
+                (kgValue * 1000.0) / 100.0 // 1 kg = 1000g, tính trên 100g
             }
             selectedQuantity.contains("g", ignoreCase = true) -> {
                 val gValue = selectedQuantity.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 100.0
                 gValue / 100.0
             }
             selectedQuantity.contains("quả", ignoreCase = true) || selectedQuantity.contains("cái", ignoreCase = true) -> {
-                // Giả sử 1 quả ≈ 100g
-                1.0
+                val count = selectedQuantity.filter { it.isDigit() }.toIntOrNull() ?: 1
+                count.toDouble() // Mỗi quả = 1x giá trị trên 100g
             }
             selectedQuantity.contains("cốc", ignoreCase = true) -> {
-                // 1 cốc ≈ 240ml ≈ 240g
-                2.4
+                val count = selectedQuantity.filter { it.isDigit() }.toIntOrNull() ?: 1
+                count * 2.4 // 1 cốc ≈ 240ml ≈ 240g
+            }
+            selectedQuantity.contains("thìa canh", ignoreCase = true) -> {
+                val count = selectedQuantity.filter { it.isDigit() }.toIntOrNull() ?: 1
+                count * 0.15 // 1 thìa canh ≈ 15ml ≈ 15g
+            }
+            selectedQuantity.contains("thìa cà phê", ignoreCase = true) -> {
+                val count = selectedQuantity.filter { it.isDigit() }.toIntOrNull() ?: 1
+                count * 0.05 // 1 thìa cà phê ≈ 5ml ≈ 5g
+            }
+            selectedQuantity.contains("lát", ignoreCase = true) -> {
+                val count = selectedQuantity.filter { it.isDigit() }.toIntOrNull() ?: 1
+                count * 0.5 // Giả sử 1 lát ≈ 50g
+            }
+            selectedQuantity.contains("tép", ignoreCase = true) -> {
+                val count = selectedQuantity.filter { it.isDigit() }.toIntOrNull() ?: 1
+                count * 0.3 // Giả sử 1 tép ≈ 30g
             }
             else -> 1.0
         }
@@ -201,7 +225,7 @@ fun FoodDetailScreen(
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                        if (foodItem!!.imageUrl.isNotBlank()) {
+                        if (foodItem!!.imageUrl.isNotBlank() && foodItem!!.imageUrl.isNotEmpty()) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
                                     .data(foodItem!!.imageUrl)
@@ -211,7 +235,10 @@ fun FoodDetailScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit,
                                 error = painterResource(id = R.drawable.cabbage),
-                                placeholder = painterResource(id = R.drawable.cabbage)
+                                placeholder = painterResource(id = R.drawable.cabbage),
+                                onError = { 
+                                    android.util.Log.e("FoodDetailScreen", "Error loading image: ${foodItem!!.imageUrl}")
+                                }
                             )
                         } else {
                             Image(
@@ -233,19 +260,38 @@ fun FoodDetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
-                    // Tạo danh sách quantity options dựa trên unit của foodItem
+                    // Tạo danh sách quantity options dựa trên unit của foodItem (xóa "1 oz" và "1 quả")
                     val quantityOptions = remember(foodItem?.unit) {
                         when (foodItem?.unit?.lowercase()) {
-                            "ml", "l" -> listOf("1 oz", "100 ml", "1 cốc")
-                            "quả", "cái" -> listOf("1 oz", "100 g", "1 quả")
-                            else -> listOf("1 oz", "100 g", "1 quả")
+                            "ml", "l" -> listOf("100 ml", "250 ml", "500 ml", "1 l")
+                            "quả", "cái" -> listOf("1 quả", "2 quả", "3 quả")
+                            "cốc" -> listOf("1 cốc", "2 cốc", "3 cốc")
+                            "thìa canh" -> listOf("1 thìa canh", "2 thìa canh", "3 thìa canh")
+                            "thìa cà phê" -> listOf("1 thìa cà phê", "2 thìa cà phê", "3 thìa cà phê")
+                            "lát" -> listOf("1 lát", "2 lát", "3 lát")
+                            "tép" -> listOf("1 tép", "2 tép", "3 tép")
+                            "kg" -> listOf("100 g", "250 g", "500 g", "1 kg")
+                            else -> listOf("100 g", "250 g", "500 g", "1 kg") // Mặc định cho "g"
                         }
                     }
                     
                     // Đảm bảo selectedQuantity có trong danh sách
-                    LaunchedEffect(quantityOptions) {
-                        if (selectedQuantity !in quantityOptions && quantityOptions.isNotEmpty()) {
-                            selectedQuantity = quantityOptions[1] // Mặc định chọn option thứ 2 (100g/100ml)
+                    LaunchedEffect(quantityOptions, foodItem?.unit) {
+                        if (quantityOptions.isNotEmpty()) {
+                            // Set default quantity based on unit
+                            val defaultQuantity = when (foodItem?.unit?.lowercase()) {
+                                "ml", "l" -> "100 ml"
+                                "quả", "cái" -> "1 quả"
+                                "cốc" -> "1 cốc"
+                                "thìa canh" -> "1 thìa canh"
+                                "thìa cà phê" -> "1 thìa cà phê"
+                                "lát" -> "1 lát"
+                                "tép" -> "1 tép"
+                                else -> "100 g"
+                            }
+                            if (selectedQuantity !in quantityOptions) {
+                                selectedQuantity = if (defaultQuantity in quantityOptions) defaultQuantity else quantityOptions[0]
+                            }
                         }
                     }
                     
@@ -265,8 +311,15 @@ fun FoodDetailScreen(
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    // Quantity Visualizer (Bar chart)
-                    QuantityVisualizer(selectedIndex = quantityOptions.indexOf(selectedQuantity).coerceIn(0, 2))
+                    // Quantity Visualizer (Bar chart) - đổi màu và chiều cao dựa trên calo
+                    val baseCalories = parseCalories(foodItem?.calories ?: "0")
+                    // Tính calo thực tế dựa trên quantity đã chọn
+                    val actualCalories = calculatedNutrition?.calories ?: baseCalories
+                    QuantityVisualizer(
+                        selectedIndex = quantityOptions.indexOf(selectedQuantity).coerceIn(0, quantityOptions.size - 1),
+                        calories = actualCalories,
+                        totalOptions = quantityOptions.size
+                    )
                 }
             }
             
@@ -364,33 +417,8 @@ fun FoodDetailScreen(
                         text = "Các vitamin và khoáng chất trong ${foodItem!!.name.lowercase()} có thể giúp rút ngắn thời gian nhiễm virus và vi khuẩn, đồng thời tăng cường sức khỏe xương. Ngoài ra, còn có bằng chứng cho thấy ${foodItem!!.name.lowercase()} có thể giúp ngăn ngừa ung thư và cải thiện chất lượng tinh trùng.",
                         fontSize = 14.sp,
                         color = Color(0xFF4B5563),
-                        lineHeight = 20.sp,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        lineHeight = 20.sp
                     )
-                    
-                    OutlinedButton(
-                        onClick = { /* TODO: View all benefits */ },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF00BFA5)
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00BFA5))
-                    ) {
-                        Text(
-                            text = "Xem tất cả",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .rotate(180f)
-                        )
-                    }
                 }
             }
                 
@@ -496,7 +524,37 @@ private fun QuantityButton(
 }
 
 @Composable
-private fun QuantityVisualizer(selectedIndex: Int) {
+private fun QuantityVisualizer(selectedIndex: Int, calories: Double, totalOptions: Int) {
+    val totalSegments = 10
+    val maxHeight = 24.dp
+    
+    // Tính màu dựa trên mức độ calo (calo càng cao, màu càng nóng)
+    // Calo thấp (< 50): xanh lá (0xFF10B981)
+    // Calo trung bình (50-150): vàng cam (0xFFFF9800)
+    // Calo cao (150-300): cam đỏ (0xFFFF5722)
+    // Calo rất cao (> 300): đỏ (0xFFEF4444)
+    val calorieColor = when {
+        calories < 50 -> Color(0xFF10B981) // Xanh lá
+        calories < 150 -> Color(0xFFFF9800) // Vàng cam
+        calories < 300 -> Color(0xFFFF5722) // Cam đỏ
+        else -> Color(0xFFEF4444) // Đỏ
+    }
+    
+    // Tính chiều cao dựa trên calo (calo càng cao, thanh càng dài)
+    // Normalize calo từ 0-500 thành 0-1, sau đó map thành chiều cao từ 8dp đến 24dp
+    val normalizedCalories = (calories / 500.0).coerceIn(0.0, 1.0)
+    val baseHeight = 8.dp + (normalizedCalories * 16.dp.value).dp
+    
+    // Tính phạm vi segments cho mỗi option
+    // Chia 10 segments thành các phần bằng nhau cho mỗi option
+    fun getOptionRange(optionIndex: Int): IntRange {
+        val segmentsPerOption = totalSegments / totalOptions
+        val remainder = totalSegments % totalOptions
+        val start = optionIndex * segmentsPerOption + minOf(optionIndex, remainder)
+        val end = start + segmentsPerOption + if (optionIndex < remainder) 1 else 0
+        return start until end
+    }
+    
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -504,21 +562,33 @@ private fun QuantityVisualizer(selectedIndex: Int) {
         Row(
             modifier = Modifier
                 .width(280.dp)
-                .height(24.dp),
+                .height(maxHeight),
             horizontalArrangement = Arrangement.spacedBy(3.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-            repeat(10) { index ->
-                val height = when {
-                    index % 5 == 0 -> 20.dp
-                    index % 3 == 0 -> 14.dp
-                    else -> 10.dp
-                }
-                val isSelected = when(selectedIndex) {
-                    0 -> index == 2
-                    1 -> index == 5
-                    2 -> index == 8
-                    else -> false
+            repeat(totalSegments) { index ->
+                // Xác định option nào chứa segment này
+                val optionIndex = (0 until totalOptions).firstOrNull { index in getOptionRange(it) } ?: -1
+                val isSelected = optionIndex == selectedIndex
+                
+                // Chiều cao của segment
+                // Nếu được chọn: chiều cao dựa trên calo (calo càng cao, thanh càng dài)
+                // Nếu không được chọn: chiều cao thấp, có variation để tạo pattern
+                val height = if (isSelected) {
+                    // Segment được chọn: chiều cao dựa trên calo, có variation nhỏ để tạo pattern
+                    val variation = when {
+                        index % 5 == 0 -> 2.dp // Cao nhất trong pattern
+                        index % 3 == 0 -> 0.dp // Trung bình
+                        else -> -1.dp // Thấp hơn một chút
+                    }
+                    (baseHeight + variation).coerceIn(8.dp, maxHeight)
+                } else {
+                    // Segment không được chọn: chiều cao thấp, có pattern
+                    when {
+                        index % 5 == 0 -> 6.dp
+                        index % 3 == 0 -> 4.dp
+                        else -> 3.dp
+                    }
                 }
                 
                 Box(
@@ -526,7 +596,7 @@ private fun QuantityVisualizer(selectedIndex: Int) {
                         .weight(1f)
                         .height(height)
                         .background(
-                            color = if (isSelected) Color(0xFF00BFA5) else Color(0xFFE5E7EB),
+                            color = if (isSelected) calorieColor else Color(0xFFE5E7EB),
                             shape = RoundedCornerShape(3.dp)
                         )
                 )

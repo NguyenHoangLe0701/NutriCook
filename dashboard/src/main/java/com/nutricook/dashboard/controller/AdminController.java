@@ -47,6 +47,7 @@ import com.nutricook.dashboard.repository.FoodUpdateRepository;
 import com.nutricook.dashboard.repository.UserRepository;
 import com.nutricook.dashboard.service.FirestoreService;
 import com.nutricook.dashboard.service.NotificationService;
+import com.nutricook.dashboard.service.CloudinaryService;
 
 @Controller
 @RequestMapping("/admin")
@@ -72,6 +73,9 @@ public class AdminController {
     
     @Autowired
     private FoodUpdateRepository foodUpdateRepository;
+    
+    @Autowired(required = false)
+    private CloudinaryService cloudinaryService;
     
     private final String UPLOAD_DIR = "uploads/";
     
@@ -103,7 +107,117 @@ public class AdminController {
             // DB might not be ready for DDL or user lacks permissions — log and skip sample-data creation
             System.err.println("[init] Database not ready for sample-data creation: " + e.getMessage());
         }
+        
+        // Auto-migrate local images to Cloudinary in background
+        // This runs asynchronously to not block server startup
+        new Thread(() -> {
+            try {
+                // Wait a bit for all services to be fully initialized
+                Thread.sleep(5000); // 5 seconds delay
+                System.out.println("🔄 Starting automatic image migration to Cloudinary...");
+                autoMigrateAndSyncImages();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.err.println("❌ Auto-migration thread interrupted: " + e.getMessage());
+            } catch (Exception e) {
+                System.err.println("❌ Error during auto-migration: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
         // Khối tạo food mẫu đã bị xóa
+    }
+    
+    /**
+     * Tự động migrate và sync tất cả hình ảnh local lên Cloudinary và Firestore
+     * Chạy trong background thread để không làm chậm server startup
+     */
+    private void autoMigrateAndSyncImages() {
+        try {
+            if (cloudinaryService == null || !cloudinaryService.isConfigured()) {
+                System.out.println("⚠️ CloudinaryService not available or not configured. Skipping auto-migration.");
+                return;
+            }
+            
+            if (firestoreService == null) {
+                System.out.println("⚠️ FirestoreService not available. Skipping auto-migration.");
+                return;
+            }
+            
+            List<FoodItem> allFoods = foodItemRepository.findAll();
+            int migratedCount = 0;
+            int syncedCount = 0;
+            int skippedCount = 0;
+            int errorCount = 0;
+            
+            System.out.println("🔍 Checking " + allFoods.size() + " FoodItems for local images...");
+            
+            for (FoodItem food : allFoods) {
+                try {
+                    String imageUrl = food.getImageUrl();
+                    
+                    // Kiểm tra xem có local URL cần migrate không
+                    if (imageUrl != null && imageUrl.startsWith("/uploads/")) {
+                        String fileName = imageUrl.substring("/uploads/".length());
+                        Path filePath = Paths.get(UPLOAD_DIR + fileName);
+                        
+                        if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+                            System.out.println("   🔄 Migrating FoodItem ID: " + food.getId() + " (" + food.getName() + ")");
+                            
+                            // Upload lên Cloudinary
+                            String cloudinaryUrl = cloudinaryService.uploadImageFromFile(filePath);
+                            food.setImageUrl(cloudinaryUrl);
+                            
+                            // Đảm bảo category được load đầy đủ
+                            if (food.getCategory() != null && food.getCategory().getId() != null) {
+                                Category category = categoryRepository.findById(food.getCategory().getId()).orElse(null);
+                                if (category != null) {
+                                    food.setCategory(category);
+                                }
+                            }
+                            
+                            // Lưu vào database
+                            foodItemRepository.save(food);
+                            
+                            // Sync lên Firestore
+                            firestoreService.saveFood(food);
+                            
+                            migratedCount++;
+                            syncedCount++;
+                            System.out.println("   ✅ Migrated and synced: " + food.getId());
+                        } else {
+                            skippedCount++;
+                            System.out.println("   ⚠️ File not found for FoodItem ID: " + food.getId());
+                        }
+                    } else if (imageUrl != null && !imageUrl.isEmpty() && !imageUrl.contains("cloudinary.com")) {
+                        // Nếu có URL nhưng không phải Cloudinary và không phải local, chỉ sync lại
+                        if (food.getCategory() != null && food.getCategory().getId() != null) {
+                            Category category = categoryRepository.findById(food.getCategory().getId()).orElse(null);
+                            if (category != null) {
+                                food.setCategory(category);
+                            }
+                        }
+                        firestoreService.saveFood(food);
+                        syncedCount++;
+                    }
+                    
+                } catch (Exception e) {
+                    errorCount++;
+                    System.err.println("   ❌ Error processing FoodItem ID: " + food.getId() + " - " + e.getMessage());
+                }
+            }
+            
+            System.out.println("==========================================");
+            System.out.println("✅ Auto-migration completed!");
+            System.out.println("   Migrated to Cloudinary: " + migratedCount);
+            System.out.println("   Synced to Firestore: " + syncedCount);
+            System.out.println("   Skipped (file not found): " + skippedCount);
+            System.out.println("   Errors: " + errorCount);
+            System.out.println("==========================================");
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error during auto-migration: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     // Dashboard - Tổng quan
@@ -569,68 +683,126 @@ public class AdminController {
     // ==================================================================
 
     @GetMapping("/foods")
-    public String foods(Model model) {
-        List<FoodItem> foods;
-        List<Category> categories;
-        try {
-            if (firestoreService != null) {
-                foods = firestoreService.listFoodsAsEntities();
-                System.out.println("Loaded " + foods.size() + " foods from Firestore");
-            } else {
-                foods = foodItemRepository.findAll();
-                System.out.println("Loaded " + foods.size() + " foods from H2 database");
-            }
-        } catch (Exception e) {
-            System.err.println("Error loading from Firestore, falling back to H2: " + e.getMessage());
-            foods = foodItemRepository.findAll();
-        }
-        
-        try {
-            if (firestoreService != null) {
-                categories = firestoreService.listCategoriesAsEntities();
-            } else {
-                categories = categoryRepository.findAll();
-            }
-        } catch (Exception e) {
-            categories = categoryRepository.findAll();
-        }
-        
-        model.addAttribute("foods", foods);
-        model.addAttribute("categories", categories);
-        model.addAttribute("foodItem", new FoodItem());
-        model.addAttribute("title", "Quản lý món ăn");
-        model.addAttribute("subtitle", "Quản lý danh sách món ăn");
-        model.addAttribute("activeTab", "foods");
-        return "admin/foods"; 
+    public String foods() {
+        // Redirect to categories page since food management is now done within categories
+        return "redirect:/admin/categories";
     }
     
     @PostMapping("/foods")
-    public String createFood(@ModelAttribute FoodItem foodItem, 
+    public String createFood(@ModelAttribute FoodItem foodItem,
+                           @RequestParam(value = "category.id", required = false) Long categoryId,
                            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
                            @RequestParam(value = "returnToCategory", required = false) Long returnToCategory,
                            RedirectAttributes redirectAttributes) {
         try {
+            // Nếu có returnToCategory (từ trang category-ingredients), ưu tiên sử dụng nó
+            // Đây là trường hợp khi thêm nguyên liệu từ trang category-ingredients
+            Long finalCategoryId = null;
+            if (returnToCategory != null && returnToCategory > 0) {
+                finalCategoryId = returnToCategory;
+            } else if (categoryId != null && categoryId > 0) {
+                finalCategoryId = categoryId;
+            }
+            
+            // Validate category
+            if (finalCategoryId == null || finalCategoryId <= 0) {
+                redirectAttributes.addFlashAttribute("error", "Vui lòng chọn danh mục!");
+                if (returnToCategory != null && returnToCategory > 0) {
+                    return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                }
+                return "redirect:/admin/categories";
+            }
+            
+            // Load and set category
+            Category category = categoryRepository.findById(finalCategoryId).orElse(null);
+            if (category == null) {
+                redirectAttributes.addFlashAttribute("error", "Danh mục không tồn tại!");
+                if (returnToCategory != null && returnToCategory > 0) {
+                    return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                }
+                return "redirect:/admin/categories";
+            }
+            foodItem.setCategory(category);
+            
             if (foodItemRepository.existsByName(foodItem.getName())) {
                 redirectAttributes.addFlashAttribute("error", "Tên món ăn đã tồn tại!");
                 if (returnToCategory != null) {
                     return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
                 }
-                return "redirect:/admin/foods";
+                return "redirect:/admin/categories";
             }
             if (imageFile != null && !imageFile.isEmpty()) {
-                String fileName = saveImage(imageFile);
-                foodItem.setImageUrl("/uploads/" + fileName);
+                System.out.println("==========================================");
+                System.out.println("📸 Processing image upload for new FoodItem...");
+                System.out.println("   File name: " + imageFile.getOriginalFilename());
+                System.out.println("   File size: " + imageFile.getSize() + " bytes");
+                System.out.println("   Content type: " + imageFile.getContentType());
+                System.out.println("   CloudinaryService is null: " + (cloudinaryService == null));
+                
+                if (cloudinaryService != null) {
+                    boolean isConfigured = cloudinaryService.isConfigured();
+                    System.out.println("   CloudinaryService.isConfigured(): " + isConfigured);
+                    
+                    // Kiểm tra xem Cloudinary có được cấu hình đúng không
+                    if (isConfigured) {
+                        System.out.println("✅ CloudinaryService is available and configured, attempting upload...");
+                        try {
+                            String imageUrl = cloudinaryService.uploadImage(imageFile);
+                            foodItem.setImageUrl(imageUrl);
+                            System.out.println("✅ Image uploaded to Cloudinary successfully!");
+                            System.out.println("   Cloudinary URL: " + imageUrl);
+                            System.out.println("==========================================");
+                        } catch (Exception e) {
+                            System.err.println("❌ Error uploading image to Cloudinary!");
+                            System.err.println("   Exception: " + e.getClass().getName());
+                            System.err.println("   Message: " + e.getMessage());
+                            System.err.println("   Stack trace:");
+                            e.printStackTrace();
+                            // Fallback to local storage if Cloudinary fails
+                            System.out.println("⚠️ Falling back to local storage...");
+                            String fileName = saveImage(imageFile);
+                            foodItem.setImageUrl("/uploads/" + fileName);
+                            System.out.println("⚠️ Saved to local storage: /uploads/" + fileName);
+                            System.out.println("==========================================");
+                        }
+                    } else {
+                        System.err.println("❌ WARNING: CloudinaryService exists but Cloudinary is NOT configured!");
+                        System.err.println("   Please set the following environment variables:");
+                        System.err.println("   - CLOUDINARY_CLOUD_NAME");
+                        System.err.println("   - CLOUDINARY_API_KEY");
+                        System.err.println("   - CLOUDINARY_API_SECRET");
+                        System.err.println("   Or update in application.properties");
+                        System.err.println("   Falling back to local storage...");
+                        String fileName = saveImage(imageFile);
+                        foodItem.setImageUrl("/uploads/" + fileName);
+                        System.out.println("⚠️ Saved to local storage: /uploads/" + fileName);
+                        System.out.println("==========================================");
+                    }
+                } else {
+                    System.err.println("❌ WARNING: CloudinaryService is NULL!");
+                    System.err.println("   This means CloudinaryConfig bean was not created properly.");
+                    System.err.println("   Check if Cloudinary dependencies are in pom.xml");
+                    System.err.println("   Falling back to local storage...");
+                    // Fallback to local storage if CloudinaryService is not available
+                    String fileName = saveImage(imageFile);
+                    foodItem.setImageUrl("/uploads/" + fileName);
+                    System.out.println("⚠️ Saved to local storage: /uploads/" + fileName);
+                    System.out.println("==========================================");
+                }
+            } else {
+                System.out.println("⚠️ No image file provided or file is empty");
             }
             FoodItem savedFood = foodItemRepository.save(foodItem);
+            System.out.println("💾 Saved FoodItem to database. ID: " + savedFood.getId() + ", ImageURL: " + savedFood.getImageUrl());
             try {
                 if (firestoreService != null) {
-                    Category cat = categoryRepository.findById(savedFood.getCategory().getId()).orElse(null);
-                    savedFood.setCategory(cat);
+                    // Category đã được set rồi, không cần load lại
                     firestoreService.saveFood(savedFood);
-                    System.out.println("Synced new food to Firestore: " + savedFood.getId());
+                    System.out.println("✅ Synced new food to Firestore: " + savedFood.getId() + " with imageUrl: " + savedFood.getImageUrl());
                 }
             } catch (Exception e) {
-                System.err.println("Failed to sync new food to Firestore: " + e.getMessage());
+                System.err.println("❌ Failed to sync new food to Firestore: " + e.getMessage());
+                e.printStackTrace();
             }
             logFoodUpdate(null, savedFood, "CREATE");
             redirectAttributes.addFlashAttribute("success", "Thêm nguyên liệu thành công!");
@@ -639,8 +811,11 @@ public class AdminController {
             }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Lỗi khi thêm món ăn: " + e.getMessage());
+            if (returnToCategory != null) {
+                return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+            }
         }
-        return "redirect:/admin/foods";
+        return "redirect:/admin/categories";
     }
 
     @PostMapping("/api/foods/upload")
@@ -669,8 +844,21 @@ public class AdminController {
             foodItem.setRating(rating != null ? rating : 0.0);
             foodItem.setReviews(0); // Mới upload nên chưa có review
             if (imageFile != null && !imageFile.isEmpty()) {
-                String fileName = saveImage(imageFile);
-                foodItem.setImageUrl("/uploads/" + fileName);
+                if (cloudinaryService != null) {
+                    try {
+                        String imageUrl = cloudinaryService.uploadImage(imageFile);
+                        foodItem.setImageUrl(imageUrl);
+                    } catch (Exception e) {
+                        System.err.println("Error uploading image to Cloudinary: " + e.getMessage());
+                        // Fallback to local storage if Cloudinary fails
+                        String fileName = saveImage(imageFile);
+                        foodItem.setImageUrl("/uploads/" + fileName);
+                    }
+                } else {
+                    // Fallback to local storage if CloudinaryService is not available
+                    String fileName = saveImage(imageFile);
+                    foodItem.setImageUrl("/uploads/" + fileName);
+                }
             }
             FoodItem savedFood = foodItemRepository.save(foodItem);
             try {
@@ -715,11 +903,32 @@ public class AdminController {
             FoodItem existingFood = foodItemRepository.findById(id).orElse(null);
             if (existingFood != null) {
                 
-                // 1. Lấy Category đầy đủ từ H2 dựa trên ID từ form
-                Category categoryFromDb = categoryRepository.findById(foodItem.getCategory().getId()).orElse(null);
+                // 1. Lấy Category đầy đủ từ H2
+                // Ưu tiên: returnToCategory > foodItem.getCategory().getId() > existingFood.getCategory().getId()
+                Long categoryIdToUse = null;
+                if (returnToCategory != null) {
+                    categoryIdToUse = returnToCategory;
+                } else if (foodItem.getCategory() != null && foodItem.getCategory().getId() != null) {
+                    categoryIdToUse = foodItem.getCategory().getId();
+                } else if (existingFood.getCategory() != null && existingFood.getCategory().getId() != null) {
+                    categoryIdToUse = existingFood.getCategory().getId();
+                }
+                
+                if (categoryIdToUse == null) {
+                    redirectAttributes.addFlashAttribute("error", "Không thể xác định danh mục! Vui lòng chọn danh mục.");
+                    if (returnToCategory != null) {
+                        return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                    }
+                    return "redirect:/admin/categories";
+                }
+                
+                Category categoryFromDb = categoryRepository.findById(categoryIdToUse).orElse(null);
                 if (categoryFromDb == null) {
-                    redirectAttributes.addFlashAttribute("error", "Danh mục không hợp lệ!");
-                    return "redirect:/admin/foods";
+                    redirectAttributes.addFlashAttribute("error", "Danh mục không tồn tại!");
+                    if (returnToCategory != null) {
+                        return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                    }
+                    return "redirect:/admin/categories";
                 }
 
                 // Log dữ liệu cũ
@@ -746,22 +955,46 @@ public class AdminController {
                 existingFood.setUpdatedAt(LocalDateTime.now());
                 
                 if (imageFile != null && !imageFile.isEmpty()) {
-                    String fileName = saveImage(imageFile);
-                    existingFood.setImageUrl("/uploads/" + fileName);
+                    // Delete old image from Cloudinary if it's a Cloudinary URL
+                    if (existingFood.getImageUrl() != null && existingFood.getImageUrl().contains("cloudinary.com") && cloudinaryService != null) {
+                        cloudinaryService.deleteImage(existingFood.getImageUrl());
+                    }
+                    
+                    if (cloudinaryService != null) {
+                        try {
+                            String imageUrl = cloudinaryService.uploadImage(imageFile);
+                            existingFood.setImageUrl(imageUrl);
+                            System.out.println("✅ Image uploaded to Cloudinary successfully. URL: " + imageUrl);
+                        } catch (Exception e) {
+                            System.err.println("❌ Error uploading image to Cloudinary: " + e.getMessage());
+                            e.printStackTrace();
+                            // Fallback to local storage if Cloudinary fails
+                            String fileName = saveImage(imageFile);
+                            existingFood.setImageUrl("/uploads/" + fileName);
+                            System.out.println("⚠️ Fallback to local storage: /uploads/" + fileName);
+                        }
+                    } else {
+                        // Fallback to local storage if CloudinaryService is not available
+                        String fileName = saveImage(imageFile);
+                        existingFood.setImageUrl("/uploads/" + fileName);
+                        System.out.println("⚠️ CloudinaryService not available, using local storage: /uploads/" + fileName);
+                    }
                 }
                 
                 // 3. Lưu vào H2
                 foodItemRepository.save(existingFood);
+                System.out.println("💾 Updated FoodItem in database. ID: " + existingFood.getId() + ", ImageURL: " + existingFood.getImageUrl());
                 
                 // 4. Đồng bộ lên Firestore
                 try {
                     if (firestoreService != null) {
                         // "existingFood" BÂY GIỜ đã có category đầy đủ
                         firestoreService.saveFood(existingFood);
-                        System.out.println("Synced updated food to Firestore: " + existingFood.getId());
+                        System.out.println("✅ Synced updated food to Firestore: " + existingFood.getId() + " with imageUrl: " + existingFood.getImageUrl());
                     }
                 } catch (Exception e) {
-                    System.err.println("Failed to sync updated food to Firestore: " + e.getMessage());
+                    System.err.println("❌ Failed to sync updated food to Firestore: " + e.getMessage());
+                    e.printStackTrace();
                 }
                 
                 logFoodUpdate(oldFood, existingFood, "UPDATE");
@@ -769,19 +1002,33 @@ public class AdminController {
                 if (returnToCategory != null) {
                     return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
                 }
+                // Nếu không có returnToCategory nhưng có category trong foodItem, dùng category đó
+                if (existingFood.getCategory() != null && existingFood.getCategory().getId() != null) {
+                    return "redirect:/admin/categories/" + existingFood.getCategory().getId() + "/ingredients";
+                }
             }
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Lỗi khi cập nhật món ăn: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi cập nhật nguyên liệu: " + e.getMessage());
+            if (returnToCategory != null) {
+                return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+            }
         }
-        return "redirect:/admin/foods";
+        return "redirect:/admin/categories";
     }
     // === KẾT THÚC SỬA LỖI ===
     
     @PostMapping("/foods/{id}/delete")
-    public String deleteFood(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    public String deleteFood(@PathVariable Long id, 
+                           @RequestParam(value = "returnToCategory", required = false) Long returnToCategory,
+                           RedirectAttributes redirectAttributes) {
         try {
             FoodItem foodItem = foodItemRepository.findById(id).orElse(null);
             if (foodItem != null) {
+                // Lưu categoryId trước khi xóa để redirect
+                Long categoryId = (foodItem.getCategory() != null && foodItem.getCategory().getId() != null) 
+                    ? foodItem.getCategory().getId() 
+                    : returnToCategory;
+                
                 List<FoodUpdate> updatesToDelete = foodUpdateRepository.findByFoodItem(foodItem);
                 if (!updatesToDelete.isEmpty()) {
                     foodUpdateRepository.deleteAll(updatesToDelete);
@@ -795,16 +1042,28 @@ public class AdminController {
                 } catch (Exception e) {
                     System.err.println("Failed to delete food from Firestore: " + e.getMessage());
                 }
-                redirectAttributes.addFlashAttribute("success", "Xóa món ăn thành công!");
+                redirectAttributes.addFlashAttribute("success", "Xóa nguyên liệu thành công!");
+                
+                // Redirect về trang category-ingredients nếu có returnToCategory hoặc categoryId
+                Long finalCategoryId = (returnToCategory != null) ? returnToCategory : categoryId;
+                if (finalCategoryId != null) {
+                    return "redirect:/admin/categories/" + finalCategoryId + "/ingredients";
+                }
             } else {
-                redirectAttributes.addFlashAttribute("error", "Không tìm thấy món ăn để xóa!");
+                redirectAttributes.addFlashAttribute("error", "Không tìm thấy nguyên liệu để xóa!");
+                if (returnToCategory != null) {
+                    return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+                }
             }
         } catch (Exception e) {
-            System.err.println("Lỗi nghiêm trọng khi xóa món ăn: " + e.getMessage());
+            System.err.println("Lỗi nghiêm trọng khi xóa nguyên liệu: " + e.getMessage());
             e.printStackTrace();
-            redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa món ăn. Hãy kiểm tra log server.");
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi xóa nguyên liệu. Hãy kiểm tra log server.");
+            if (returnToCategory != null) {
+                return "redirect:/admin/categories/" + returnToCategory + "/ingredients";
+            }
         }
-        return "redirect:/admin/foods";
+        return "redirect:/admin/categories";
     }
     
     @PostMapping("/foods/{id}/toggle-availability")
@@ -1599,5 +1858,227 @@ public class AdminController {
         workbook.write(outputStream);
         workbook.close();
         outputStream.close();
+    }
+    
+    // ==================================================================
+    // SYNC METHODS - Đồng bộ dữ liệu từ Database lên Firestore
+    // ==================================================================
+    
+    /**
+     * Endpoint để đồng bộ lại tất cả FoodItems từ database lên Firestore
+     * Đảm bảo imageUrl Cloudinary được cập nhật đầy đủ
+     */
+    @GetMapping("/admin/sync/foods")
+    public String syncAllFoodsToFirestore(RedirectAttributes redirectAttributes) {
+        try {
+            if (firestoreService == null) {
+                redirectAttributes.addFlashAttribute("error", "FirestoreService không khả dụng!");
+                return "redirect:/admin/categories";
+            }
+            
+            // Lấy tất cả FoodItems từ database
+            List<FoodItem> allFoods = foodItemRepository.findAll();
+            int successCount = 0;
+            int failCount = 0;
+            int cloudinaryCount = 0;
+            int localUrlCount = 0;
+            List<Long> localUrlFoodIds = new ArrayList<>();
+            
+            System.out.println("🔄 Bắt đầu đồng bộ " + allFoods.size() + " FoodItems lên Firestore...");
+            System.out.println("==========================================");
+            
+            for (FoodItem food : allFoods) {
+                try {
+                    // Đảm bảo category được load đầy đủ
+                    if (food.getCategory() != null && food.getCategory().getId() != null) {
+                        Category category = categoryRepository.findById(food.getCategory().getId()).orElse(null);
+                        if (category != null) {
+                            food.setCategory(category);
+                        }
+                    }
+                    
+                    // Kiểm tra imageUrl từ database
+                    String imageUrl = food.getImageUrl();
+                    System.out.println("🔍 Checking FoodItem ID: " + food.getId() + " (" + food.getName() + ")");
+                    System.out.println("   ImageURL from Database: " + imageUrl);
+                    
+                    if (imageUrl != null && !imageUrl.isEmpty()) {
+                        if (imageUrl.contains("cloudinary.com")) {
+                            cloudinaryCount++;
+                            System.out.println("   ✅ Có Cloudinary URL - sẽ sync lên Firestore");
+                        } else if (imageUrl.startsWith("/uploads/")) {
+                            localUrlCount++;
+                            localUrlFoodIds.add(food.getId());
+                            System.out.println("   ⚠️ WARNING: Có local URL (" + imageUrl + ") - Cần upload lại lên Cloudinary!");
+                            System.out.println("   💡 Vui lòng cập nhật hình ảnh cho FoodItem ID " + food.getId() + " (" + food.getName() + ") trong dashboard để migrate sang Cloudinary");
+                        } else {
+                            System.out.println("   ⚠️ FoodItem có URL không chuẩn: " + imageUrl);
+                        }
+                    } else {
+                        System.out.println("   ⚠️ FoodItem không có imageUrl");
+                    }
+                    
+                    // Sync lên Firestore (sync bất kể URL là gì để đảm bảo dữ liệu đồng bộ)
+                    firestoreService.saveFood(food);
+                    successCount++;
+                    System.out.println("   ✅ Đã sync FoodItem ID: " + food.getId() + " lên Firestore với imageUrl: " + imageUrl);
+                    System.out.println("   ---");
+                    
+                } catch (Exception e) {
+                    failCount++;
+                    System.err.println("❌ Lỗi khi sync FoodItem ID: " + food.getId() + " (" + food.getName() + ") - " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+            
+            String message;
+            if (localUrlCount > 0) {
+                message = String.format(
+                    "Đồng bộ hoàn tất! Thành công: %d, Thất bại: %d, Có Cloudinary URL: %d, ⚠️ CÓ LOCAL URL (cần migrate): %d",
+                    successCount, failCount, cloudinaryCount, localUrlCount
+                );
+                redirectAttributes.addFlashAttribute("warning", 
+                    message + " | Các FoodItem có local URL: " + localUrlFoodIds.toString() + " - Vui lòng cập nhật hình ảnh để migrate sang Cloudinary!");
+            } else {
+                message = String.format(
+                    "Đồng bộ hoàn tất! Thành công: %d, Thất bại: %d, Có Cloudinary URL: %d",
+                    successCount, failCount, cloudinaryCount
+                );
+                redirectAttributes.addFlashAttribute("success", message);
+            }
+            
+            System.out.println("==========================================");
+            System.out.println("✅ " + message);
+            if (localUrlCount > 0) {
+                System.out.println("⚠️ CÁC FOODITEM CÓ LOCAL URL (CẦN MIGRATE): " + localUrlFoodIds.toString());
+            }
+            System.out.println("==========================================");
+            
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi đồng bộ: " + e.getMessage());
+            System.err.println("❌ Lỗi khi đồng bộ FoodItems: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return "redirect:/admin/categories";
+    }
+    
+    /**
+     * Migrate local image URLs to Cloudinary
+     * This endpoint will find all FoodItems with local URLs and upload them to Cloudinary
+     */
+    @GetMapping("/admin/migrate/images")
+    public String migrateLocalImagesToCloudinary(RedirectAttributes redirectAttributes) {
+        try {
+            if (cloudinaryService == null) {
+                redirectAttributes.addFlashAttribute("error", "CloudinaryService không khả dụng!");
+                return "redirect:/admin/categories";
+            }
+            
+            List<FoodItem> allFoods = foodItemRepository.findAll();
+            int migratedCount = 0;
+            int skippedCount = 0;
+            int errorCount = 0;
+            List<Long> migratedIds = new ArrayList<>();
+            List<Long> errorIds = new ArrayList<>();
+            
+            System.out.println("🔄 Bắt đầu migrate local images lên Cloudinary...");
+            System.out.println("==========================================");
+            
+            for (FoodItem food : allFoods) {
+                String imageUrl = food.getImageUrl();
+                
+                // Chỉ xử lý các FoodItem có local URL
+                if (imageUrl != null && imageUrl.startsWith("/uploads/")) {
+                    try {
+                        // Tạo path đến file local
+                        String fileName = imageUrl.substring("/uploads/".length());
+                        Path filePath = Paths.get(UPLOAD_DIR + fileName);
+                        
+                        System.out.println("🔍 Checking FoodItem ID: " + food.getId() + " (" + food.getName() + ")");
+                        System.out.println("   Local URL: " + imageUrl);
+                        System.out.println("   File path: " + filePath.toAbsolutePath());
+                        
+                        // Kiểm tra file có tồn tại không
+                        if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+                            System.out.println("   ✅ File tồn tại, đang upload lên Cloudinary...");
+                            
+                            // Upload lên Cloudinary
+                            String cloudinaryUrl = cloudinaryService.uploadImageFromFile(filePath);
+                            System.out.println("   ✅ Upload thành công! Cloudinary URL: " + cloudinaryUrl);
+                            
+                            // Cập nhật imageUrl trong database
+                            food.setImageUrl(cloudinaryUrl);
+                            
+                            // Đảm bảo category được load đầy đủ
+                            if (food.getCategory() != null && food.getCategory().getId() != null) {
+                                Category category = categoryRepository.findById(food.getCategory().getId()).orElse(null);
+                                if (category != null) {
+                                    food.setCategory(category);
+                                }
+                            }
+                            
+                            // Lưu vào database
+                            foodItemRepository.save(food);
+                            System.out.println("   💾 Đã cập nhật database với Cloudinary URL");
+                            
+                            // Sync lên Firestore
+                            if (firestoreService != null) {
+                                firestoreService.saveFood(food);
+                                System.out.println("   ✅ Đã sync lên Firestore");
+                            }
+                            
+                            migratedCount++;
+                            migratedIds.add(food.getId());
+                            System.out.println("   ✅ HOÀN TẤT migrate FoodItem ID: " + food.getId());
+                            
+                        } else {
+                            System.out.println("   ⚠️ File không tồn tại: " + filePath.toAbsolutePath());
+                            skippedCount++;
+                        }
+                        
+                        System.out.println("   ---");
+                        
+                    } catch (Exception e) {
+                        errorCount++;
+                        errorIds.add(food.getId());
+                        System.err.println("❌ Lỗi khi migrate FoodItem ID: " + food.getId() + " - " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            }
+            
+            String message = String.format(
+                "Migrate hoàn tất! Đã migrate: %d, Bỏ qua (file không tồn tại): %d, Lỗi: %d",
+                migratedCount, skippedCount, errorCount
+            );
+            
+            if (errorCount > 0) {
+                redirectAttributes.addFlashAttribute("warning", 
+                    message + " | Các FoodItem lỗi: " + errorIds.toString());
+            } else if (migratedCount > 0) {
+                redirectAttributes.addFlashAttribute("success", 
+                    message + " | Đã migrate: " + migratedIds.toString());
+            } else {
+                redirectAttributes.addFlashAttribute("info", message);
+            }
+            
+            System.out.println("==========================================");
+            System.out.println("✅ " + message);
+            if (migratedCount > 0) {
+                System.out.println("✅ Đã migrate: " + migratedIds.toString());
+            }
+            if (errorCount > 0) {
+                System.out.println("❌ Lỗi: " + errorIds.toString());
+            }
+            System.out.println("==========================================");
+            
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi khi migrate: " + e.getMessage());
+            System.err.println("❌ Lỗi khi migrate images: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return "redirect:/admin/categories";
     }
 }

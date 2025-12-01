@@ -8,8 +8,8 @@
                     <h3 class="text-2xl font-bold text-white">Chỉnh sửa món ăn</h3>
                 </div>
                 <div class="px-6 pt-5 pb-5 sm:p-6">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Cột trái - Thông tin cơ bản -->
+                    <div class="max-w-2xl mx-auto">
+                        <!-- Thông tin cơ bản -->
                         <div class="space-y-5">
                             <div class="bg-white/60 rounded-xl p-4 border border-orange-100">
                                 <h4 class="text-base font-bold text-orange-800 mb-4 flex items-center">
@@ -60,47 +60,6 @@
                                         <label for="imageFile" class="block text-sm font-semibold text-gray-700 mb-1.5">Hình ảnh</label>
                                         <input type="file" name="imageFile" id="imageFile" accept="image/*" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm text-gray-700 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 transition-all">
                                         <p class="mt-1.5 text-xs text-gray-500">Để trống nếu không muốn thay đổi hình ảnh</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Cột phải - Thông tin dinh dưỡng -->
-                        <div class="space-y-5">
-                            <div class="bg-white/60 rounded-xl p-4 border border-orange-100">
-                                <h4 class="text-base font-bold text-orange-800 mb-4 flex items-center">
-                                    <span class="mr-2">📊</span> Thông tin dinh dưỡng (trên 100g)
-                                </h4>
-                                <div class="space-y-4">
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label for="fat" class="block text-sm font-semibold text-gray-700 mb-1.5">Fat (g)</label>
-                                            <input type="number" th:field="*{fat}" id="fat" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
-                                        </div>
-                                        <div>
-                                            <label for="carbs" class="block text-sm font-semibold text-gray-700 mb-1.5">Carbs (g)</label>
-                                            <input type="number" th:field="*{carbs}" id="carbs" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label for="protein" class="block text-sm font-semibold text-gray-700 mb-1.5">Protein (g)</label>
-                                            <input type="number" th:field="*{protein}" id="protein" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
-                                        </div>
-                                        <div>
-                                            <label for="cholesterol" class="block text-sm font-semibold text-gray-700 mb-1.5">Cholesterol (mg)</label>
-                                            <input type="number" th:field="*{cholesterol}" id="cholesterol" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label for="sodium" class="block text-sm font-semibold text-gray-700 mb-1.5">Sodium (mg)</label>
-                                            <input type="number" th:field="*{sodium}" id="sodium" step="0.1" min="0" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
-                                        </div>
-                                        <div>
-                                            <label for="vitamin" class="block text-sm font-semibold text-gray-700 mb-1.5">Vitamin (%)</label>
-                                            <input type="number" th:field="*{vitamin}" id="vitamin" step="0.1" min="0" max="100" class="block w-full px-4 py-2.5 rounded-lg border-2 border-orange-200 bg-white shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-300 text-sm transition-all" placeholder="0.0">
-                                        </div>
                                     </div>
                                 </div>
                             </div>

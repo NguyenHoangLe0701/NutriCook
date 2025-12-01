@@ -354,7 +354,24 @@ public class FirestoreService {
         data.put("calories", food.getCalories());
         data.put("description", food.getDescription());
         data.put("available", food.getAvailable());
-        data.put("imageUrl", food.getImageUrl());
+        String imageUrl = food.getImageUrl();
+        // Đảm bảo imageUrl không null khi lưu vào Firestore
+        // Nếu là URL Cloudinary, đảm bảo nó là full URL
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            // Validate Cloudinary URL format
+            if (imageUrl.contains("cloudinary.com")) {
+                if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+                    System.err.println("⚠️ Warning: Cloudinary URL is not a full URL: " + imageUrl);
+                } else {
+                    System.out.println("✅ Saving Cloudinary URL to Firestore: " + imageUrl);
+                }
+            }
+            data.put("imageUrl", imageUrl);
+        } else {
+            data.put("imageUrl", "");
+            System.out.println("⚠️ Warning: FoodItem ID " + food.getId() + " has empty imageUrl");
+        }
+        System.out.println("🖼️ Saving FoodItem to Firestore - ID: " + food.getId() + ", Name: " + food.getName() + ", ImageURL: " + imageUrl);
         data.put("rating", food.getRating() != null ? food.getRating() : 0.0);
         data.put("reviews", food.getReviews() != null ? food.getReviews() : 0);
         // Đơn vị đo lường

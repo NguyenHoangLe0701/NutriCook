@@ -320,6 +320,16 @@
                             </div>
                         </div>
                     </div>
+                    <div th:if="${warning}" class="mt-4 rounded-md bg-yellow-50 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa-solid fa-triangle-exclamation text-yellow-400 h-5 w-5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-yellow-800" th:text="${warning}"></p>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="py-4" style="margin-bottom: 0; padding-bottom: 0;">
                         <div th:replace="${content}" style="margin-bottom: 0; padding-bottom: 0;"></div>
@@ -388,13 +398,6 @@
                      <i class="fa-solid fa-chart-pie"
                          th:classappend="${activeTab == 'dashboard'} ? 'text-white text-[18px]' : 'text-blue-200 group-hover:text-white text-[18px]'"></i>
                      <span>Tổng quan</span>
-                </a>
-
-                <a th:href="@{/admin/foods}"
-                     th:class="${activeTab == 'foods'} ? 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-lg relative z-10' : 'group block flex items-center gap-x-3 pl-8 pr-3 py-3 text-[16px] font-semibold rounded-xl w-full transition-all duration-300 ease-out leading-6 transform hover:bg-white/20 hover:text-white relative'">
-                     <i class="fa-solid fa-utensils"
-                         th:classappend="${activeTab == 'foods'} ? 'text-white text-[18px]' : 'text-blue-200 group-hover:text-white text-[18px]'"></i>
-                     <span>Món ăn</span>
                 </a>
 
                 <a th:href="@{/admin/user-uploaded-foods}"

@@ -58,18 +58,35 @@ class CategoryFirestoreRepository @Inject constructor(
         return snapshot.documents.mapNotNull { doc ->
             try {
                 val imageUrl = doc.getString("imageUrl")
+                val foodId = doc.getLong("id") ?: 0L
+                val foodName = doc.getString("name") ?: ""
+                android.util.Log.d("CategoryRepo", "📥 FoodItem ID: $foodId, Name: $foodName, ImageURL from Firestore: $imageUrl")
+                
                 // Kiểm tra imageUrl không null và không rỗng, sau đó tạo full URL
                 val fullImageUrl = if (!imageUrl.isNullOrBlank()) {
                     // Nếu imageUrl đã là full URL (bắt đầu bằng http), dùng trực tiếp
-                    // Nếu không, ghép với BASE_URL
-                    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-                        imageUrl
-                    } else {
-                        BASE_URL.dropLast(1) + imageUrl
+                    // Đặc biệt ưu tiên URL Cloudinary (https://res.cloudinary.com/...)
+                    when {
+                        imageUrl.startsWith("https://res.cloudinary.com") -> {
+                            android.util.Log.d("CategoryRepo", "✅ Using Cloudinary URL directly: $imageUrl")
+                            imageUrl
+                        }
+                        imageUrl.startsWith("http://") || imageUrl.startsWith("https://") -> {
+                            android.util.Log.d("CategoryRepo", "✅ Using full URL directly: $imageUrl")
+                            imageUrl
+                        }
+                        else -> {
+                            // Nếu không phải full URL, ghép với BASE_URL (cho local storage)
+                            val localUrl = BASE_URL.dropLast(1) + imageUrl
+                            android.util.Log.d("CategoryRepo", "⚠️ Using local URL: $localUrl")
+                            localUrl
+                        }
                     }
                 } else {
+                    android.util.Log.w("CategoryRepo", "⚠️ FoodItem ID: $foodId has empty imageUrl")
                     "" // Trả về chuỗi rỗng nếu không có imageUrl
                 }
+                android.util.Log.d("CategoryRepo", "📤 FoodItem ID: $foodId, Final ImageURL: $fullImageUrl")
                 
                 FoodItemUI(
                     id = doc.getLong("id") ?: 0L,
@@ -105,15 +122,31 @@ class CategoryFirestoreRepository @Inject constructor(
             
             doc?.let {
                 val imageUrl = it.getString("imageUrl")
+                val foodId = it.getLong("id") ?: 0L
+                val foodName = it.getString("name") ?: ""
+                android.util.Log.d("CategoryRepo", "📥 getFoodById - ID: $foodId, Name: $foodName, ImageURL: $imageUrl")
+                
                 val fullImageUrl = if (!imageUrl.isNullOrBlank()) {
-                    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-                        imageUrl
-                    } else {
-                        BASE_URL.dropLast(1) + imageUrl
+                    when {
+                        imageUrl.startsWith("https://res.cloudinary.com") -> {
+                            android.util.Log.d("CategoryRepo", "✅ Using Cloudinary URL directly: $imageUrl")
+                            imageUrl
+                        }
+                        imageUrl.startsWith("http://") || imageUrl.startsWith("https://") -> {
+                            android.util.Log.d("CategoryRepo", "✅ Using full URL directly: $imageUrl")
+                            imageUrl
+                        }
+                        else -> {
+                            val localUrl = BASE_URL.dropLast(1) + imageUrl
+                            android.util.Log.d("CategoryRepo", "⚠️ Using local URL: $localUrl")
+                            localUrl
+                        }
                     }
                 } else {
+                    android.util.Log.w("CategoryRepo", "⚠️ FoodItem ID: $foodId has empty imageUrl")
                     ""
                 }
+                android.util.Log.d("CategoryRepo", "📤 getFoodById - ID: $foodId, Final ImageURL: $fullImageUrl")
                 
                 FoodItemUI(
                     id = it.getLong("id") ?: 0L,
