@@ -17,7 +17,12 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.example.nutricook.R
+// Import các màn hình Auth mới
+import com.example.nutricook.view.auth.ForgotPasswordScreen
+import com.example.nutricook.view.auth.NewPasswordScreen
+import com.example.nutricook.view.auth.PhoneVerificationScreen
 import com.example.nutricook.view.articles.ArticleDetailScreen
 import com.example.nutricook.view.auth.LoginScreen
 import com.example.nutricook.view.auth.RegisterScreen
@@ -108,7 +113,8 @@ fun NavGraph(navController: NavHostController) {
             LoginScreen(
                 onGoRegister = { navController.navigate("register") },
                 onBack = { navController.popBackStack() },
-                onForgotPassword = { },
+                // [ĐÃ SỬA] Điều hướng sang màn hình quên mật khẩu
+                onForgotPassword = { navController.navigate("forgot_password") },
                 vm = authVm
             )
         }
@@ -118,6 +124,50 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
+
+        // [MỚI] Màn hình Quên Mật Khẩu
+        composable("forgot_password") {
+            ForgotPasswordScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // [MỚI] Màn hình Xác thực SĐT (OTP)
+        // Lưu ý: Có thể gọi từ Settings hoặc sau khi Register tùy logic của bạn
+        composable("phone_verification") {
+            PhoneVerificationScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // [MỚI] Màn hình Đặt lại Mật khẩu mới
+        // Route này nhận tham số oobCode (Mã xác thực từ email deep link)
+        // Ví dụ deep link: nutricook://auth/reset_password?oobCode=...
+        composable(
+            route = "new_password?oobCode={oobCode}",
+            arguments = listOf(
+                navArgument("oobCode") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            ),
+            // Cấu hình Deep Link (Cần khai báo thêm trong AndroidManifest.xml để hoạt động thật)
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "https://nutricook.example.com/reset_password?oobCode={oobCode}" }
+            )
+        ) { backStackEntry ->
+            val oobCode = backStackEntry.arguments?.getString("oobCode") ?: ""
+            NewPasswordScreen(
+                oobCode = oobCode,
+                onNavigateToLogin = {
+                    // Quay về login và xóa backstack để user phải đăng nhập lại với pass mới
+                    navController.navigate("login") {
+                        popUpTo("intro") { inclusive = true }
+                    }
+                }
+            )
+        }
+
 
         // ========== MAIN TABS ==========
 
@@ -498,6 +548,5 @@ fun NavGraph(navController: NavHostController) {
         }
         composable("seed_data") { DataSeedScreen(navController) }
 
-        // [ĐÃ SỬA] Đã xóa route "edit_profile" vì chức năng này đã có trong SettingsScreen
     }
 }
