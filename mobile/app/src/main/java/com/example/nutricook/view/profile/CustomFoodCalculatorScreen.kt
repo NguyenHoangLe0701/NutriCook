@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nutricook.data.nutrition.GeminiNutritionService
+import com.example.nutricook.utils.DecimalInputHelper
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 import android.util.Log
@@ -333,14 +334,10 @@ fun CustomFoodCalculatorScreen(
                 OutlinedTextField(
                     value = calories,
                     onValueChange = { newValue ->
-                        // Chỉ cho phép số dương (0-9 và dấu chấm cho decimal)
-                        val filtered = newValue.filter { it.isDigit() || it == '.' }
-                        // Không cho phép nhiều dấu chấm
-                        val dotCount = filtered.count { it == '.' }
-                        if (dotCount <= 1) {
-                            calories = filtered
-                            geminiError = null
-                        }
+                        // Normalize input: hỗ trợ cả dấu phẩy và dấu chấm, tự động thêm "0" nếu cần
+                        val normalized = DecimalInputHelper.normalizeDecimalInput(newValue)
+                        calories = normalized
+                        geminiError = null
                     },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("0", fontSize = 14.sp) },
@@ -351,7 +348,7 @@ fun CustomFoodCalculatorScreen(
                         unfocusedBorderColor = Color(0xFFE5E7EB)
                     ),
                     singleLine = true,
-                    isError = calories.isNotBlank() && (calories.toFloatOrNull() == null || calories.toFloatOrNull()!! < 0)
+                    isError = !DecimalInputHelper.isValid(calories)
                 )
             }
             
@@ -373,12 +370,8 @@ fun CustomFoodCalculatorScreen(
                     OutlinedTextField(
                         value = protein,
                         onValueChange = { newValue ->
-                            // Chỉ cho phép số dương
-                            val filtered = newValue.filter { it.isDigit() || it == '.' }
-                            val dotCount = filtered.count { it == '.' }
-                            if (dotCount <= 1) {
-                                protein = filtered
-                            }
+                            // Normalize input: hỗ trợ cả dấu phẩy và dấu chấm
+                            protein = DecimalInputHelper.normalizeDecimalInput(newValue)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", fontSize = 14.sp) },
@@ -389,7 +382,7 @@ fun CustomFoodCalculatorScreen(
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         ),
                         singleLine = true,
-                        isError = protein.isNotBlank() && (protein.toFloatOrNull() == null || protein.toFloatOrNull()!! < 0)
+                        isError = !DecimalInputHelper.isValid(protein)
                     )
                 }
                 
@@ -406,12 +399,8 @@ fun CustomFoodCalculatorScreen(
                     OutlinedTextField(
                         value = fat,
                         onValueChange = { newValue ->
-                            // Chỉ cho phép số dương
-                            val filtered = newValue.filter { it.isDigit() || it == '.' }
-                            val dotCount = filtered.count { it == '.' }
-                            if (dotCount <= 1) {
-                                fat = filtered
-                            }
+                            // Normalize input: hỗ trợ cả dấu phẩy và dấu chấm
+                            fat = DecimalInputHelper.normalizeDecimalInput(newValue)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", fontSize = 14.sp) },
@@ -422,7 +411,7 @@ fun CustomFoodCalculatorScreen(
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         ),
                         singleLine = true,
-                        isError = fat.isNotBlank() && (fat.toFloatOrNull() == null || fat.toFloatOrNull()!! < 0)
+                        isError = !DecimalInputHelper.isValid(fat)
                     )
                 }
                 
@@ -439,12 +428,8 @@ fun CustomFoodCalculatorScreen(
                     OutlinedTextField(
                         value = carb,
                         onValueChange = { newValue ->
-                            // Chỉ cho phép số dương
-                            val filtered = newValue.filter { it.isDigit() || it == '.' }
-                            val dotCount = filtered.count { it == '.' }
-                            if (dotCount <= 1) {
-                                carb = filtered
-                            }
+                            // Normalize input: hỗ trợ cả dấu phẩy và dấu chấm
+                            carb = DecimalInputHelper.normalizeDecimalInput(newValue)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", fontSize = 14.sp) },
@@ -455,7 +440,7 @@ fun CustomFoodCalculatorScreen(
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         ),
                         singleLine = true,
-                        isError = carb.isNotBlank() && (carb.toFloatOrNull() == null || carb.toFloatOrNull()!! < 0)
+                        isError = !DecimalInputHelper.isValid(carb)
                     )
                 }
             }
@@ -465,11 +450,11 @@ fun CustomFoodCalculatorScreen(
             // Nút Lưu
             Button(
                 onClick = {
-                    // Parse và validate giá trị
-                    val cal = calories.toFloatOrNull() ?: 0f
-                    val prot = protein.toFloatOrNull() ?: 0f
-                    val f = fat.toFloatOrNull() ?: 0f
-                    val c = carb.toFloatOrNull() ?: 0f
+                    // Parse và validate giá trị (hỗ trợ cả dấu phẩy và dấu chấm)
+                    val cal = DecimalInputHelper.parseToFloat(calories) ?: 0f
+                    val prot = DecimalInputHelper.parseToFloat(protein) ?: 0f
+                    val f = DecimalInputHelper.parseToFloat(fat) ?: 0f
+                    val c = DecimalInputHelper.parseToFloat(carb) ?: 0f
                     
                     // Validation: Đảm bảo calories hợp lệ
                     if (cal < 0 || cal > 10000) {
@@ -492,7 +477,7 @@ fun CustomFoodCalculatorScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = TealPrimary
                 ),
-                enabled = foodName.isNotBlank() && calories.toFloatOrNull() != null && calories.toFloatOrNull()!! > 0
+                enabled = foodName.isNotBlank() && DecimalInputHelper.isValid(calories) && (DecimalInputHelper.parseToFloat(calories) ?: 0f) > 0
             ) {
                 Text(
                     "Lưu món ăn",
