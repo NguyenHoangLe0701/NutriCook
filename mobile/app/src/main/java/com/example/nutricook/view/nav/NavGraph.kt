@@ -326,6 +326,10 @@ fun NavGraph(navController: NavHostController) {
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza
             RecipeDetailScreen(navController, recipeTitle, imageRes)
         }
+        composable("method_group_detail/{methodName}") { backStackEntry ->
+            val methodName = backStackEntry.arguments?.getString("methodName") ?: ""
+            RecipeDetailScreen(navController, methodName)
+        }
         composable("recipe_info/{recipeTitle}/{imageRes}") { backStackEntry ->
             val recipeTitle = backStackEntry.arguments?.getString("recipeTitle") ?: "Unknown"
             val imageRes = backStackEntry.arguments?.getString("imageRes")?.toIntOrNull() ?: R.drawable.pizza

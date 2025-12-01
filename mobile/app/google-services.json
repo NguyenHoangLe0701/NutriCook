@@ -31,6 +31,14 @@
           }
         },
         {
+          "client_id": "697610921161-nkro4c6bc1eqc19a90fdrg0tgv1ju5hq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nutricook",
+            "certificate_hash": "344024a5c4242d637256e4636bc475e8e3c38182"
+          }
+        },
+        {
           "client_id": "697610921161-qde8j2ifbvt3v88crk44ausdopqte7jh.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -1,5 +1,6 @@
 package com.example.nutricook.view.recipes
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -55,6 +56,33 @@ data class TodayRecipe(
     val userName: String? = null, // Tên người upload
     val createdAt: String? = null, // Ngày upload
     val recipeId: String? = null // ID của recipe trong Firestore (cho user recipes)
+)
+
+// 🧱 Data model cho nhóm công thức theo phương pháp nấu
+data class RecipeMethodGroup(
+    val methodName: String, // Tên phương pháp: "Xào", "Chiên", "Hấp", "Nướng"
+    val displayName: String, // Tên hiển thị
+    val category: String, // Tên category ngắn
+    val title: String, // Tiêu đề chính
+    val description: String, // Mô tả cho nhóm
+    val color: Color, // Màu của nhóm
+    val icon: String = "🍳", // Icon emoji
+    val imageRes: Int = R.drawable.beefandcabbage, // Hình ảnh đại diện
+    val userCount: Int = 0, // Số user avatars
+    val additionalUsers: Int = 0, // Số user khác
+    val recipes: List<MethodGroupRecipe> = emptyList(), // Danh sách công thức
+    val isUpdating: Boolean = false // Trạng thái đang cập nhật
+)
+
+data class MethodGroupRecipe(
+    val recipeId: String,
+    val name: String,
+    val description: String,
+    val estimatedTime: String,
+    val servings: String,
+    val imageUrl: String?,
+    val author: String,
+    val imageRes: Int = R.drawable.beefandcabbage
 )
 
 @Composable
@@ -218,6 +246,149 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
         emptyList()
     }
 
+    // 🔍 Lọc recipes theo phương pháp nấu (Xào)
+    val stirFryRecipes = remember(userRecipes.value) {
+        userRecipes.value.mapNotNull { map ->
+            try {
+                val ingredients = map["ingredients"] as? List<Map<String, Any>> ?: emptyList()
+                val hasStirFryMethod = ingredients.any { ingredient ->
+                    val cookingMethod = ingredient["cookingMethod"] as? String ?: ""
+                    cookingMethod == "Xào"
+                }
+                
+                if (hasStirFryMethod) {
+                    val imageUrls = map["imageUrls"] as? List<*> ?: emptyList<Any>()
+                    val firstImageUrl = imageUrls.firstOrNull() as? String
+                    val docId = map["docId"] as? String ?: ""
+                    val userEmail = map["userEmail"] as? String ?: ""
+                    
+                    MethodGroupRecipe(
+                        recipeId = docId,
+                        name = map["recipeName"] as? String ?: "",
+                        description = map["description"] as? String ?: "",
+                        estimatedTime = map["estimatedTime"] as? String ?: "0",
+                        servings = map["servings"] as? String ?: "1",
+                        imageUrl = firstImageUrl,
+                        author = userEmail.split("@").firstOrNull() ?: "Unknown",
+                        imageRes = R.drawable.beefandcabbage
+                    )
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RecipeDiscovery", "Error filtering stir fry recipe: ${e.message}", e)
+                null
+            }
+        }
+    }
+
+    // Load viewers cho tất cả method groups
+    val methodGroupViewers = remember { mutableStateOf<Map<String, List<MethodGroupViewer>>>(emptyMap()) }
+    
+    LaunchedEffect(Unit) {
+        val firestore = FirebaseFirestore.getInstance()
+        val methodNames = listOf("Xào", "Chiên", "Hấp", "Nướng")
+        
+        methodNames.forEach { methodName ->
+            try {
+                val viewersSnapshot = firestore.collection("methodGroupViews")
+                    .document(methodName)
+                    .collection("viewers")
+                    .orderBy("viewedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(50)
+                    .get()
+                    .await()
+                
+                val viewers = viewersSnapshot.documents.mapNotNull { doc ->
+                    try {
+                        val data = doc.data ?: return@mapNotNull null
+                        MethodGroupViewer(
+                            userId = data["userId"] as? String ?: "",
+                            userName = data["userName"] as? String ?: "User",
+                            avatarUrl = data["avatarUrl"] as? String,
+                            viewedAt = data["viewedAt"] as? com.google.firebase.Timestamp ?: com.google.firebase.Timestamp.now()
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                
+                methodGroupViewers.value = methodGroupViewers.value.toMutableMap().apply {
+                    put(methodName, viewers)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RecipeDiscovery", "Error loading viewers for $methodName: ${e.message}", e)
+            }
+        }
+    }
+    
+    // 🏷️ Tạo các nhóm phương pháp nấu
+    val methodGroups = remember(stirFryRecipes, methodGroupViewers.value) {
+        val xaoViewers = methodGroupViewers.value["Xào"] ?: emptyList()
+        val chienViewers = methodGroupViewers.value["Chiên"] ?: emptyList()
+        val hapViewers = methodGroupViewers.value["Hấp"] ?: emptyList()
+        val nuongViewers = methodGroupViewers.value["Nướng"] ?: emptyList()
+        
+        listOf(
+            RecipeMethodGroup(
+                methodName = "Xào",
+                displayName = "Công thức Xào",
+                category = "Xào",
+                title = stirFryRecipes.firstOrNull()?.name ?: "Công thức Xào thơm ngon",
+                description = "Khám phá các món xào thơm ngon, đậm đà. Phương pháp xào giữ được hương vị tự nhiên của nguyên liệu, tạo nên những món ăn hấp dẫn và bổ dưỡng.",
+                color = Color(0xFFE8F5E9), // Màu xanh lá nhạt (như hình)
+                icon = "⚡",
+                imageRes = R.drawable.xao,
+                userCount = xaoViewers.size.coerceAtMost(3),
+                additionalUsers = (xaoViewers.size - 3).coerceAtLeast(0),
+                recipes = stirFryRecipes,
+                isUpdating = false
+            ),
+            RecipeMethodGroup(
+                methodName = "Chiên",
+                displayName = "Công thức Chiên",
+                category = "Chiên",
+                title = "Các món chiên giòn rụm",
+                description = "Đang cập nhật",
+                color = Color(0xFFFFE5CC), // Màu cam nhạt (như hình)
+                icon = "⚡",
+                imageRes = R.drawable.chien,
+                userCount = chienViewers.size.coerceAtMost(3),
+                additionalUsers = (chienViewers.size - 3).coerceAtLeast(0),
+                recipes = emptyList(),
+                isUpdating = true
+            ),
+            RecipeMethodGroup(
+                methodName = "Hấp",
+                displayName = "Công thức Hấp",
+                category = "Hấp",
+                title = "Các món hấp thanh đạm",
+                description = "Đang cập nhật",
+                color = Color(0xFFE3F2FD), // Màu xanh dương nhạt (như hình)
+                icon = "⚡",
+                imageRes = R.drawable.hap,
+                userCount = hapViewers.size.coerceAtMost(3),
+                additionalUsers = (hapViewers.size - 3).coerceAtLeast(0),
+                recipes = emptyList(),
+                isUpdating = true
+            ),
+            RecipeMethodGroup(
+                methodName = "Nướng",
+                displayName = "Công thức Nướng",
+                category = "Nướng",
+                title = "Các món nướng thơm lừng",
+                description = "Đang cập nhật",
+                color = Color(0xFFFFEBEE), // Màu hồng nhạt (như hình)
+                icon = "⚡",
+                imageRes = R.drawable.nuong,
+                userCount = nuongViewers.size.coerceAtMost(3),
+                additionalUsers = (nuongViewers.size - 3).coerceAtLeast(0),
+                recipes = emptyList(),
+                isUpdating = true
+            )
+        )
+    }
+
     val listState = rememberLazyListState()
 
     if (isLoading) {
@@ -267,12 +438,17 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
             }
         }
 
-        // 🍱 Category Cards
-        items(categories) { recipe ->
-            RecipeCategoryCard(recipe) {
-                // ✅ Khi bấm vào, chuyển sang RecipeDetailScreen
-                navController.navigate("recipe_detail/${recipe.title}/${recipe.imageRes}")
-            }
+        // 🍳 Method Groups (Các nhóm công thức theo phương pháp nấu)
+        items(methodGroups) { group ->
+            val groupViewers = methodGroupViewers.value[group.methodName] ?: emptyList()
+            MethodGroupSection(
+                group = group,
+                viewers = groupViewers,
+                navController = navController,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            )
         }
 
         item {
@@ -501,3 +677,275 @@ fun TodayRecipeItem(recipe: TodayRecipe, onClick: () -> Unit) {
         }
     }
 }
+
+// 🍳 Method Group Components
+@Composable
+fun MethodGroupSection(
+    group: RecipeMethodGroup,
+    viewers: List<MethodGroupViewer> = emptyList(),
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
+    // Header Section (như hình) - chỉ hiển thị header, không hiển thị recipes ở ngoài
+    MethodGroupHeader(group, viewers) {
+        // Navigate đến RecipeDetailScreen với methodName
+        navController.navigate("method_group_detail/${group.methodName}")
+    }
+}
+
+@Composable
+fun MethodGroupHeader(
+    group: RecipeMethodGroup,
+    viewers: List<MethodGroupViewer> = emptyList(),
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = group.color),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                // Category và Icon (như hình)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "⚡",
+                            fontSize = 16.sp
+                        )
+                    }
+                    Text(
+                        text = group.category,
+                        fontSize = 13.sp,
+                        color = when(group.methodName) {
+                            "Xào" -> Color(0xFF1B8A5A)
+                            "Chiên" -> Color(0xFFFF7A00)
+                            "Hấp" -> Color(0xFF2196F3)
+                            "Nướng" -> Color(0xFFE91E63)
+                            else -> Color(0xFF757575)
+                        },
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // Title với mô tả
+                Text(
+                    text = group.title,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    lineHeight = 22.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Mô tả ngắn
+                if (group.description.isNotBlank() && !group.isUpdating && group.description != "Đang cập nhật") {
+                    Text(
+                        text = group.description.take(80) + if (group.description.length > 80) "..." else "",
+                        fontSize = 13.sp,
+                        color = Color.Gray,
+                        lineHeight = 18.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                
+                // User avatars (hiển thị dưới mô tả) - hiển thị avatars thực tế
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Hiển thị avatars (luôn hiển thị nếu có viewers)
+                MethodGroupViewersRowCompact(
+                    viewers = viewers.take(3),
+                    additionalCount = (viewers.size - 3).coerceAtLeast(0)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Hình ảnh bên phải (hình tròn như hình)
+            Image(
+                painter = painterResource(id = group.imageRes),
+                contentDescription = group.title,
+                modifier = Modifier
+                    .size(110.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
+
+@Composable
+fun MethodGroupRecipeCard(
+    recipe: MethodGroupRecipe,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Recipe Image
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(recipe.imageUrl ?: recipe.imageRes)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = recipe.name,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop,
+                error = painterResource(id = recipe.imageRes),
+                placeholder = painterResource(id = recipe.imageRes)
+            )
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Recipe Info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = recipe.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${recipe.estimatedTime} | ${recipe.servings} Servings",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "!",
+                        fontSize = 12.sp,
+                        color = Color(0xFF20B2AA),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = recipe.author,
+                        fontSize = 12.sp,
+                        color = Color(0xFF20B2AA)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Composable compact để hiển thị avatars của người đã xem (24dp cho RecipeDiscoveryScreen)
+@Composable
+fun MethodGroupViewersRowCompact(
+    viewers: List<MethodGroupViewer>,
+    additionalCount: Int
+) {
+    if (viewers.isEmpty() && additionalCount == 0) {
+        // Không hiển thị gì nếu không có viewers
+        return
+    }
+    
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        viewers.forEachIndexed { index, viewer ->
+            // Avatar với border overlap (như hình 2) - 24dp
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.White, CircleShape)
+                    .then(
+                        if (index > 0) {
+                            Modifier.offset(x = (-8 * index).dp)
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) {
+                if (!viewer.avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(viewer.avatarUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = viewer.userName,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                        error = painterResource(id = R.drawable.avatar_sample),
+                        placeholder = painterResource(id = R.drawable.avatar_sample)
+                    )
+                } else {
+                    // Hiển thị chữ cái đầu nếu không có avatar (màu xám nhạt như hình)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(Color.LightGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = viewer.userName.firstOrNull()?.uppercase() ?: "?",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Spacing sau avatars
+        if (viewers.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        
+        // Hiển thị số người còn lại
+        if (additionalCount > 0) {
+            Text(
+                text = "+$additionalCount Khác",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
