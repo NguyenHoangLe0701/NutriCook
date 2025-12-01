@@ -1,6 +1,8 @@
 package com.example.nutricook.view.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material3.*
@@ -24,6 +27,7 @@ import androidx.navigation.NavController
 import com.example.nutricook.data.nutrition.GeminiNutritionService
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
+import android.util.Log
 
 private val TealPrimary = Color(0xFF2BB6AD)
 private val TealLight = Color(0xFFE0F7F6)
@@ -166,12 +170,20 @@ fun CustomFoodCalculatorScreen(
                                             val nutrition = geminiService.calculateNutrition(foodName.trim())
                                             
                                             if (nutrition != null && nutrition.calories > 0) {
-                                                calories = nutrition.calories.toInt().toString()
-                                                protein = String.format("%.1f", nutrition.protein)
-                                                fat = String.format("%.1f", nutrition.fat)
-                                                carb = String.format("%.1f", nutrition.carb)
-                                                showSuccess = true
-                                                geminiError = null
+                                                // Chỉ cập nhật nếu người dùng chưa nhập thủ công hoặc đang trống
+                                                if (calories.isBlank() || calories == "0") {
+                                                    calories = nutrition.calories.toInt().toString()
+                                                    protein = String.format("%.1f", nutrition.protein)
+                                                    fat = String.format("%.1f", nutrition.fat)
+                                                    carb = String.format("%.1f", nutrition.carb)
+                                                    showSuccess = true
+                                                    geminiError = null
+                                                    Log.d("CustomFoodCalc", "Auto-calculated: Calories=${nutrition.calories}, Protein=${nutrition.protein}, Fat=${nutrition.fat}, Carb=${nutrition.carb}")
+                                                } else {
+                                                    // Nếu đã có giá trị thủ công, chỉ cập nhật nếu người dùng muốn
+                                                    Log.d("CustomFoodCalc", "User already entered manual values, keeping them")
+                                                    geminiError = "Bạn đã nhập giá trị thủ công. Giữ nguyên hoặc xóa để dùng giá trị tự động."
+                                                }
                                             } else {
                                                 geminiError = "Không thể tính calories tự động. Vui lòng nhập thủ công."
                                             }
@@ -264,13 +276,51 @@ fun CustomFoodCalculatorScreen(
             
             Divider(modifier = Modifier.padding(vertical = 8.dp))
             
-            // Thông tin dinh dưỡng
-            Text(
-                "Thông tin dinh dưỡng",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextDark
-            )
+            // Thông tin dinh dưỡng với nút Reset
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Thông tin dinh dưỡng",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark
+                )
+                // Nút Reset - Đẹp hơn
+                if (foodName.isNotBlank() || calories.isNotBlank() || protein.isNotBlank() || fat.isNotBlank() || carb.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = {
+                            foodName = ""
+                            calories = ""
+                            protein = ""
+                            fat = ""
+                            carb = ""
+                            geminiError = null
+                            showSuccess = false
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFEF4444)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = "Reset",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Reset",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
             
             // Calories
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -282,16 +332,26 @@ fun CustomFoodCalculatorScreen(
                 )
                 OutlinedTextField(
                     value = calories,
-                    onValueChange = { calories = it },
+                    onValueChange = { newValue ->
+                        // Chỉ cho phép số dương (0-9 và dấu chấm cho decimal)
+                        val filtered = newValue.filter { it.isDigit() || it == '.' }
+                        // Không cho phép nhiều dấu chấm
+                        val dotCount = filtered.count { it == '.' }
+                        if (dotCount <= 1) {
+                            calories = filtered
+                            geminiError = null
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("0", fontSize = 14.sp) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = TealPrimary,
                         unfocusedBorderColor = Color(0xFFE5E7EB)
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    isError = calories.isNotBlank() && (calories.toFloatOrNull() == null || calories.toFloatOrNull()!! < 0)
                 )
             }
             
@@ -312,7 +372,14 @@ fun CustomFoodCalculatorScreen(
                     )
                     OutlinedTextField(
                         value = protein,
-                        onValueChange = { protein = it },
+                        onValueChange = { newValue ->
+                            // Chỉ cho phép số dương
+                            val filtered = newValue.filter { it.isDigit() || it == '.' }
+                            val dotCount = filtered.count { it == '.' }
+                            if (dotCount <= 1) {
+                                protein = filtered
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", fontSize = 14.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -321,7 +388,8 @@ fun CustomFoodCalculatorScreen(
                             focusedBorderColor = TealPrimary,
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         ),
-                        singleLine = true
+                        singleLine = true,
+                        isError = protein.isNotBlank() && (protein.toFloatOrNull() == null || protein.toFloatOrNull()!! < 0)
                     )
                 }
                 
@@ -337,7 +405,14 @@ fun CustomFoodCalculatorScreen(
                     )
                     OutlinedTextField(
                         value = fat,
-                        onValueChange = { fat = it },
+                        onValueChange = { newValue ->
+                            // Chỉ cho phép số dương
+                            val filtered = newValue.filter { it.isDigit() || it == '.' }
+                            val dotCount = filtered.count { it == '.' }
+                            if (dotCount <= 1) {
+                                fat = filtered
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", fontSize = 14.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -346,7 +421,8 @@ fun CustomFoodCalculatorScreen(
                             focusedBorderColor = TealPrimary,
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         ),
-                        singleLine = true
+                        singleLine = true,
+                        isError = fat.isNotBlank() && (fat.toFloatOrNull() == null || fat.toFloatOrNull()!! < 0)
                     )
                 }
                 
@@ -362,7 +438,14 @@ fun CustomFoodCalculatorScreen(
                     )
                     OutlinedTextField(
                         value = carb,
-                        onValueChange = { carb = it },
+                        onValueChange = { newValue ->
+                            // Chỉ cho phép số dương
+                            val filtered = newValue.filter { it.isDigit() || it == '.' }
+                            val dotCount = filtered.count { it == '.' }
+                            if (dotCount <= 1) {
+                                carb = filtered
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", fontSize = 14.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -371,7 +454,8 @@ fun CustomFoodCalculatorScreen(
                             focusedBorderColor = TealPrimary,
                             unfocusedBorderColor = Color(0xFFE5E7EB)
                         ),
-                        singleLine = true
+                        singleLine = true,
+                        isError = carb.isNotBlank() && (carb.toFloatOrNull() == null || carb.toFloatOrNull()!! < 0)
                     )
                 }
             }
@@ -381,14 +465,24 @@ fun CustomFoodCalculatorScreen(
             // Nút Lưu
             Button(
                 onClick = {
+                    // Parse và validate giá trị
                     val cal = calories.toFloatOrNull() ?: 0f
                     val prot = protein.toFloatOrNull() ?: 0f
                     val f = fat.toFloatOrNull() ?: 0f
                     val c = carb.toFloatOrNull() ?: 0f
                     
+                    // Validation: Đảm bảo calories hợp lệ
+                    if (cal < 0 || cal > 10000) {
+                        geminiError = "Calories phải trong khoảng 0-10000 kcal"
+                        return@Button
+                    }
+                    
                     if (foodName.isNotBlank() && cal > 0) {
+                        android.util.Log.d("CustomFoodCalc", "Saving: Name=$foodName, Calories=$cal, Protein=$prot, Fat=$f, Carb=$c")
                         onSave(foodName, cal, prot, f, c)
                         navController.popBackStack()
+                    } else {
+                        geminiError = "Vui lòng nhập tên món ăn và calories > 0"
                     }
                 },
                 modifier = Modifier
