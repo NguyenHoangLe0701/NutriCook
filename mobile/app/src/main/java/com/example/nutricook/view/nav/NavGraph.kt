@@ -512,18 +512,31 @@ fun NavGraph(navController: NavHostController) {
             val profileVm: com.example.nutricook.viewmodel.profile.ProfileViewModel = hiltViewModel()
             val nutritionState by nutritionVm.ui.collectAsState()
             val profileState by profileVm.uiState.collectAsState()
-            val todayLog = nutritionState.todayLog
+            
+            // Lấy dateId từ state (nếu đang xem ngày khác)
+            val selectedDateId = nutritionState.selectedDateId
+            val displayLog = if (selectedDateId != null) {
+                nutritionState.selectedDateLog
+            } else {
+                nutritionState.todayLog
+            }
+            
             val caloriesTarget = profileState.profile?.nutrition?.caloriesTarget ?: 2000f
 
             AddMealScreen(
                 navController = navController,
-                initialCalories = todayLog?.calories ?: 0f,
-                initialProtein = todayLog?.protein ?: 0f,
-                initialFat = todayLog?.fat ?: 0f,
-                initialCarb = todayLog?.carb ?: 0f,
+                initialCalories = displayLog?.calories ?: 0f,
+                initialProtein = displayLog?.protein ?: 0f,
+                initialFat = displayLog?.fat ?: 0f,
+                initialCarb = displayLog?.carb ?: 0f,
                 caloriesTarget = caloriesTarget,
+                selectedDateId = selectedDateId,
                 onSave = { cal, pro, fat, carb ->
-                    nutritionVm.updateTodayNutrition(cal, pro, fat, carb)
+                    if (selectedDateId != null) {
+                        nutritionVm.updateNutritionForDate(selectedDateId, cal, pro, fat, carb)
+                    } else {
+                        nutritionVm.updateTodayNutrition(cal, pro, fat, carb)
+                    }
                 }
             )
         }

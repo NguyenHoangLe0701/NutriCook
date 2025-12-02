@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -57,6 +58,11 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ActivityComponent
 import dagger.hilt.android.EntryPointAccessors
+import android.app.DatePickerDialog
+import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
 
 // --- MÀU SẮC ---
 private val TealPrimary = Color(0xFF10B981) // Đồng bộ màu Green với Newsfeed
@@ -233,19 +239,35 @@ fun ProfileScreen(
                     val todayCalories = todayLog?.calories ?: 0f
                     val caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f
                     val historyData = if (nutritionState.history.isNotEmpty()) nutritionState.history.map { it.calories } else listOf(0f,0f,0f,0f,0f,0f,0f)
+                    
+                    // Lấy dữ liệu ngày được chọn (nếu có)
+                    val selectedDateId = nutritionState.selectedDateId
+                    val selectedDateLog = nutritionState.selectedDateLog
+                    val displayLog = if (selectedDateId != null) selectedDateLog else todayLog
+                    val displayCalories = displayLog?.calories ?: 0f
 
                     CaloriesTrackingCard(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                        todayCalories = todayCalories,
+                        todayCalories = displayCalories,
                         caloriesTarget = caloriesTarget,
-                        todayLog = todayLog,
+                        todayLog = displayLog,
                         weeklyData = historyData,
-                        onAddClick = { onNavigateToCalculator() },
+                        onAddClick = { 
+                            onNavigateToCalculator()
+                        },
                         onTargetChange = { newTarget ->
                             vm.updateCaloriesTarget(newTarget)
                         },
                         onResetClick = {
                             nutritionVm.resetTodayNutrition()
+                        },
+                        selectedDateId = selectedDateId,
+                        selectedDateLog = selectedDateLog,
+                        onDateSelected = { dateId ->
+                            nutritionVm.selectDate(dateId)
+                        },
+                        onResetToToday = {
+                            nutritionVm.resetToToday()
                         }
                     )
                 }
@@ -436,9 +458,33 @@ fun CaloriesTrackingCard(
     weeklyData: List<Float>,
     onAddClick: () -> Unit,
     onTargetChange: ((Float) -> Unit)? = null,
-    onResetClick: (() -> Unit)? = null
+    onResetClick: (() -> Unit)? = null,
+    selectedDateId: String? = null,
+    selectedDateLog: com.example.nutricook.model.nutrition.DailyLog? = null,
+    onDateSelected: ((String) -> Unit)? = null,
+    onResetToToday: (() -> Unit)? = null
 ) {
     var showTargetDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    
+    // Xác định dữ liệu hiển thị: nếu có selectedDateId thì dùng selectedDateLog, không thì dùng todayLog
+    val displayLog = if (selectedDateId != null) selectedDateLog else todayLog
+    val displayCalories = displayLog?.calories ?: 0f
+    val isToday = selectedDateId == null
+    
+    // Format ngày để hiển thị
+    val displayDateText = if (selectedDateId != null) {
+        try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val date = sdf.parse(selectedDateId)
+            val displayFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            displayFormat.format(date ?: Date())
+        } catch (e: Exception) {
+            selectedDateId
+        }
+    } else {
+        "Hôm nay"
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -459,17 +505,52 @@ fun CaloriesTrackingCard(
                         text = "Theo dõi Calories",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextDark, fontSize = 20.sp)
                     )
-                    Text(
-                        text = "Hôm nay",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = TextGray, fontSize = 14.sp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.clickable {
+                            if (onDateSelected != null) {
+                                showDatePicker(context, selectedDateId) { dateId ->
+                                    onDateSelected(dateId)
+                                }
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = displayDateText,
+                            style = MaterialTheme.typography.bodyMedium.copy(color = TextGray, fontSize = 14.sp)
+                        )
+                        if (onDateSelected != null) {
+                            Icon(
+                                Icons.Outlined.CalendarToday,
+                                contentDescription = "Chọn ngày",
+                                modifier = Modifier.size(16.dp),
+                                tint = TextGray
+                            )
+                        }
+                    }
+                    // Nút quay về hôm nay nếu đang xem ngày khác
+                    if (!isToday && onResetToToday != null) {
+                        TextButton(
+                            onClick = onResetToToday,
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text(
+                                "Quay về hôm nay",
+                                fontSize = 12.sp,
+                                color = TealPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Nút Reset - chỉ hiển thị khi có dữ liệu
-                    if (todayCalories > 0 && onResetClick != null) {
+                    // Nút Reset - chỉ hiển thị khi có dữ liệu và đang xem hôm nay
+                    if (isToday && displayCalories > 0 && onResetClick != null) {
                         OutlinedButton(
                             onClick = onResetClick,
                             colors = ButtonDefaults.outlinedButtonColors(
@@ -513,8 +594,8 @@ fun CaloriesTrackingCard(
                     contentAlignment = Alignment.Center
                 ) {
                     // Tính progress không giới hạn để hiển thị đúng khi vượt quá
-                    val progress = todayCalories / caloriesTarget
-                    val remaining = caloriesTarget - todayCalories
+                    val progress = displayCalories / caloriesTarget
+                    val remaining = caloriesTarget - displayCalories
                     val isOverTarget = progress > 1f
                     val displayProgress = if (isOverTarget) 1f else progress.coerceIn(0f, 1f)
 
@@ -558,7 +639,7 @@ fun CaloriesTrackingCard(
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "${todayCalories.toInt()}",
+                            text = "${displayCalories.toInt()}",
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.Bold, 
                                 color = if (progress > 1f) Color(0xFFEF4444) else TextDark, 
@@ -633,27 +714,27 @@ fun CaloriesTrackingCard(
                         }
                     }
 
-                    if (todayLog != null) {
+                    if (displayLog != null) {
                         MacroStatItem(
                             label = "Protein",
-                            value = "${todayLog.protein.toInt()}",
+                            value = "${displayLog.protein.toInt()}",
                             unit = "g",
                             color = Color(0xFF3B82F6),
-                            progress = (todayLog.protein / (caloriesTarget * 0.3f / 4f)).coerceIn(0f, 1f)
+                            progress = (displayLog.protein / (caloriesTarget * 0.3f / 4f)).coerceIn(0f, 1f)
                         )
                         MacroStatItem(
                             label = "Carb",
-                            value = "${todayLog.carb.toInt()}",
+                            value = "${displayLog.carb.toInt()}",
                             unit = "g",
                             color = Color(0xFF10B981),
-                            progress = (todayLog.carb / (caloriesTarget * 0.45f / 4f)).coerceIn(0f, 1f)
+                            progress = (displayLog.carb / (caloriesTarget * 0.45f / 4f)).coerceIn(0f, 1f)
                         )
                         MacroStatItem(
                             label = "Fat",
-                            value = "${todayLog.fat.toInt()}",
+                            value = "${displayLog.fat.toInt()}",
                             unit = "g",
                             color = Color(0xFFF59E0B),
-                            progress = (todayLog.fat / (caloriesTarget * 0.25f / 9f)).coerceIn(0f, 1f)
+                            progress = (displayLog.fat / (caloriesTarget * 0.25f / 9f)).coerceIn(0f, 1f)
                         )
                     } else {
                         MacroStatItem("Protein", "0", "g", Color(0xFF3B82F6), 0f)
@@ -1856,6 +1937,46 @@ fun CustomFoodInputDialog(
 }
 
 data class QuickFood(val name: String, val calories: Float, val protein: Float, val fat: Float, val carb: Float)
+
+// Hàm hiển thị DatePickerDialog
+fun showDatePicker(
+    context: android.content.Context,
+    currentDateId: String?,
+    onDateSelected: (String) -> Unit
+) {
+    val calendar = Calendar.getInstance()
+    
+    // Nếu có currentDateId, parse nó để set ngày ban đầu
+    if (currentDateId != null) {
+        try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val date = sdf.parse(currentDateId)
+            if (date != null) {
+                calendar.time = date
+            }
+        } catch (e: Exception) {
+            // Nếu parse lỗi, dùng ngày hôm nay
+        }
+    }
+    
+    val year = calendar.get(Calendar.YEAR)
+    val month = calendar.get(Calendar.MONTH)
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+    
+    DatePickerDialog(
+        context,
+        { _, selectedYear, selectedMonth, selectedDay ->
+            val selectedCalendar = Calendar.getInstance()
+            selectedCalendar.set(selectedYear, selectedMonth, selectedDay)
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val dateId = sdf.format(selectedCalendar.time)
+            onDateSelected(dateId)
+        },
+        year,
+        month,
+        day
+    ).show()
+}
 
 @Composable
 fun QuickFoodChip(food: QuickFood, isFromGemini: Boolean = false, onClick: () -> Unit) {

@@ -31,44 +31,179 @@ Tính năng tìm kiếm nâng cao cho phép người dùng tìm kiếm đa dạn
    - Hiển thị: Avatar, tên, email
    - Click để xem profile người dùng
 
-## 🛠️ Công Nghệ Sử Dụng
+### 🔍 Các Loại Nội Dung Có Thể Mở Rộng (Chưa triển khai):
 
-### 1. **Jetpack Compose**
-- `SearchBar` composable với Material3
-- `LazyColumn` để hiển thị kết quả tìm kiếm
-- `AnimatedVisibility` cho animation khi mở/đóng search
-- `TextField` với `Icons.Default.Search` và `Icons.Default.FilterList`
+5. **📝 Posts (Bài đăng cộng đồng)**
+   - Collection: `posts` trong Firestore
+   - Tìm theo nội dung, caption, hashtags
+   - Hiển thị: Hình ảnh, caption, tác giả, likes
 
-### 2. **Architecture Components**
-- **ViewModel**: `SearchViewModel` để quản lý state và logic tìm kiếm
-- **StateFlow**: Quản lý UI state (query, results, loading, error)
-- **Hilt**: Dependency injection cho ViewModel và Repository
+6. **👨‍🍳 User Recipes (Công thức của người dùng)**
+   - Collection: `userRecipes` trong Firestore
+   - Tìm theo tên, mô tả, nguyên liệu
+   - Hiển thị: Tên, hình ảnh, tác giả, rating
 
-### 3. **Repository Pattern**
-- `SearchRepository`: Tập trung logic tìm kiếm từ nhiều nguồn
+7. **📂 Categories (Danh mục)**
+   - Collection: `categories` trong Firestore
+   - Tìm theo tên danh mục
+   - Hiển thị: Tên, icon, mô tả
+
+8. **🧄 Ingredients (Nguyên liệu)**
+   - Collection: `ingredients` trong Firestore
+   - Tìm theo tên nguyên liệu
+   - Hiển thị: Tên, hình ảnh, calories
+
+9. **⭐ Reviews (Đánh giá)**
+   - Collection: `reviews` trong Firestore
+   - Tìm theo nội dung đánh giá, tên người dùng
+   - Hiển thị: Tên người dùng, rating, nội dung
+
+10. **💡 Cooking Tips (Mẹo nấu ăn)**
+    - Collection: `cooking_tips` trong Firestore
+    - Tìm theo tiêu đề, nội dung
+    - Hiển thị: Tiêu đề, nội dung, category
+
+11. **🍽️ Meal Types (Loại bữa ăn)**
+    - Collection: `meal_types` trong Firestore
+    - Tìm theo tên loại bữa ăn
+    - Hiển thị: Tên, mô tả, icon
+
+12. **🥗 Diet Types (Chế độ ăn)**
+    - Collection: `diet_types` trong Firestore
+    - Tìm theo tên chế độ ăn
+    - Hiển thị: Tên, mô tả, icon
+
+13. **📊 Calorie Info (Thông tin calories)**
+    - Collection: `calorie_info` trong Firestore
+    - Tìm theo tên thực phẩm, calories range
+    - Hiển thị: Tên, calories, serving size
+
+## 🛠️ Công Nghệ & Thư Viện Sử Dụng
+
+### 1. **Jetpack Compose** 📱
+**Thư viện**: `androidx.compose.*`
+- `compose-ui`: UI components cơ bản
+- `compose-material3`: Material Design 3 components
+- `compose-foundation`: Layout và gestures
+- `compose-animation`: Animation effects
+
+**Components sử dụng**:
+- `TextField`: Search input với Material3
+- `LazyColumn`: Hiển thị danh sách kết quả tìm kiếm
+- `LazyRow`: Hiển thị filter chips ngang
+- `AnimatedVisibility`: Animation khi show/hide kết quả
+- `Card`: Container cho mỗi search result item
+- `FilterChip`: Chip để filter theo type
+- `CircularProgressIndicator`: Loading indicator
+
+**Dependencies** (trong `build.gradle.kts`):
+```kotlin
+implementation("androidx.compose.ui:ui:$compose_version")
+implementation("androidx.compose.material3:material3:$material3_version")
+implementation("androidx.compose.foundation:foundation:$compose_version")
+implementation("androidx.compose.animation:animation:$compose_version")
+```
+
+### 2. **Architecture Components** 🏗️
+**Thư viện**: `androidx.lifecycle.*`, `androidx.hilt.*`
+- **ViewModel**: `androidx.lifecycle:lifecycle-viewmodel-compose`
+- **StateFlow**: Quản lý UI state reactive
+- **Hilt**: Dependency injection
+  - `com.google.dagger:hilt-android`
+  - `androidx.hilt:hilt-navigation-compose`
+
+**Dependencies**:
+```kotlin
+implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version")
+implementation("com.google.dagger:hilt-android:$hilt_version")
+kapt("com.google.dagger:hilt-compiler:$hilt_version")
+implementation("androidx.hilt:hilt-navigation-compose:$hilt_navigation_version")
+```
+
+### 3. **Repository Pattern** 📦
+**Thư viện**: Custom implementation
+- `SearchRepository`: Tập trung logic tìm kiếm
 - Tích hợp với:
-  - `RecipeRepository` (Spoonacular API)
   - `ProfileRepository` (Firebase Firestore)
   - `HotNewsRepository` (Firebase Firestore)
-  - `NutritionRepository` (Local database)
+  - `UserRecipeRepository` (Firebase Firestore)
+  - `PostRepository` (Firebase Firestore)
 
-### 4. **Coroutines & Flow**
-- **Debouncing**: Delay 500ms sau khi người dùng ngừng gõ
-- **Flow**: Combine nhiều nguồn dữ liệu
-- **CoroutineScope**: Xử lý async operations
+### 4. **Coroutines & Flow** ⚡
+**Thư viện**: `kotlinx.coroutines.*`
+- **Debouncing**: `kotlinx.coroutines.delay(500)`
+- **Flow**: `kotlinx.coroutines.flow.*`
+- **CoroutineScope**: `viewModelScope`, `rememberCoroutineScope`
 
-### 5. **Navigation Component**
-- Navigate đến màn hình chi tiết khi click vào kết quả
+**Dependencies**:
+```kotlin
+implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines_version")
+implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:$coroutines_version")
+```
+
+### 5. **Navigation Component** 🧭
+**Thư viện**: `androidx.navigation.*`
+- Navigate đến màn hình chi tiết
 - Deep linking cho search results
 
-### 6. **Firebase Firestore**
-- Tìm kiếm recipes từ Firestore
-- Tìm kiếm hot news articles
-- Tìm kiếm users
+**Dependencies**:
+```kotlin
+implementation("androidx.navigation:navigation-compose:$nav_version")
+implementation("androidx.hilt:hilt-navigation-compose:$hilt_navigation_version")
+```
 
-### 7. **Spoonacular API** (Optional)
-- Tìm kiếm recipes từ external API
+### 6. **Firebase Firestore** 🔥
+**Thư viện**: `com.google.firebase:firebase-firestore-ktx`
+- Tìm kiếm từ nhiều collections
+- Real-time updates
+- Query với filters
+
+**Dependencies**:
+```kotlin
+implementation(platform("com.google.firebase:firebase-bom:$firebase_bom_version"))
+implementation("com.google.firebase:firebase-firestore-ktx")
+implementation("com.google.firebase:firebase-auth-ktx")
+```
+
+### 7. **Image Loading** 🖼️
+**Thư viện**: `io.coil-kt:coil-compose`
+- Load images từ URL
+- Caching tự động
+- Placeholder và error handling
+
+**Dependencies**:
+```kotlin
+implementation("io.coil-kt:coil-compose:$coil_version")
+```
+
+### 8. **Local Storage** 💾
+**Thư viện**: `androidx.datastore:datastore-preferences` hoặc `SharedPreferences`
+- Lưu recent searches
+- Cache search history
+
+**Dependencies**:
+```kotlin
+implementation("androidx.datastore:datastore-preferences:$datastore_version")
+// Hoặc sử dụng SharedPreferences có sẵn trong Android
+```
+
+### 9. **Text Search & Filtering** 🔍
+**Thư viện**: Kotlin Standard Library
+- String matching với `contains()`, `startsWith()`
+- Case-insensitive search với `lowercase()`
+- Multi-word search với `split()` và `all {}`
+- Relevance sorting với custom comparator
+
+### 10. **Optional: External APIs** 🌐
+**Spoonacular API** (nếu cần):
+- Tìm kiếm recipes từ external source
 - Cần API key trong `secrets.properties`
+
+**Retrofit** (nếu dùng external API):
+```kotlin
+implementation("com.squareup.retrofit2:retrofit:$retrofit_version")
+implementation("com.squareup.retrofit2:converter-gson:$retrofit_version")
+```
 
 ## 📐 Kiến Trúc
 
@@ -259,24 +394,242 @@ sealed class SearchResult {
 - Hiển thị kết quả từ `searchState.results`
 - Xử lý loading và error states
 
-### Bước 7: Tạo Hilt Module (nếu cần)
+### Bước 7: Tạo Hilt Module
 
 **File**: `mobile/app/src/main/java/com/example/nutricook/di/SearchModule.kt`
 
-- Provide `SearchRepository`
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object SearchModule {
+    @Provides
+    @Singleton
+    fun provideSearchRepository(
+        firestore: FirebaseFirestore,
+        profileRepository: ProfileRepository,
+        hotNewsRepository: HotNewsRepository
+    ): SearchRepository {
+        return SearchRepository(firestore, profileRepository, hotNewsRepository)
+    }
+}
+```
+
+### Bước 8: Mở Rộng Tìm Kiếm - Thêm Posts
+
+**File**: `mobile/app/src/main/java/com/example/nutricook/data/search/SearchRepository.kt`
+
+1. **Thêm method searchPosts**:
+```kotlin
+private suspend fun searchPosts(query: String): List<SearchResult.PostResult> = withContext(Dispatchers.IO) {
+    try {
+        val snapshot = firestore.collection("posts")
+            .whereGreaterThanOrEqualTo("caption", query)
+            .whereLessThanOrEqualTo("caption", query + "\uf8ff")
+            .limit(20)
+            .get()
+            .await()
+        
+        snapshot.documents.mapNotNull { doc ->
+            val data = doc.data
+            SearchResult.PostResult(
+                id = doc.id,
+                title = data["caption"] as? String ?: "",
+                imageUrl = (data["imageUrls"] as? List<*>)?.firstOrNull() as? String,
+                authorId = data["authorId"] as? String ?: "",
+                likesCount = (data["likesCount"] as? Long)?.toInt() ?: 0
+            )
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+2. **Thêm PostResult vào SearchResult.kt**:
+```kotlin
+data class PostResult(
+    override val id: String,
+    override val title: String,
+    override val imageUrl: String?,
+    val authorId: String,
+    val likesCount: Int
+) : SearchResult()
+```
+
+3. **Thêm SearchType.POSTS**:
+```kotlin
+enum class SearchType {
+    RECIPES,
+    FOODS,
+    NEWS,
+    USERS,
+    POSTS  // Thêm mới
+}
+```
+
+### Bước 9: Mở Rộng Tìm Kiếm - Thêm User Recipes
+
+1. **Thêm method searchUserRecipes**:
+```kotlin
+private suspend fun searchUserRecipes(query: String): List<SearchResult.UserRecipeResult> = withContext(Dispatchers.IO) {
+    try {
+        val snapshot = firestore.collection("userRecipes")
+            .whereGreaterThanOrEqualTo("name", query)
+            .whereLessThanOrEqualTo("name", query + "\uf8ff")
+            .limit(20)
+            .get()
+            .await()
+        
+        snapshot.documents.mapNotNull { doc ->
+            val data = doc.data
+            SearchResult.UserRecipeResult(
+                id = doc.id,
+                title = data["name"] as? String ?: "",
+                imageUrl = data["imageUrl"] as? String,
+                authorId = data["authorId"] as? String ?: "",
+                rating = (data["rating"] as? Double)?.toFloat() ?: 0f
+            )
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+2. **Thêm UserRecipeResult vào SearchResult.kt**:
+```kotlin
+data class UserRecipeResult(
+    override val id: String,
+    override val title: String,
+    override val imageUrl: String?,
+    val authorId: String,
+    val rating: Float
+) : SearchResult()
+```
+
+### Bước 10: Mở Rộng Tìm Kiếm - Thêm Ingredients
+
+1. **Thêm method searchIngredients**:
+```kotlin
+private suspend fun searchIngredients(query: String): List<SearchResult.IngredientResult> = withContext(Dispatchers.IO) {
+    try {
+        val snapshot = firestore.collection("ingredients")
+            .get()
+            .await()
+        
+        val queryLower = query.lowercase()
+        snapshot.documents
+            .mapNotNull { doc ->
+                val data = doc.data
+                val name = data["name"] as? String ?: ""
+                if (name.lowercase().contains(queryLower)) {
+                    SearchResult.IngredientResult(
+                        id = doc.id,
+                        title = name,
+                        imageUrl = data["imageUrl"] as? String,
+                        calories = (data["calories"] as? Long)?.toFloat() ?: 0f
+                    )
+                } else null
+            }
+            .sortedByDescending { it.title.lowercase().startsWith(queryLower) }
+            .take(20)
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+2. **Thêm IngredientResult vào SearchResult.kt**:
+```kotlin
+data class IngredientResult(
+    override val id: String,
+    override val title: String,
+    override val imageUrl: String?,
+    val calories: Float
+) : SearchResult()
+```
+
+### Bước 11: Mở Rộng Tìm Kiếm - Thêm Categories
+
+1. **Thêm method searchCategories**:
+```kotlin
+private suspend fun searchCategories(query: String): List<SearchResult.CategoryResult> = withContext(Dispatchers.IO) {
+    try {
+        val snapshot = firestore.collection("categories")
+            .get()
+            .await()
+        
+        val queryLower = query.lowercase()
+        snapshot.documents
+            .mapNotNull { doc ->
+                val data = doc.data
+                val name = data["name"] as? String ?: ""
+                if (name.lowercase().contains(queryLower)) {
+                    SearchResult.CategoryResult(
+                        id = doc.id,
+                        title = name,
+                        imageUrl = data["iconUrl"] as? String,
+                        description = data["description"] as? String
+                    )
+                } else null
+            }
+            .take(10)
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+```
+
+2. **Thêm CategoryResult vào SearchResult.kt**:
+```kotlin
+data class CategoryResult(
+    override val id: String,
+    override val title: String,
+    override val imageUrl: String?,
+    val description: String?
+) : SearchResult()
+```
+
+### Bước 12: Cập Nhật UI - Thêm Result Items Mới
+
+**File**: `mobile/app/src/main/java/com/example/nutricook/view/search/SearchResultItems.kt`
+
+Thêm các composable mới:
+- `PostResultItem`
+- `UserRecipeResultItem`
+- `IngredientResultItem`
+- `CategoryResultItem`
+
+### Bước 13: Cập Nhật HomeScreen - Hiển Thị Kết Quả Mới
+
+**File**: `mobile/app/src/main/java/com/example/nutricook/view/home/HomeScreen.kt`
+
+1. Thêm filter chips cho các type mới
+2. Hiển thị kết quả từ các type mới trong LazyColumn
+3. Xử lý navigation khi click vào các result items mới
+
+### Bước 14: Tối Ưu Performance
+
+1. **Caching**: Cache kết quả tìm kiếm trong memory
+2. **Pagination**: Load thêm kết quả khi scroll
+3. **Debouncing**: Tăng delay lên 300-500ms
+4. **Lazy Loading**: Load images khi cần thiết với Coil
+5. **Background Processing**: Xử lý search trong background thread
 
 ## 🎨 UI/UX Features
 
 ### 1. **Search Bar**
-- Placeholder: "Tìm kiếm công thức, thực phẩm, tin tức..."
+- Placeholder: "Tìm kiếm nguyên liệu..."
 - Filter icon để mở filter dialog
 - Clear button khi có text
+- Auto-focus khi mở màn hình search
 
 ### 2. **Filter Options**
-- **Type**: Recipes, Foods, News, Users
+- **Type**: Recipes, Foods, News, Users, Posts, UserRecipes, Ingredients, Categories
 - **Category**: Rau củ, Trái cây, Thịt, etc.
 - **Calories Range**: Slider từ 0-1000 kcal
-- **Sort**: Mới nhất, Phổ biến, Calories
+- **Sort**: Mới nhất, Phổ biến, Calories, Relevance
+- **Multi-select**: Có thể chọn nhiều types cùng lúc
 
 ### 3. **Search Results**
 - Group theo type (Recipes, Foods, News, Users)
@@ -373,10 +726,78 @@ Recompose UI
 4. **Localization**:
    - Tất cả strings trong `strings.xml`
 
-## 🚀 Next Steps
+## 🚀 Next Steps & Tính Năng Mở Rộng
 
-1. Implement search với Gemini AI (smart suggestions)
-2. Voice search integration
-3. Image search (search by photo)
-4. Search history analytics
+### Đã Triển Khai ✅
+1. ✅ Tìm kiếm Recipes, Foods, News, Users
+2. ✅ Debouncing và filtering
+3. ✅ Tích hợp vào HomeScreen
+4. ✅ Recent searches
+
+### Cần Triển Khai 🔄
+1. **Tìm kiếm Posts** (Bài đăng cộng đồng)
+   - Collection: `posts`
+   - Tìm theo caption, hashtags
+   - Hiển thị author, likes, comments
+
+2. **Tìm kiếm User Recipes** (Công thức của người dùng)
+   - Collection: `userRecipes`
+   - Tìm theo tên, mô tả, nguyên liệu
+   - Hiển thị rating, author
+
+3. **Tìm kiếm Ingredients** (Nguyên liệu)
+   - Collection: `ingredients`
+   - Tìm theo tên nguyên liệu
+   - Hiển thị calories, serving size
+
+4. **Tìm kiếm Categories** (Danh mục)
+   - Collection: `categories`
+   - Tìm theo tên danh mục
+   - Hiển thị icon, mô tả
+
+5. **Tìm kiếm Reviews** (Đánh giá)
+   - Collection: `reviews`
+   - Tìm theo nội dung, tên người dùng
+   - Hiển thị rating, date
+
+6. **Tìm kiếm Cooking Tips** (Mẹo nấu ăn)
+   - Collection: `cooking_tips`
+   - Tìm theo tiêu đề, nội dung
+   - Hiển thị category, author
+
+### Tính Năng Nâng Cao 🚀
+1. **Gemini AI Integration** (Smart Suggestions)
+   - Sử dụng Gemini API để gợi ý tìm kiếm thông minh
+   - Auto-complete với AI suggestions
+   - Thư viện: `com.google.ai.client.generativeai`
+
+2. **Voice Search** (Tìm kiếm bằng giọng nói)
+   - Sử dụng Speech-to-Text API
+   - Thư viện: `androidx.speech:speech-recognition`
+
+3. **Image Search** (Tìm kiếm bằng hình ảnh)
+   - Upload ảnh để tìm món ăn tương tự
+   - Sử dụng ML Kit hoặc custom vision API
+   - Thư viện: `com.google.mlkit:image-labeling`
+
+4. **Search History Analytics**
+   - Track popular searches
+   - Suggest trending searches
+   - Personalize based on user history
+
+5. **Advanced Filters**
+   - Filter by calories range
+   - Filter by cooking time
+   - Filter by difficulty level
+   - Filter by dietary restrictions (vegan, gluten-free, etc.)
+
+6. **Search Suggestions**
+   - Auto-complete khi typing
+   - Related searches
+   - Popular searches
+
+7. **Search Result Ranking**
+   - Boost results based on user preferences
+   - Personalize ranking
+   - Consider user's past interactions
 
