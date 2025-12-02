@@ -91,4 +91,5 @@ Có 2 cách:
 
 - [Google Gemini API Documentation](https://ai.google.dev/docs)
 - [Gemini API Pricing](https://ai.google.dev/pricing)
+- [Hướng dẫn triển khai Calories Tracking](./mobile/CALORIES_TRACKING_GUIDE.md) - Chi tiết về logic cộng dồn, validation, reset, và biểu đồ
 
