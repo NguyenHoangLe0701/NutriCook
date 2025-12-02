@@ -28,3 +28,4 @@ abstract class NutriCookDatabase : RoomDatabase() {
     abstract fun recipeDao(): RecipeDao
 }
 
+
