@@ -15,6 +15,8 @@ data class NutritionUiState(
     val loading: Boolean = false,
     val history: List<DailyLog> = emptyList(), // Dữ liệu cho biểu đồ
     val todayLog: DailyLog? = null, // Dữ liệu hôm nay (nếu null nghĩa là chưa có gì)
+    val selectedDateLog: DailyLog? = null, // Dữ liệu ngày được chọn
+    val selectedDateId: String? = null, // ID ngày được chọn (format "yyyy-MM-dd")
     val message: String? = null
 )
 
@@ -65,6 +67,57 @@ class NutritionViewModel @Inject constructor(
         } catch (e: Exception) {
             _ui.update { it.copy(message = "Lỗi: ${e.message}") }
         }
+    }
+    
+    // Cập nhật dinh dưỡng cho một ngày cụ thể
+    fun updateNutritionForDate(dateId: String, cal: Float, pro: Float, fat: Float, carb: Float) = viewModelScope.launch {
+        try {
+            repo.updateNutritionForDate(dateId, cal, pro, fat, carb)
+            
+            // Reload dữ liệu
+            loadData()
+            // Nếu đang xem ngày này, reload dữ liệu ngày đó
+            if (_ui.value.selectedDateId == dateId) {
+                loadDataForDate(dateId)
+            }
+            _ui.update { it.copy(message = "Đã cập nhật dinh dưỡng!") }
+        } catch (e: Exception) {
+            _ui.update { it.copy(message = "Lỗi: ${e.message}") }
+        }
+    }
+    
+    // Chọn ngày và load dữ liệu cho ngày đó
+    fun selectDate(dateId: String) = viewModelScope.launch {
+        _ui.update { it.copy(selectedDateId = dateId, loading = true) }
+        loadDataForDate(dateId)
+    }
+    
+    // Load dữ liệu cho một ngày cụ thể
+    fun loadDataForDate(dateId: String) = viewModelScope.launch {
+        try {
+            val log = repo.getLogForDate(dateId)
+            _ui.update { 
+                it.copy(
+                    selectedDateLog = log ?: DailyLog(dateId = dateId, calories = 0f, protein = 0f, fat = 0f, carb = 0f),
+                    loading = false
+                )
+            }
+        } catch (e: Exception) {
+            _ui.update { 
+                it.copy(
+                    loading = false, 
+                    message = e.message,
+                    selectedDateLog = DailyLog(dateId = dateId, calories = 0f, protein = 0f, fat = 0f, carb = 0f)
+                )
+            }
+        }
+    }
+    
+    // Reset về ngày hôm nay
+    fun resetToToday() = viewModelScope.launch {
+        val todayId = repo.dateToDateId(java.util.Date())
+        _ui.update { it.copy(selectedDateId = null, selectedDateLog = null) }
+        loadData()
     }
     
     // Reset dữ liệu ngày hôm nay về 0

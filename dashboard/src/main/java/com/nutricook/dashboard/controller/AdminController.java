@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import jakarta.servlet.http.HttpServletResponse;
@@ -235,10 +238,36 @@ public class AdminController {
             System.err.println("Error loading from Firestore, falling back to H2: " + e.getMessage());
             userCount = userRepository.count();
         }
+        long userRecipeCount = 0;
+        try {
+            if (firestoreService != null) {
+                System.out.println("🔍 Attempting to count user recipes from Firestore...");
+                userRecipeCount = firestoreService.countUserRecipes();
+                System.out.println("✅ Loaded user recipe count from Firestore: " + userRecipeCount);
+            } else {
+                System.err.println("⚠️ FirestoreService is null, cannot load user recipes");
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error counting user recipes from Firestore: " + e.getMessage());
+            e.printStackTrace();
+            // Thử fallback bằng cách list và count
+            try {
+                if (firestoreService != null) {
+                    System.out.println("🔄 Trying fallback: listing recipes...");
+                    List<com.nutricook.dashboard.entity.UserRecipe> recipes = firestoreService.listUserRecipes();
+                    userRecipeCount = recipes != null ? recipes.size() : 0;
+                    System.out.println("✅ Fallback count: " + userRecipeCount);
+                }
+            } catch (Exception e2) {
+                System.err.println("❌ Fallback also failed: " + e2.getMessage());
+                userRecipeCount = 0;
+            }
+        }
+        
         model.addAttribute("userCount", userCount);
         model.addAttribute("foodCount", foodItemRepository.count());
         model.addAttribute("categoryCount", categoryRepository.count());
-        model.addAttribute("updateCount", foodUpdateRepository.countByCreatedAtAfter(LocalDateTime.now().minusDays(1)));
+        model.addAttribute("userRecipeCount", userRecipeCount);
         model.addAttribute("recentUpdates", foodUpdateRepository.findTop5ByOrderByCreatedAtDesc());
         model.addAttribute("title", "Tổng quan");
         model.addAttribute("subtitle", "Thống kê và hoạt động hệ thống");
@@ -845,6 +874,338 @@ public class AdminController {
         }
         return "redirect:/admin/categories";
     }
+    
+    /**
+     * Import nhiều nguyên liệu từ file JSON
+     */
+    @PostMapping("/categories/{categoryId}/ingredients/import")
+    public String importIngredientsJson(
+            @PathVariable Long categoryId,
+            @RequestParam("jsonFile") MultipartFile jsonFile,
+            RedirectAttributes redirectAttributes) {
+        try {
+            // Validate file
+            if (jsonFile == null || jsonFile.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Vui lòng chọn file JSON!");
+                return "redirect:/admin/categories/" + categoryId + "/ingredients";
+            }
+            
+            // Validate file type
+            String contentType = jsonFile.getContentType();
+            if (contentType == null || (!contentType.equals("application/json") && 
+                !jsonFile.getOriginalFilename().toLowerCase().endsWith(".json"))) {
+                redirectAttributes.addFlashAttribute("error", "File phải có định dạng JSON!");
+                return "redirect:/admin/categories/" + categoryId + "/ingredients";
+            }
+            
+            // Parse JSON
+            ObjectMapper objectMapper = new ObjectMapper();
+            String jsonContent = new String(jsonFile.getBytes(), "UTF-8");
+            List<Map<String, Object>> ingredientsList = objectMapper.readValue(
+                jsonContent, 
+                new TypeReference<List<Map<String, Object>>>() {}
+            );
+            
+            if (ingredientsList == null || ingredientsList.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "File JSON không chứa dữ liệu hoặc không đúng định dạng!");
+                return "redirect:/admin/categories/" + categoryId + "/ingredients";
+            }
+            
+            // Load category
+            Category category = categoryRepository.findById(categoryId).orElse(null);
+            if (category == null) {
+                redirectAttributes.addFlashAttribute("error", "Danh mục không tồn tại!");
+                return "redirect:/admin/categories/" + categoryId + "/ingredients";
+            }
+            
+            // Process each ingredient
+            int successCount = 0;
+            int failCount = 0;
+            List<String> errorMessages = new ArrayList<>();
+            
+            for (int i = 0; i < ingredientsList.size(); i++) {
+                Map<String, Object> ingredientData = ingredientsList.get(i);
+                try {
+                    // Extract required fields - handle both String and Number types
+                    String name = getStringOrNumberValue(ingredientData, "name");
+                    if (name == null || name.trim().isEmpty()) {
+                        errorMessages.add("Dòng " + (i + 1) + ": Thiếu tên nguyên liệu");
+                        failCount++;
+                        continue;
+                    }
+                    name = name.trim();
+                    
+                    // Check if ingredient already exists
+                    if (foodItemRepository.existsByName(name.trim())) {
+                        errorMessages.add("Dòng " + (i + 1) + ": Nguyên liệu '" + name + "' đã tồn tại");
+                        failCount++;
+                        continue;
+                    }
+                    
+                    // Extract calories - handle both String and Number types
+                    String calories = getStringOrNumberValue(ingredientData, "calories");
+                    if (calories == null || calories.trim().isEmpty()) {
+                        calories = "0 kcal";
+                    } else {
+                        // Remove any whitespace
+                        calories = calories.trim();
+                        // If it's a number (no "kcal"), add "kcal"
+                        if (!calories.toLowerCase().contains("kcal")) {
+                            try {
+                                // Try to parse as number
+                                double calValue = Double.parseDouble(calories);
+                                calories = String.format("%.1f", calValue).replace(".0", "").replace(",", ".") + " kcal";
+                            } catch (NumberFormatException e) {
+                                // If not a number, add "kcal" anyway
+                                calories = calories + " kcal";
+                            }
+                        }
+                    }
+                    
+                    // Extract unit - support both "unit" and "unit_name"
+                    String unit = getStringOrNumberValue(ingredientData, "unit");
+                    if (unit == null || unit.trim().isEmpty()) {
+                        // Try unit_name as fallback
+                        unit = getStringOrNumberValue(ingredientData, "unit_name");
+                        if (unit == null || unit.trim().isEmpty()) {
+                            unit = "g";
+                        }
+                    }
+                    unit = unit.trim();
+                    
+                    // Extract description - handle both String and Number types
+                    String description = getStringOrNumberValue(ingredientData, "description");
+                    if (description == null) {
+                        description = "";
+                    } else {
+                        description = description.trim();
+                    }
+                    
+                    // Extract image URL - support both "image_url" and "imageUrl"
+                    String imageUrl = getStringOrNumberValue(ingredientData, "image_url");
+                    if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                        imageUrl = getStringOrNumberValue(ingredientData, "imageUrl");
+                    }
+                    if (imageUrl != null) {
+                        imageUrl = imageUrl.trim();
+                        // If it's a local path (like "assets/images/..."), keep it as is
+                        // If it's a full URL, use it directly
+                        // System will handle it later when syncing to Firestore
+                    }
+                    
+                    // Create FoodItem
+                    FoodItem foodItem = new FoodItem();
+                    foodItem.setName(name.trim());
+                    foodItem.setCalories(calories);
+                    foodItem.setUnit(unit);
+                    foodItem.setDescription(description);
+                    foodItem.setCategory(category);
+                    foodItem.setAvailable(true);
+                    
+                    // Set image URL if available
+                    if (imageUrl != null && !imageUrl.isEmpty()) {
+                        foodItem.setImageUrl(imageUrl);
+                    }
+                    
+                    // Extract nutrition values
+                    foodItem.setFat(getDoubleValue(ingredientData, "fat", 0.0));
+                    foodItem.setCarbs(getDoubleValue(ingredientData, "carbs", 0.0));
+                    foodItem.setProtein(getDoubleValue(ingredientData, "protein", 0.0));
+                    foodItem.setCholesterol(getDoubleValue(ingredientData, "cholesterol", 0.0));
+                    foodItem.setSodium(getDoubleValue(ingredientData, "sodium", 0.0));
+                    
+                    // Extract vitamin details - support both flat format (vitaminA) and nested format (vitamins.vitamin_a)
+                    Map<String, Object> vitaminsObject = null;
+                    Object vitaminsRaw = ingredientData.get("vitamins");
+                    if (vitaminsRaw instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> temp = (Map<String, Object>) vitaminsRaw;
+                        vitaminsObject = temp;
+                    }
+                    
+                    // Try to get vitamins from nested object first, then flat format
+                    foodItem.setVitaminA(getVitaminValue(ingredientData, vitaminsObject, "vitaminA", "vitamin_a", 0.0));
+                    foodItem.setVitaminB1(getVitaminValue(ingredientData, vitaminsObject, "vitaminB1", "vitamin_b1", 0.0));
+                    foodItem.setVitaminB2(getVitaminValue(ingredientData, vitaminsObject, "vitaminB2", "vitamin_b2", 0.0));
+                    foodItem.setVitaminB3(getVitaminValue(ingredientData, vitaminsObject, "vitaminB3", "vitamin_b3", 0.0));
+                    foodItem.setVitaminB6(getVitaminValue(ingredientData, vitaminsObject, "vitaminB6", "vitamin_b6", 0.0));
+                    foodItem.setVitaminB9(getVitaminValue(ingredientData, vitaminsObject, "vitaminB9", "vitamin_b9", 0.0));
+                    foodItem.setVitaminB12(getVitaminValue(ingredientData, vitaminsObject, "vitaminB12", "vitamin_b12", 0.0));
+                    foodItem.setVitaminC(getVitaminValue(ingredientData, vitaminsObject, "vitaminC", "vitamin_c", 0.0));
+                    foodItem.setVitaminD(getVitaminValue(ingredientData, vitaminsObject, "vitaminD", "vitamin_d", 0.0));
+                    foodItem.setVitaminE(getVitaminValue(ingredientData, vitaminsObject, "vitaminE", "vitamin_e", 0.0));
+                    foodItem.setVitaminK(getVitaminValue(ingredientData, vitaminsObject, "vitaminK", "vitamin_k", 0.0));
+                    
+                    // Calculate total vitamin
+                    foodItem.calculateTotalVitamin();
+                    
+                    // Save to database
+                    FoodItem savedFood = foodItemRepository.save(foodItem);
+                    
+                    // Sync to Firestore
+                    try {
+                        if (firestoreService != null) {
+                            firestoreService.saveFood(savedFood);
+                            System.out.println("✅ Synced imported food to Firestore: " + savedFood.getId());
+                        }
+                    } catch (Exception e) {
+                        System.err.println("⚠️ Failed to sync imported food to Firestore: " + e.getMessage());
+                        // Continue even if Firestore sync fails
+                    }
+                    
+                    logFoodUpdate(null, savedFood, "IMPORT");
+                    successCount++;
+                    
+                } catch (Exception e) {
+                    String ingredientName = ingredientData.get("name") != null ? 
+                        String.valueOf(ingredientData.get("name")) : "Dòng " + (i + 1);
+                    errorMessages.add(ingredientName + ": " + e.getMessage());
+                    failCount++;
+                    System.err.println("❌ Error importing ingredient at line " + (i + 1) + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+            
+            // Prepare result message
+            StringBuilder message = new StringBuilder();
+            message.append("Import hoàn tất: ");
+            message.append(successCount).append(" nguyên liệu thành công");
+            if (failCount > 0) {
+                message.append(", ").append(failCount).append(" nguyên liệu thất bại");
+                if (errorMessages.size() > 0 && errorMessages.size() <= 10) {
+                    message.append("\nChi tiết lỗi:\n").append(String.join("\n", errorMessages));
+                }
+            }
+            
+            if (successCount > 0) {
+                redirectAttributes.addFlashAttribute("success", message.toString());
+            } else {
+                redirectAttributes.addFlashAttribute("error", message.toString());
+            }
+            
+            if (failCount > 0 && errorMessages.size() > 10) {
+                redirectAttributes.addFlashAttribute("warning", 
+                    "Có " + errorMessages.size() + " lỗi. Vui lòng kiểm tra console để xem chi tiết.");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error importing JSON: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error", 
+                "Lỗi khi import file JSON: " + e.getMessage());
+        }
+        
+        return "redirect:/admin/categories/" + categoryId + "/ingredients";
+    }
+    
+    /**
+     * Helper method to safely extract Double value from Map
+     */
+    private Double getDoubleValue(Map<String, Object> map, String key, Double defaultValue) {
+        try {
+            Object value = map.get(key);
+            if (value == null) {
+                return defaultValue;
+            }
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue();
+            }
+            if (value instanceof String) {
+                String str = ((String) value).trim();
+                if (str.isEmpty()) {
+                    return defaultValue;
+                }
+                return Double.parseDouble(str);
+            }
+            return defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+    
+    /**
+     * Helper method to safely extract Double value from Map (returns null if not found)
+     */
+    private Double getDoubleValue(Map<String, Object> map, String key) {
+        try {
+            Object value = map.get(key);
+            if (value == null) {
+                return null;
+            }
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue();
+            }
+            if (value instanceof String) {
+                String str = ((String) value).trim();
+                if (str.isEmpty()) {
+                    return null;
+                }
+                return Double.parseDouble(str);
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Helper method to safely extract String value from Map (handles both String and Number)
+     */
+    private String getStringOrNumberValue(Map<String, Object> map, String key) {
+        try {
+            Object value = map.get(key);
+            if (value == null) {
+                return null;
+            }
+            if (value instanceof String) {
+                return (String) value;
+            }
+            if (value instanceof Number) {
+                // Convert number to string
+                Number num = (Number) value;
+                // Remove trailing zeros if it's a whole number
+                if (num.doubleValue() == num.longValue()) {
+                    return String.valueOf(num.longValue());
+                } else {
+                    return String.valueOf(num.doubleValue());
+                }
+            }
+            // For other types, convert to string
+            return String.valueOf(value);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Helper method to extract vitamin value from either flat format or nested vitamins object
+     */
+    private Double getVitaminValue(Map<String, Object> ingredientData, Map<String, Object> vitaminsObject, 
+                                   String flatKey, String nestedKey, Double defaultValue) {
+        // Try nested format first (vitamins.vitamin_a)
+        if (vitaminsObject != null) {
+            Double nestedValue = getDoubleValue(vitaminsObject, nestedKey);
+            if (nestedValue != null) {
+                return nestedValue;
+            }
+        }
+        
+        // Try flat format (vitaminA)
+        Double flatValue = getDoubleValue(ingredientData, flatKey);
+        if (flatValue != null) {
+            return flatValue;
+        }
+        
+        // Try nested format with flat key name (vitamins.vitaminA)
+        if (vitaminsObject != null) {
+            Double nestedFlatValue = getDoubleValue(vitaminsObject, flatKey);
+            if (nestedFlatValue != null) {
+                return nestedFlatValue;
+            }
+        }
+        
+        return defaultValue != null ? defaultValue : 0.0;
+    }
 
     @PostMapping("/api/foods/upload")
     @ResponseBody
@@ -992,17 +1353,18 @@ public class AdminController {
                 existingFood.setSodium(foodItem.getSodium());
                 
                 // Cập nhật các giá trị vitamin chi tiết
-                existingFood.setVitaminA(vitaminA);
-                existingFood.setVitaminB1(vitaminB1);
-                existingFood.setVitaminB2(vitaminB2);
-                existingFood.setVitaminB3(vitaminB3);
-                existingFood.setVitaminB6(vitaminB6);
-                existingFood.setVitaminB9(vitaminB9);
-                existingFood.setVitaminB12(vitaminB12);
-                existingFood.setVitaminC(vitaminC);
-                existingFood.setVitaminD(vitaminD);
-                existingFood.setVitaminE(vitaminE);
-                existingFood.setVitaminK(vitaminK);
+                // Luôn cập nhật với giá trị từ form, nếu null thì dùng 0.0
+                existingFood.setVitaminA(vitaminA != null ? vitaminA : 0.0);
+                existingFood.setVitaminB1(vitaminB1 != null ? vitaminB1 : 0.0);
+                existingFood.setVitaminB2(vitaminB2 != null ? vitaminB2 : 0.0);
+                existingFood.setVitaminB3(vitaminB3 != null ? vitaminB3 : 0.0);
+                existingFood.setVitaminB6(vitaminB6 != null ? vitaminB6 : 0.0);
+                existingFood.setVitaminB9(vitaminB9 != null ? vitaminB9 : 0.0);
+                existingFood.setVitaminB12(vitaminB12 != null ? vitaminB12 : 0.0);
+                existingFood.setVitaminC(vitaminC != null ? vitaminC : 0.0);
+                existingFood.setVitaminD(vitaminD != null ? vitaminD : 0.0);
+                existingFood.setVitaminE(vitaminE != null ? vitaminE : 0.0);
+                existingFood.setVitaminK(vitaminK != null ? vitaminK : 0.0);
                 
                 // Tính tổng vitamin (trung bình)
                 existingFood.calculateTotalVitamin();

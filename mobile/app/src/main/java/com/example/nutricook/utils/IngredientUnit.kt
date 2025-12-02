@@ -19,9 +19,9 @@ enum class IngredientUnit(
     // Đơn vị đếm
     PIECES("Quả/Cái", "quả", { 
         // Chuyển đổi dựa trên loại nguyên liệu
-        // Ví dụ: 1 quả trứng ≈ 50g, 1 quả chanh ≈ 60g
-        // Mặc định: 1 quả = 100g (có thể điều chỉnh sau)
-        it * 100.0 
+        // Ví dụ: 1 quả trứng ≈ 50-60g, 1 quả chanh ≈ 50-80g
+        // Trung bình: 1 quả = 60g (ước tính hợp lý cho hầu hết trái cây và trứng)
+        it * 60.0 
     }),
     
     // Đơn vị khác
@@ -30,8 +30,9 @@ enum class IngredientUnit(
     TEASPOONS("Thìa cà phê", "thìa cà phê", { it * 5.0 }), // 1 thìa cà phê ≈ 5ml
     
     // Đơn vị đặc biệt
-    SLICES("Lát", "lát", { it * 20.0 }), // 1 lát ≈ 20g (tùy loại)
-    CLOVES("Tép", "tép", { it * 3.0 }); // 1 tép tỏi ≈ 3g
+    SLICES("Lát", "lát", { it * 25.0 }), // 1 lát ≈ 25g (bánh mì, phô mai, thịt nguội)
+    CLOVES("Tép", "tép", { it * 3.0 }), // 1 tép tỏi ≈ 3g (đúng)
+    BULBS("Củ", "củ", { it * 80.0 }); // 1 củ ≈ 80g (trung bình cho hành, khoai tây, cà rốt: 50-150g)
     
     /**
      * Chuyển đổi giá trị từ đơn vị này sang gram
@@ -47,7 +48,7 @@ enum class IngredientUnit(
         fun getDefaultUnit(ingredientName: String): IngredientUnit {
             val name = ingredientName.lowercase()
             return when {
-                // Chất lỏng
+                // Chất lỏng (ưu tiên cao nhất)
                 name.contains("nước") || 
                 name.contains("sữa") || 
                 name.contains("dầu") || 
@@ -55,30 +56,38 @@ enum class IngredientUnit(
                 name.contains("nước mắm") ||
                 name.contains("nước tương") -> MILLILITERS
                 
-                // Đếm theo quả
+                // Đếm theo quả/cái (ưu tiên cao)
                 name.contains("trứng") -> PIECES
                 name.contains("chanh") -> PIECES
                 name.contains("quả") -> PIECES
                 name.contains("cái") -> PIECES
                 
-                // Bột, đường
+                // Đếm theo củ (các củ cụ thể)
+                name.contains("hành củ") || name.contains("củ hành") -> BULBS
+                name.contains("khoai tây") -> BULBS
+                name.contains("khoai lang") -> BULBS
+                name.contains("cà rốt") -> BULBS
+                name.contains("củ cải") -> BULBS
+                name.contains("tỏi") && name.contains("củ") -> BULBS
+                
+                // Bột, đường, gia vị (ưu tiên cao)
                 name.contains("bột") || 
                 name.contains("đường") || 
                 name.contains("muối") ||
                 name.contains("tiêu") -> GRAMS
                 
-                // Thịt, cá
+                // Thịt, cá, hải sản (ưu tiên cao)
                 name.contains("thịt") || 
                 name.contains("cá") || 
                 name.contains("tôm") ||
                 name.contains("cua") -> GRAMS
                 
-                // Rau củ (thường dùng gram)
-                name.contains("rau") || 
-                name.contains("củ") ||
-                name.contains("bắp cải") ||
-                name.contains("cà rốt") ||
-                name.contains("khoai") -> GRAMS
+                // Rau xanh, rau củ (dùng gram)
+                name.contains("rau") && !name.contains("củ") -> GRAMS
+                name.contains("bắp cải") -> GRAMS
+                
+                // Các củ khác (nếu chưa được xử lý ở trên)
+                name.contains("củ") -> BULBS
                 
                 // Mặc định
                 else -> GRAMS

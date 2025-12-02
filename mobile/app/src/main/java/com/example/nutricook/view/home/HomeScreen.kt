@@ -484,15 +484,6 @@ fun HomeScreen(
                                 { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                             } else null
                         )
-                        
-                        FilterChip(
-                            selected = searchState.selectedTypes.contains(SearchType.USERS),
-                            onClick = { searchViewModel.toggleSearchType(SearchType.USERS) },
-                            label = { Text("Người dùng") },
-                            leadingIcon = if (searchState.selectedTypes.contains(SearchType.USERS)) {
-                                { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
-                            } else null
-                        )
                     }
                 }
             }
@@ -619,27 +610,6 @@ fun HomeScreen(
                                 NewsResultItem(
                                     result,
                                     onClick = { navController.navigate("article_detail") }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Users
-                    if (searchState.results[SearchType.USERS]?.isNotEmpty() == true) {
-                        item {
-                            Text(
-                                text = "Người dùng",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                        }
-                        items(searchState.results[SearchType.USERS]!!) { result ->
-                            if (result is SearchResult.UserResult) {
-                                UserResultItem(
-                                    result,
-                                    onClick = { navController.navigate("profile") }
                                 )
                             }
                         }

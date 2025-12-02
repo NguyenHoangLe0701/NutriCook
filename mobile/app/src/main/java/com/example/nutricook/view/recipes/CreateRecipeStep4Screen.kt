@@ -62,6 +62,8 @@ fun CreateRecipeStep4Screen(
     // Lấy dữ liệu từ ViewModel qua StateFlow
     val recipeState by createRecipeViewModel.state.collectAsState()
     val foodItems by categoriesViewModel.foodItems.collectAsState()
+    val isEditMode by createRecipeViewModel.isEditMode.collectAsState()
+    val editingRecipeId by createRecipeViewModel.editingRecipeId.collectAsState()
     
     // Lấy dữ liệu trực tiếp từ state để đảm bảo luôn cập nhật
     val recipeName = recipeState.recipeName
@@ -407,29 +409,67 @@ fun CreateRecipeStep4Screen(
                     isSubmitting = true
                     scope.launch {
                         try {
-                            val result = recipeRepository.saveRecipe(
-                                recipeName = currentRecipeName,
-                                estimatedTime = currentEstimatedTime,
-                                servings = currentServings,
-                                imageUris = currentImageUris,
-                                ingredients = currentIngredients,
-                                cookingSteps = currentCookingSteps,
-                                description = currentDescription,
-                                notes = currentNotes,
-                                tips = currentTips,
-                                nutritionData = nutritionData
-                            )
+                            val result = if (isEditMode && editingRecipeId != null) {
+                                // Update existing recipe
+                                val recipeIdString = editingRecipeId as String
+                                // Lấy ảnh cũ từ Firestore nếu không có ảnh mới
+                                val existingRecipe = recipeRepository.getRecipeById(recipeIdString)
+                                val existingImageUrls = existingRecipe?.get("imageUrls") as? List<*> 
+                                    ?: emptyList<Any>()
+                                val existingImageUrlsStr = existingImageUrls.mapNotNull { it as? String }
+                                
+                                recipeRepository.updateRecipe(
+                                    recipeId = recipeIdString,
+                                    recipeName = currentRecipeName,
+                                    estimatedTime = currentEstimatedTime,
+                                    servings = currentServings,
+                                    imageUris = currentImageUris,
+                                    ingredients = currentIngredients,
+                                    cookingSteps = currentCookingSteps,
+                                    description = currentDescription,
+                                    notes = currentNotes,
+                                    tips = currentTips,
+                                    nutritionData = nutritionData,
+                                    existingImageUrls = existingImageUrlsStr
+                                ).map { recipeIdString }
+                            } else {
+                                // Create new recipe
+                                recipeRepository.saveRecipe(
+                                    recipeName = currentRecipeName,
+                                    estimatedTime = currentEstimatedTime,
+                                    servings = currentServings,
+                                    imageUris = currentImageUris,
+                                    ingredients = currentIngredients,
+                                    cookingSteps = currentCookingSteps,
+                                    description = currentDescription,
+                                    notes = currentNotes,
+                                    tips = currentTips,
+                                    nutritionData = nutritionData
+                                )
+                            }
                             
                             result.onSuccess { recipeId ->
-                                val message = if (currentImageUris.isNotEmpty()) {
-                                    "Đăng công thức thành công!"
+                                val message = if (isEditMode) {
+                                    "Cập nhật công thức thành công!"
                                 } else {
-                                    "Đăng công thức thành công! (Lưu ý: Ảnh chưa được upload - vui lòng kiểm tra cấu hình Firebase Storage)"
+                                    if (currentImageUris.isNotEmpty()) {
+                                        "Đăng công thức thành công!"
+                                    } else {
+                                        "Đăng công thức thành công! (Lưu ý: Ảnh chưa được upload - vui lòng kiểm tra cấu hình Firebase Storage)"
+                                    }
                                 }
                                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                 createRecipeViewModel.clearAll()
-                                navController.navigate("recipes") {
-                                    popUpTo("create_recipe") { inclusive = true }
+                                
+                                if (isEditMode) {
+                                    // Quay lại màn hình chi tiết công thức
+                                    navController.navigate("user_recipe_info/$recipeId") {
+                                        popUpTo("create_recipe") { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate("recipes") {
+                                        popUpTo("create_recipe") { inclusive = true }
+                                    }
                                 }
                             }.onFailure { error ->
                                 val errorMessage = when {
@@ -470,7 +510,12 @@ fun CreateRecipeStep4Screen(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
-                    text = if (isSubmitting) "Đang đăng..." else "Đăng công thức",
+                    text = when {
+                        isSubmitting && isEditMode -> "Đang cập nhật..."
+                        isSubmitting -> "Đang đăng..."
+                        isEditMode -> "Cập nhật công thức"
+                        else -> "Đăng công thức"
+                    },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )

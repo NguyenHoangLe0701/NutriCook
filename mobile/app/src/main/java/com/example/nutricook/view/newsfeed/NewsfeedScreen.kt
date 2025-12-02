@@ -27,15 +27,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.nutricook.R
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -263,50 +266,18 @@ interface CommentRepositoryEntryPoint {
 // --- MODERN TOP BAR ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModernTopBar(currentUserAvatarUrl: String? = null) { // [ĐÃ SỬA] Thêm tham số
+fun ModernTopBar(currentUserAvatarUrl: String? = null) {
     TopAppBar(
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // [ĐÃ SỬA] Hiển thị Avatar User hoặc Icon mặc định
-                if (!currentUserAvatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = currentUserAvatarUrl,
-                        contentDescription = "My Avatar",
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.LightGray),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(PrimaryGreen, PrimaryGreenDark)
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.Restaurant,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    "NutriCook",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = TextDark
-                )
-            }
+            // Logo sát bên trái
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Logo ứng dụng",
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(50.dp),
+                contentScale = ContentScale.Fit
+            )
         },
         actions = {
             IconButton(onClick = { /* Search */ }) {

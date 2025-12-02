@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.nutricook.R
 import com.example.nutricook.data.repository.CategoryFirestoreRepository
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
@@ -43,6 +45,11 @@ fun UserRecipeInfoScreen(
     var recipeData by remember { mutableStateOf<Map<String, Any>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+    val isOwner = remember(recipeData, currentUserId) {
+        val recipeUserId = recipeData?.get("userId") as? String
+        recipeUserId == currentUserId
+    }
     
     LaunchedEffect(recipeId) {
         try {
@@ -68,19 +75,41 @@ fun UserRecipeInfoScreen(
         containerColor = Color(0xFFF9FAFC),
         topBar = {
             TopAppBar(
-                title = {},
+                title = {
+                    // Logo ở giữa
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo ứng dụng",
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(50.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Favorite action */ }) {
-                        Icon(
-                            Icons.Outlined.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = Color.LightGray
-                        )
+                    // Hiển thị nút chỉnh sửa nếu user là chủ sở hữu
+                    if (isOwner) {
+                        IconButton(
+                            onClick = {
+                                navController.navigate("edit_recipe_$recipeId")
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Chỉnh sửa",
+                                tint = Color(0xFF00BFA5)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)

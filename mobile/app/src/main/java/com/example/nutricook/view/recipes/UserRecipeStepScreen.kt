@@ -13,8 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.nutricook.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -149,7 +152,22 @@ fun UserRecipeStepScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                title = {
+                    // Logo ở giữa
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo ứng dụng",
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(50.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -160,22 +178,7 @@ fun UserRecipeStepScreen(
                     }
                 },
                 actions = {
-                    val currentUser = FirebaseAuth.getInstance().currentUser
-                    if (currentUser?.photoUrl != null) {
-                        IconButton(onClick = { /* Profile */ }) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(currentUser.photoUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "Profile",
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(50)),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
+                    // Không có actions nào
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )

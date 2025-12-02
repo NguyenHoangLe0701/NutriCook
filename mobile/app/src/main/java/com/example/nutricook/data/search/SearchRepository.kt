@@ -1,9 +1,6 @@
 package com.example.nutricook.data.search
 
 import com.example.nutricook.data.hotnews.HotNewsRepository
-import com.example.nutricook.data.profile.ProfileRepository
-import com.example.nutricook.model.hotnews.HotNewsArticle
-import com.example.nutricook.model.profile.Profile
 import com.example.nutricook.model.search.SearchResult
 import com.example.nutricook.model.search.SearchType
 import com.google.firebase.firestore.FirebaseFirestore
@@ -17,7 +14,6 @@ import javax.inject.Singleton
 @Singleton
 class SearchRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val profileRepository: ProfileRepository,
     private val hotNewsRepository: HotNewsRepository
 ) {
     
@@ -48,15 +44,10 @@ class SearchRepository @Inject constructor(
             async { searchNews(queryLower) }
         } else null
         
-        val usersDeferred = if (types.contains(SearchType.USERS)) {
-            async { searchUsers(queryLower) }
-        } else null
-        
         // Await all results
         recipesDeferred?.await()?.let { results[SearchType.RECIPES] = it }
         foodsDeferred?.await()?.let { results[SearchType.FOODS] = it }
         newsDeferred?.await()?.let { results[SearchType.NEWS] = it }
-        usersDeferred?.await()?.let { results[SearchType.USERS] = it }
         
         results
     }
@@ -188,26 +179,5 @@ class SearchRepository @Inject constructor(
         }
     }
     
-    /**
-     * Tìm kiếm users
-     */
-    private suspend fun searchUsers(query: String): List<SearchResult.UserResult> {
-        return try {
-            val profiles = profileRepository.searchProfiles(query)
-            profiles.take(10).map { profile ->
-                val user = profile.user
-                SearchResult.UserResult(
-                    id = user.id,
-                    title = user.displayName ?: user.email ?: "Unknown",
-                    imageUrl = user.avatarUrl,
-                    email = user.email ?: "",
-                    displayName = user.displayName ?: ""
-                )
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SearchRepository", "Error searching users: ${e.message}")
-            emptyList()
-        }
-    }
 }
 

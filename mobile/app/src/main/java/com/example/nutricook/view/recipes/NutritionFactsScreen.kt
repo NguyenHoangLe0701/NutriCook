@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -31,7 +32,11 @@ import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import com.example.nutricook.utils.NutritionData
+import com.example.nutricook.utils.VitaminDetails
 import com.example.nutricook.viewmodel.CreateRecipeViewModel
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.foundation.lazy.items
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -246,10 +251,79 @@ fun NutritionFactsScreen(
                         value = "${String.format("%.2f", nutritionData.protein)}g",
                         percent = nutritionData.getProteinPercent()
                     )
-                    NutritionItem(
-                        label = "Vitamin",
-                        value = "${String.format("%.2f", nutritionData.vitamin)}%",
-                        percent = nutritionData.getVitaminPercent()
+                    // Vitamin với khả năng click để xem chi tiết
+                    var showVitaminDetails by remember { mutableStateOf(false) }
+                    
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showVitaminDetails = !showVitaminDetails }
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "⚡",
+                                    fontSize = 16.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Vitamin",
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF1C1C1E)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = if (showVitaminDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (showVitaminDetails) "Thu gọn" else "Mở rộng",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Color(0xFF6B7280)
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${String.format("%.2f", nutritionData.vitamin)}%",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF1C1C1E)
+                                )
+                                Surface(
+                                    color = Color(0xFF00BFA5).copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "${nutritionData.getVitaminPercent()}%",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF00BFA5),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Hiển thị chi tiết vitamin khi mở rộng
+                        if (showVitaminDetails) {
+                            VitaminDetailsDialog(
+                                vitaminDetails = nutritionData.vitaminDetails,
+                                onDismiss = { showVitaminDetails = false }
+                            )
+                        }
+                    }
+                    
+                    // Divider cho vitamin
+                    HorizontalDivider(
+                        modifier = Modifier.padding(top = 12.dp),
+                        color = Color(0xFFE5E7EB),
+                        thickness = 1.dp
                     )
                 }
             }
@@ -414,3 +488,4 @@ fun NutritionItem(
         thickness = 1.dp
     )
 }
+

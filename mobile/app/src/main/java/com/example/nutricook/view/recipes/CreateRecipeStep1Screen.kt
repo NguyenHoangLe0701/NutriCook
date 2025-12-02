@@ -46,7 +46,6 @@ import coil.request.ImageRequest
 import com.example.nutricook.R
 import com.example.nutricook.viewmodel.CategoriesViewModel
 import com.example.nutricook.viewmodel.CreateRecipeViewModel
-import com.example.nutricook.utils.CookingMethod
 import com.example.nutricook.utils.IngredientUnit
 
 data class IngredientItem(
@@ -54,8 +53,7 @@ data class IngredientItem(
     val quantity: String = "", // Số lượng
     val unit: com.example.nutricook.utils.IngredientUnit = com.example.nutricook.utils.IngredientUnit.GRAMS, // Đơn vị
     val foodItemId: Long? = null, // ID của foodItem từ database
-    val categoryId: Long? = null, // ID của category
-    val cookingMethod: com.example.nutricook.utils.CookingMethod? = null // Phương pháp nấu
+    val categoryId: Long? = null // ID của category
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -572,7 +570,6 @@ fun CreateRecipeStep1Screen(
                     // Danh sách nguyên liệu
                     ingredients.forEachIndexed { index, ingredient ->
                         var expandedFoodItem by remember { mutableStateOf(false) }
-                        var expandedCookingMethod by remember { mutableStateOf(false) }
                         var expandedUnit by remember { mutableStateOf(false) }
                         var expandedCategory by remember { mutableStateOf(false) }
                         
@@ -928,103 +925,6 @@ fun CreateRecipeStep1Screen(
                                                     }
                                                 )
                                             }
-                                        }
-                                    }
-                                }
-                                
-                                // Hàng 2: Phương pháp nấu
-                                var cookingMethodSearchQuery by remember(ingredient.cookingMethod?.displayName) { 
-                                    mutableStateOf(ingredient.cookingMethod?.displayName ?: "") 
-                                }
-                                
-                                // Đồng bộ cookingMethodSearchQuery khi ingredient.cookingMethod thay đổi
-                                LaunchedEffect(ingredient.cookingMethod?.displayName) {
-                                    val newValue = ingredient.cookingMethod?.displayName ?: ""
-                                    if (cookingMethodSearchQuery != newValue) {
-                                        cookingMethodSearchQuery = newValue
-                                    }
-                                }
-                                
-                                val filteredCookingMethods = remember(cookingMethodSearchQuery) {
-                                    if (cookingMethodSearchQuery.isBlank()) {
-                                        CookingMethod.entries
-                                    } else {
-                                        CookingMethod.entries.filter { 
-                                            it.displayName.contains(cookingMethodSearchQuery, ignoreCase = true)
-                                        }
-                                    }
-                                }
-                                
-                                ExposedDropdownMenuBox(
-                                    expanded = expandedCookingMethod && filteredCookingMethods.isNotEmpty(),
-                                    onExpandedChange = { expandedCookingMethod = it },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    OutlinedTextField(
-                                        value = cookingMethodSearchQuery.ifBlank { "Phương pháp nấu" },
-                                        onValueChange = { newValue ->
-                                            cookingMethodSearchQuery = newValue
-                                            expandedCookingMethod = newValue.isNotBlank() && filteredCookingMethods.isNotEmpty()
-                                            // Tìm method khớp
-                                            val matchedMethod = filteredCookingMethods.firstOrNull { 
-                                                it.displayName.equals(newValue, ignoreCase = true)
-                                            }
-                                            if (matchedMethod != null) {
-                                                ingredients = ingredients.mapIndexed { i, item ->
-                                                    if (i == index) item.copy(cookingMethod = matchedMethod) else item
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .menuAnchor(),
-                                        placeholder = { Text("Phương pháp nấu (gõ để tìm)", fontSize = 13.sp) },
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = Color(0xFF00BFA5),
-                                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                                            focusedContainerColor = Color.White,
-                                            unfocusedContainerColor = Color.White
-                                        ),
-                                        trailingIcon = {
-                                            if (cookingMethodSearchQuery.isNotBlank()) {
-                                                IconButton(
-                                                    onClick = {
-                                                        cookingMethodSearchQuery = ""
-                                                        ingredients = ingredients.mapIndexed { i, item ->
-                                                            if (i == index) item.copy(cookingMethod = null) else item
-                                                        }
-                                                        expandedCookingMethod = false
-                                                    }
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = "Xóa",
-                                                        modifier = Modifier.size(18.dp),
-                                                        tint = Color(0xFF6B7280)
-                                                    )
-                                                }
-                                            } else {
-                                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCookingMethod)
-                                            }
-                                        }
-                                    )
-                                    ExposedDropdownMenu(
-                                        expanded = expandedCookingMethod && filteredCookingMethods.isNotEmpty(),
-                                        onDismissRequest = { expandedCookingMethod = false }
-                                    ) {
-                                        filteredCookingMethods.take(5).forEach { method ->
-                                            DropdownMenuItem(
-                                                text = { Text(method.displayName) },
-                                                onClick = {
-                                                    cookingMethodSearchQuery = method.displayName
-                                                    ingredients = ingredients.mapIndexed { i, item ->
-                                                        if (i == index) item.copy(cookingMethod = method) else item
-                                                    }
-                                                    expandedCookingMethod = false
-                                                }
-                                            )
                                         }
                                     }
                                 }

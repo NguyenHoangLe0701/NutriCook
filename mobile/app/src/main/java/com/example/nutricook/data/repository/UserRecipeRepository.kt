@@ -76,8 +76,7 @@ class UserRecipeRepository @Inject constructor(
                     "quantity" to ingredient.quantity,
                     "unit" to ingredient.unit.abbreviation,
                     "foodItemId" to (ingredient.foodItemId ?: ""),
-                    "categoryId" to (ingredient.categoryId ?: ""),
-                    "cookingMethod" to (ingredient.cookingMethod?.displayName ?: "")
+                    "categoryId" to (ingredient.categoryId ?: "")
                 )
             }
             
@@ -114,7 +113,20 @@ class UserRecipeRepository @Inject constructor(
                     "protein" to nutritionData.protein,
                     "cholesterol" to nutritionData.cholesterol,
                     "sodium" to nutritionData.sodium,
-                    "vitamin" to nutritionData.vitamin
+                    "vitamin" to nutritionData.vitamin,
+                    "vitaminDetails" to mapOf(
+                        "vitaminA" to nutritionData.vitaminDetails.vitaminA,
+                        "vitaminB1" to nutritionData.vitaminDetails.vitaminB1,
+                        "vitaminB2" to nutritionData.vitaminDetails.vitaminB2,
+                        "vitaminB3" to nutritionData.vitaminDetails.vitaminB3,
+                        "vitaminB6" to nutritionData.vitaminDetails.vitaminB6,
+                        "vitaminB9" to nutritionData.vitaminDetails.vitaminB9,
+                        "vitaminB12" to nutritionData.vitaminDetails.vitaminB12,
+                        "vitaminC" to nutritionData.vitaminDetails.vitaminC,
+                        "vitaminD" to nutritionData.vitaminDetails.vitaminD,
+                        "vitaminE" to nutritionData.vitaminDetails.vitaminE,
+                        "vitaminK" to nutritionData.vitaminDetails.vitaminK
+                    )
                 ),
                 "userId" to currentUser.uid,
                 "userEmail" to (currentUser.email ?: ""),
@@ -240,6 +252,167 @@ class UserRecipeRepository @Inject constructor(
             snapshot.documents.map { it.data ?: emptyMap() }
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+    
+    /**
+     * Cập nhật recipe vào Firestore
+     */
+    suspend fun updateRecipe(
+        recipeId: String,
+        recipeName: String,
+        estimatedTime: String,
+        servings: String,
+        imageUris: List<Uri>,
+        ingredients: List<IngredientItem>,
+        cookingSteps: List<CookingStep>,
+        description: String,
+        notes: String,
+        tips: String,
+        nutritionData: NutritionData,
+        existingImageUrls: List<String> = emptyList() // Ảnh cũ nếu không thay đổi
+    ): Result<Unit> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("Bạn chưa đăng nhập"))
+            
+            // Kiểm tra quyền sở hữu
+            val doc = firestore.collection("userRecipes")
+                .document(recipeId)
+                .get()
+                .await()
+            
+            if (!doc.exists()) {
+                return Result.failure(Exception("Không tìm thấy công thức"))
+            }
+            
+            val recipeUserId = doc.data?.get("userId") as? String
+            if (recipeUserId != currentUser.uid) {
+                return Result.failure(Exception("Bạn không có quyền chỉnh sửa công thức này"))
+            }
+            
+            // Xử lý ảnh: upload ảnh mới nếu có, giữ lại ảnh cũ nếu không có ảnh mới
+            val imageUrls = mutableListOf<String>()
+            
+            // Giữ lại ảnh cũ nếu không có ảnh mới
+            if (imageUris.isEmpty() && existingImageUrls.isNotEmpty()) {
+                imageUrls.addAll(existingImageUrls)
+            } else {
+                // Upload ảnh mới
+                imageUris.forEachIndexed { index, uri ->
+                    try {
+                        android.util.Log.d("UserRecipeRepo", "Uploading image $index of ${imageUris.size}")
+                        val imageUrl = uploadImage(uri)
+                        if (imageUrl != null) {
+                            imageUrls.add(imageUrl)
+                            android.util.Log.d("UserRecipeRepo", "Successfully uploaded image $index: $imageUrl")
+                        } else {
+                            android.util.Log.w("UserRecipeRepo", "Failed to upload image $index")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("UserRecipeRepo", "Error uploading image $index: ${e.message}", e)
+                        // Continue with other images even if one fails
+                    }
+                }
+            }
+            
+            // Convert ingredients to map
+            val ingredientsData = ingredients.map { ingredient ->
+                mapOf(
+                    "name" to ingredient.name,
+                    "quantity" to ingredient.quantity,
+                    "unit" to ingredient.unit.abbreviation,
+                    "foodItemId" to (ingredient.foodItemId ?: ""),
+                    "categoryId" to (ingredient.categoryId ?: "")
+                )
+            }
+            
+            // Convert cooking steps to map
+            val stepsData = cookingSteps.mapIndexed { index, step ->
+                val stepImageUrl = if (step.imageUri != null) {
+                    try {
+                        step.imageUri?.let { uploadImage(it) } ?: ""
+                    } catch (e: Exception) {
+                        android.util.Log.e("UserRecipeRepo", "Error uploading step $index image: ${e.message}", e)
+                        ""
+                    }
+                } else {
+                    // Nếu không có ảnh mới, giữ lại ảnh cũ từ existing data
+                    val existingSteps = doc.data?.get("cookingSteps") as? List<Map<String, Any>>
+                    existingSteps?.getOrNull(index)?.get("imageUrl") as? String ?: ""
+                }
+                mapOf(
+                    "stepNumber" to (index + 1),
+                    "description" to step.description,
+                    "imageUrl" to stepImageUrl
+                )
+            }
+            
+            // Update recipe document
+            val updateData = hashMapOf<String, Any>(
+                "recipeName" to recipeName,
+                "estimatedTime" to estimatedTime,
+                "servings" to servings,
+                "imageUrls" to imageUrls,
+                "ingredients" to ingredientsData,
+                "cookingSteps" to stepsData,
+                "description" to description,
+                "notes" to notes,
+                "tips" to tips,
+                "nutritionData" to mapOf(
+                    "calories" to nutritionData.calories,
+                    "fat" to nutritionData.fat,
+                    "carbs" to nutritionData.carbs,
+                    "protein" to nutritionData.protein,
+                    "cholesterol" to nutritionData.cholesterol,
+                    "sodium" to nutritionData.sodium,
+                    "vitamin" to nutritionData.vitamin,
+                    "vitaminDetails" to mapOf(
+                        "vitaminA" to nutritionData.vitaminDetails.vitaminA,
+                        "vitaminB1" to nutritionData.vitaminDetails.vitaminB1,
+                        "vitaminB2" to nutritionData.vitaminDetails.vitaminB2,
+                        "vitaminB3" to nutritionData.vitaminDetails.vitaminB3,
+                        "vitaminB6" to nutritionData.vitaminDetails.vitaminB6,
+                        "vitaminB9" to nutritionData.vitaminDetails.vitaminB9,
+                        "vitaminB12" to nutritionData.vitaminDetails.vitaminB12,
+                        "vitaminC" to nutritionData.vitaminDetails.vitaminC,
+                        "vitaminD" to nutritionData.vitaminDetails.vitaminD,
+                        "vitaminE" to nutritionData.vitaminDetails.vitaminE,
+                        "vitaminK" to nutritionData.vitaminDetails.vitaminK
+                    )
+                ),
+                "updatedAt" to com.google.firebase.Timestamp.now()
+            )
+            
+            // Update to Firestore
+            firestore.collection("userRecipes")
+                .document(recipeId)
+                .update(updateData)
+                .await()
+            
+            android.util.Log.d("UserRecipeRepo", "Recipe updated successfully: $recipeId")
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            android.util.Log.e("UserRecipeRepo", "Error updating recipe to Firestore: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Lấy thông tin recipe theo ID
+     */
+    suspend fun getRecipeById(recipeId: String): Map<String, Any>? {
+        return try {
+            val doc = firestore.collection("userRecipes")
+                .document(recipeId)
+                .get()
+                .await()
+            
+            doc.data
+        } catch (e: Exception) {
+            android.util.Log.e("UserRecipeRepo", "Error getting recipe: ${e.message}", e)
+            null
         }
     }
 }

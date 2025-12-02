@@ -11,11 +11,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-
 import com.example.nutricook.utils.NutritionData
+import com.example.nutricook.data.repository.UserRecipeRepository
 
 data class RecipeCreationState(
     // Step 1 data
@@ -39,10 +40,16 @@ data class RecipeCreationState(
 
 @HiltViewModel
 class CreateRecipeViewModel @Inject constructor(
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val recipeRepository: UserRecipeRepository
 ) : ViewModel() {
     
     private val gson = Gson()
+    private val _isEditMode = MutableStateFlow(false)
+    val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
+    
+    private val _editingRecipeId = MutableStateFlow<String?>(null)
+    val editingRecipeId: StateFlow<String?> = _editingRecipeId.asStateFlow()
     
     // Load initial state from SavedStateHandle
     private val _state = MutableStateFlow(
@@ -85,14 +92,7 @@ class CreateRecipeViewModel @Inject constructor(
                             }
                         } ?: com.example.nutricook.utils.IngredientUnit.GRAMS,
                         foodItemId = jsonItem.foodItemId,
-                        categoryId = jsonItem.categoryId,
-                        cookingMethod = jsonItem.cookingMethod?.let {
-                            try {
-                                com.example.nutricook.utils.CookingMethod.valueOf(it)
-                            } catch (e: Exception) {
-                                null
-                            }
-                        }
+                        categoryId = jsonItem.categoryId
                     )
                 } catch (e: Exception) {
                     null
@@ -131,8 +131,7 @@ class CreateRecipeViewModel @Inject constructor(
         val quantity: String?,
         val unit: String?,
         val foodItemId: Long?,
-        val categoryId: Long?,
-        val cookingMethod: String?
+        val categoryId: Long?
     )
     
     private data class CookingStepJson(
@@ -161,8 +160,7 @@ class CreateRecipeViewModel @Inject constructor(
                 quantity = item.quantity,
                 unit = item.unit.name,
                 foodItemId = item.foodItemId,
-                categoryId = item.categoryId,
-                cookingMethod = item.cookingMethod?.name
+                categoryId = item.categoryId
             )
         }
         savedStateHandle["ingredients"] = gson.toJson(ingredientsJson)
@@ -214,8 +212,103 @@ class CreateRecipeViewModel @Inject constructor(
         }
     }
     
+    // Load recipe for editing
+    fun loadRecipeForEdit(recipeId: String) {
+        viewModelScope.launch {
+            try {
+                val recipeData = recipeRepository.getRecipeById(recipeId)
+                if (recipeData != null) {
+                    _isEditMode.value = true
+                    _editingRecipeId.value = recipeId
+                    
+                    // Parse ingredients
+                    val ingredientsRaw = recipeData["ingredients"] as? List<Map<String, Any>> ?: emptyList()
+                    val ingredients = ingredientsRaw.mapNotNull { ingredientMap ->
+                        try {
+                            IngredientItem(
+                                name = ingredientMap["name"] as? String ?: "",
+                                quantity = ingredientMap["quantity"] as? String ?: "",
+                                unit = (ingredientMap["unit"] as? String)?.let { unitStr ->
+                                    try {
+                                        com.example.nutricook.utils.IngredientUnit.valueOf(
+                                            when (unitStr) {
+                                                "g" -> "GRAMS"
+                                                "kg" -> "KILOGRAMS"
+                                                "ml" -> "MILLILITERS"
+                                                "l" -> "LITERS"
+                                                "quả" -> "PIECES"
+                                                "cốc" -> "CUPS"
+                                                "thìa canh" -> "TABLESPOONS"
+                                                "thìa cà phê" -> "TEASPOONS"
+                                                "lát" -> "SLICES"
+                                                "tép" -> "CLOVES"
+                                                "củ" -> "BULBS"
+                                                else -> "GRAMS"
+                                            }
+                                        )
+                                    } catch (e: Exception) {
+                                        com.example.nutricook.utils.IngredientUnit.GRAMS
+                                    }
+                                } ?: com.example.nutricook.utils.IngredientUnit.GRAMS,
+                                foodItemId = (ingredientMap["foodItemId"] as? Number)?.toLong(),
+                                categoryId = (ingredientMap["categoryId"] as? Number)?.toLong()
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    
+                    // Parse cooking steps
+                    val stepsRaw = recipeData["cookingSteps"] as? List<Map<String, Any>> ?: emptyList()
+                    val cookingSteps = stepsRaw.mapNotNull { stepMap ->
+                        try {
+                            CookingStep(
+                                description = stepMap["description"] as? String ?: "",
+                                imageUri = null // Image URL sẽ được xử lý riêng nếu cần
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    
+                    // Parse nutrition data
+                    val nutritionRaw = recipeData["nutritionData"] as? Map<String, Any> ?: emptyMap()
+                    val nutritionData = NutritionData(
+                        calories = (nutritionRaw["calories"] as? Number)?.toDouble() ?: 0.0,
+                        fat = (nutritionRaw["fat"] as? Number)?.toDouble() ?: 0.0,
+                        carbs = (nutritionRaw["carbs"] as? Number)?.toDouble() ?: 0.0,
+                        protein = (nutritionRaw["protein"] as? Number)?.toDouble() ?: 0.0,
+                        cholesterol = (nutritionRaw["cholesterol"] as? Number)?.toDouble() ?: 0.0,
+                        sodium = (nutritionRaw["sodium"] as? Number)?.toDouble() ?: 0.0,
+                        vitamin = (nutritionRaw["vitamin"] as? Number)?.toDouble() ?: 0.0
+                    )
+                    
+                    // Update state
+                    _state.update {
+                        it.copy(
+                            recipeName = recipeData["recipeName"] as? String ?: "",
+                            estimatedTime = recipeData["estimatedTime"] as? String ?: "",
+                            servings = recipeData["servings"] as? String ?: "",
+                            selectedImageUris = emptyList(), // Ảnh sẽ được xử lý riêng
+                            ingredients = ingredients,
+                            cookingSteps = cookingSteps,
+                            description = recipeData["description"] as? String ?: "",
+                            notes = recipeData["notes"] as? String ?: "",
+                            tips = recipeData["tips"] as? String ?: "",
+                            nutritionData = nutritionData
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CreateRecipeVM", "Error loading recipe: ${e.message}", e)
+            }
+        }
+    }
+    
     // Clear all data
     fun clearAll() {
+        _isEditMode.value = false
+        _editingRecipeId.value = null
         savedStateHandle.remove<String>("recipeName")
         savedStateHandle.remove<String>("estimatedTime")
         savedStateHandle.remove<String>("servings")

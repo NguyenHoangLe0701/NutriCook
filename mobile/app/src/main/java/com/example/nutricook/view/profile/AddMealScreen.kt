@@ -49,6 +49,7 @@ fun AddMealScreen(
     initialFat: Float = 0f,
     initialCarb: Float = 0f,
     caloriesTarget: Float = 2000f,
+    selectedDateId: String? = null,
     onSave: (Float, Float, Float, Float) -> Unit
 ) {
     val context = LocalContext.current
@@ -232,15 +233,38 @@ fun AddMealScreen(
         }
     }
 
+    // Format ngày để hiển thị
+    val displayDateText = if (selectedDateId != null) {
+        try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            val date = sdf.parse(selectedDateId)
+            val displayFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+            "Bổ sung món ăn - ${displayFormat.format(date ?: java.util.Date())}"
+        } catch (e: Exception) {
+            "Bổ sung món ăn"
+        }
+    } else {
+        "Thêm bữa ăn"
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { 
-                    Text(
-                        "Thêm bữa ăn",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    ) 
+                    Column {
+                        Text(
+                            displayDateText,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        if (selectedDateId != null) {
+                            Text(
+                                "Bổ sung cho ngày đã chọn",
+                                fontSize = 12.sp,
+                                color = androidx.compose.ui.graphics.Color(0xFF6B7280)
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {

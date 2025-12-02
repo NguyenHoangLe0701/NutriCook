@@ -23,8 +23,7 @@ data class SearchUiState(
     val selectedTypes: Set<SearchType> = setOf(
         SearchType.RECIPES,
         SearchType.FOODS,
-        SearchType.NEWS,
-        SearchType.USERS
+        SearchType.NEWS
     ),
     val selectedCategory: String? = null,
     val caloriesRange: ClosedFloatingPointRange<Float> = 0f..1000f,

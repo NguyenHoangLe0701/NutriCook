@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -29,7 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.nutricook.utils.NutritionData
+import com.example.nutricook.utils.VitaminDetails
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
 import kotlinx.coroutines.tasks.await
 import kotlin.math.min
 
@@ -66,6 +70,8 @@ fun UserRecipeNutritionFactsScreen(
     val nutritionData = remember(recipeData) {
         if (recipeData != null) {
             val nutrition = recipeData!!["nutritionData"] as? Map<String, Any> ?: emptyMap()
+            val vitaminDetailsRaw = nutrition["vitaminDetails"] as? Map<String, Any> ?: emptyMap()
+            
             NutritionData(
                 calories = (nutrition["calories"] as? Number)?.toDouble() ?: 0.0,
                 fat = (nutrition["fat"] as? Number)?.toDouble() ?: 0.0,
@@ -73,7 +79,20 @@ fun UserRecipeNutritionFactsScreen(
                 protein = (nutrition["protein"] as? Number)?.toDouble() ?: 0.0,
                 cholesterol = (nutrition["cholesterol"] as? Number)?.toDouble() ?: 0.0,
                 sodium = (nutrition["sodium"] as? Number)?.toDouble() ?: 0.0,
-                vitamin = (nutrition["vitamin"] as? Number)?.toDouble() ?: 0.0
+                vitamin = (nutrition["vitamin"] as? Number)?.toDouble() ?: 0.0,
+                vitaminDetails = VitaminDetails(
+                    vitaminA = (vitaminDetailsRaw["vitaminA"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminB1 = (vitaminDetailsRaw["vitaminB1"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminB2 = (vitaminDetailsRaw["vitaminB2"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminB3 = (vitaminDetailsRaw["vitaminB3"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminB6 = (vitaminDetailsRaw["vitaminB6"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminB9 = (vitaminDetailsRaw["vitaminB9"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminB12 = (vitaminDetailsRaw["vitaminB12"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminC = (vitaminDetailsRaw["vitaminC"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminD = (vitaminDetailsRaw["vitaminD"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminE = (vitaminDetailsRaw["vitaminE"] as? Number)?.toDouble() ?: 0.0,
+                    vitaminK = (vitaminDetailsRaw["vitaminK"] as? Number)?.toDouble() ?: 0.0
+                )
             )
         } else {
             NutritionData()
@@ -283,10 +302,79 @@ fun UserRecipeNutritionFactsScreen(
                         value = "${nutritionData.protein.toInt()}g",
                         percent = nutritionData.getProteinPercent()
                     )
-                    NutritionItem(
-                        label = "Vitamin",
-                        value = "${nutritionData.vitamin.toInt()}%",
-                        percent = nutritionData.getVitaminPercent()
+                    // Vitamin với khả năng click để xem chi tiết
+                    var showVitaminDetails by remember { mutableStateOf(false) }
+                    
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showVitaminDetails = !showVitaminDetails }
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "⚡",
+                                    fontSize = 16.sp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Vitamin",
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF1C1C1E)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = if (showVitaminDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (showVitaminDetails) "Thu gọn" else "Mở rộng",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Color(0xFF6B7280)
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${nutritionData.vitamin.toInt()}%",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF1C1C1E)
+                                )
+                                Surface(
+                                    color = Color(0xFF00BFA5).copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "${nutritionData.getVitaminPercent()}%",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF00BFA5),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Hiển thị chi tiết vitamin khi mở rộng
+                        if (showVitaminDetails) {
+                            VitaminDetailsDialog(
+                                vitaminDetails = nutritionData.vitaminDetails,
+                                onDismiss = { showVitaminDetails = false }
+                            )
+                        }
+                    }
+                    
+                    // Divider cho vitamin
+                    HorizontalDivider(
+                        modifier = Modifier.padding(top = 12.dp),
+                        color = Color(0xFFE5E7EB),
+                        thickness = 1.dp
                     )
                 }
             }
@@ -332,4 +420,5 @@ fun UserRecipeNutritionFactsScreen(
         }
     }
 }
+
 

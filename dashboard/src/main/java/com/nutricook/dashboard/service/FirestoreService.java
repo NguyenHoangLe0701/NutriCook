@@ -1384,6 +1384,23 @@ public class FirestoreService {
     }
     
     /**
+     * Đếm số lượng UserRecipe trong Firestore (tối ưu hơn listUserRecipes)
+     */
+    public long countUserRecipes() throws Exception {
+        try {
+            CollectionReference userRecipesCol = firestore.collection("userRecipes");
+            QuerySnapshot snap = userRecipesCol.get().get();
+            long count = snap.size();
+            System.out.println("✅ Counted " + count + " user recipes in Firestore");
+            return count;
+        } catch (Exception e) {
+            System.err.println("❌ Error counting user recipes: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+    
+    /**
      * Xóa một UserRecipe khỏi Firestore
      */
     public boolean deleteUserRecipe(String docId) throws Exception {

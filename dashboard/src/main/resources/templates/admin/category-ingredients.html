@@ -245,6 +245,7 @@
                                                     <option value="thìa cà phê">thìa cà phê - Thìa cà phê - 1 thìa cà phê</option>
                                                     <option value="lát">lát - Lát - 1 lát</option>
                                                     <option value="tép">tép - Tép - 1 tép</option>
+                                                    <option value="củ">củ - Củ - 1 củ</option>
                                                 </select>
                                                 <p class="mt-1 text-xs text-gray-500">Đơn vị đo lường mặc định cho nguyên liệu này. <strong>Lưu ý:</strong> Các thông tin dinh dưỡng bên phải được tính trên 100g (hoặc đơn vị tương đương).</p>
                                             </div>
@@ -421,6 +422,7 @@
                                                     <option value="thìa cà phê">thìa cà phê - Thìa cà phê - 1 thìa cà phê</option>
                                                     <option value="lát">lát - Lát - 1 lát</option>
                                                     <option value="tép">tép - Tép - 1 tép</option>
+                                                    <option value="củ">củ - Củ - 1 củ</option>
                                                 </select>
                                                 <p class="mt-1 text-xs text-gray-500">Đơn vị đo lường mặc định cho nguyên liệu này. <strong>Lưu ý:</strong> Các thông tin dinh dưỡng bên phải được tính trên 100g (hoặc đơn vị tương đương).</p>
                                             </div>
@@ -726,18 +728,23 @@
                     document.getElementById('edit-cholesterol').value = cholesterol;
                     document.getElementById('edit-sodium').value = sodium;
                     
-                    // Set vitamin chi tiết
-                    document.getElementById('edit-vitaminA').value = vitaminA;
-                    document.getElementById('edit-vitaminB1').value = vitaminB1;
-                    document.getElementById('edit-vitaminB2').value = vitaminB2;
-                    document.getElementById('edit-vitaminB3').value = vitaminB3;
-                    document.getElementById('edit-vitaminB6').value = vitaminB6;
-                    document.getElementById('edit-vitaminB9').value = vitaminB9;
-                    document.getElementById('edit-vitaminB12').value = vitaminB12;
-                    document.getElementById('edit-vitaminC').value = vitaminC;
-                    document.getElementById('edit-vitaminD').value = vitaminD;
-                    document.getElementById('edit-vitaminE').value = vitaminE;
-                    document.getElementById('edit-vitaminK').value = vitaminK;
+                    // Set vitamin chi tiết - đảm bảo hiển thị đúng giá trị (null/empty -> 0.0)
+                    const setVitaminValue = function(elementId, value) {
+                        const numValue = value && value !== 'null' && value !== '' ? parseFloat(value) : 0.0;
+                        document.getElementById(elementId).value = isNaN(numValue) ? 0.0 : numValue;
+                    };
+                    
+                    setVitaminValue('edit-vitaminA', vitaminA);
+                    setVitaminValue('edit-vitaminB1', vitaminB1);
+                    setVitaminValue('edit-vitaminB2', vitaminB2);
+                    setVitaminValue('edit-vitaminB3', vitaminB3);
+                    setVitaminValue('edit-vitaminB6', vitaminB6);
+                    setVitaminValue('edit-vitaminB9', vitaminB9);
+                    setVitaminValue('edit-vitaminB12', vitaminB12);
+                    setVitaminValue('edit-vitaminC', vitaminC);
+                    setVitaminValue('edit-vitaminD', vitaminD);
+                    setVitaminValue('edit-vitaminE', vitaminE);
+                    setVitaminValue('edit-vitaminK', vitaminK);
                     
                     // Tính tổng vitamin sau khi set các giá trị
                     calculateTotalVitaminEdit();

@@ -25,16 +25,36 @@ class NutritionRepository @Inject constructor(
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         return sdf.format(Date())
     }
+    
+    // --- HELPER: Chuyển đổi Date thành dateId (dạng "2023-10-27") ---
+    fun dateToDateId(date: Date): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        return sdf.format(date)
+    }
+    
+    // --- HELPER: Chuyển đổi dateId thành Date ---
+    fun dateIdToDate(dateId: String): Date? {
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            sdf.parse(dateId)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     // 1. Lấy dữ liệu của CHÍNH XÁC ngày hôm nay
     suspend fun getTodayLog(): DailyLog? {
+        return getLogForDate(getTodayDateId())
+    }
+    
+    // 1b. Lấy dữ liệu cho một ngày cụ thể
+    suspend fun getLogForDate(dateId: String): DailyLog? {
         if (auth.currentUser == null) return null
-        val todayId = getTodayDateId()
 
         return try {
-            val snap = logsCol().document(todayId).get().await()
-            // Nếu tìm thấy document ngày hôm nay -> Trả về data
-            // Nếu không thấy (qua ngày mới) -> Trả về null (ViewModel sẽ tự set về 0)
+            val snap = logsCol().document(dateId).get().await()
+            // Nếu tìm thấy document -> Trả về data
+            // Nếu không thấy -> Trả về null
             snap.toObject(DailyLog::class.java)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -44,6 +64,11 @@ class NutritionRepository @Inject constructor(
 
     // 2. Cập nhật dinh dưỡng (Cộng dồn vào ngày hôm nay)
     suspend fun updateTodayNutrition(calories: Float, protein: Float, fat: Float, carb: Float) {
+        updateNutritionForDate(getTodayDateId(), calories, protein, fat, carb)
+    }
+    
+    // 2b. Cập nhật dinh dưỡng cho một ngày cụ thể (Cộng dồn)
+    suspend fun updateNutritionForDate(dateId: String, calories: Float, protein: Float, fat: Float, carb: Float) {
         if (auth.currentUser == null) return
         
         // Validation: Đảm bảo giá trị hợp lệ
@@ -52,16 +77,15 @@ class NutritionRepository @Inject constructor(
         val validFat = fat.coerceIn(0f, 1000f)
         val validCarb = carb.coerceIn(0f, 2000f)
         
-        android.util.Log.d("NutritionRepo", "Adding nutrition - Calories: $validCalories, Protein: $validProtein, Fat: $validFat, Carb: $validCarb")
+        android.util.Log.d("NutritionRepo", "Adding nutrition for date $dateId - Calories: $validCalories, Protein: $validProtein, Fat: $validFat, Carb: $validCarb")
         
-        val todayId = getTodayDateId()
-        val docRef = logsCol().document(todayId)
+        val docRef = logsCol().document(dateId)
 
         db.runTransaction { transaction ->
             val snapshot = transaction.get(docRef)
 
             if (snapshot.exists()) {
-                // Trường hợp 1: Đã có dữ liệu hôm nay -> CỘNG DỒN
+                // Trường hợp 1: Đã có dữ liệu -> CỘNG DỒN
                 val current = snapshot.toObject(DailyLog::class.java)!!
                 val newCalories = current.calories + validCalories
                 val newProtein = current.protein + validProtein
@@ -78,10 +102,10 @@ class NutritionRepository @Inject constructor(
                     "carb" to newCarb
                 ))
             } else {
-                // Trường hợp 2: Chưa có (Sáng sớm ngày mới) -> TẠO MỚI
-                android.util.Log.d("NutritionRepo", "Creating new log for today: $todayId")
+                // Trường hợp 2: Chưa có -> TẠO MỚI
+                android.util.Log.d("NutritionRepo", "Creating new log for date: $dateId")
                 val newLog = DailyLog(
-                    dateId = todayId,
+                    dateId = dateId,
                     calories = validCalories,
                     protein = validProtein,
                     fat = validFat,
@@ -91,7 +115,7 @@ class NutritionRepository @Inject constructor(
             }
         }.await()
         
-        android.util.Log.d("NutritionRepo", "Nutrition updated successfully")
+        android.util.Log.d("NutritionRepo", "Nutrition updated successfully for date $dateId")
     }
 
     // 3. Lấy lịch sử 7 ngày gần nhất (để vẽ biểu đồ)
