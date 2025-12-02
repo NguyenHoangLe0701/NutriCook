@@ -28,8 +28,15 @@ class GeminiNutritionService @Inject constructor() {
     private val apiKey: String? = BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() }
     
     private val client = OkHttpClient()
-    // Dùng v1 API với gemini-1.5-flash (model nhanh, được hỗ trợ tốt)
-    private val baseUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+    // Thử các endpoint theo thứ tự ưu tiên
+    // Format đúng: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}
+    // Lưu ý: Model names có thể thay đổi theo thời gian, kiểm tra tại: https://ai.google.dev/api/rest/generativelanguage/models
+    // Nếu tất cả fail, gọi listModels() để lấy danh sách model có sẵn
+    private val baseUrls = listOf(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"
+    )
     
     /**
      * Tính calories và dinh dưỡng từ tên món ăn
@@ -37,12 +44,8 @@ class GeminiNutritionService @Inject constructor() {
      * @return NutritionInfo hoặc null nếu lỗi
      */
     suspend fun calculateNutrition(foodName: String): NutritionInfo? = withContext(Dispatchers.IO) {
-        // Debug: Kiểm tra API key
-        val apiKeyValue = BuildConfig.GEMINI_API_KEY
-        Log.d("GeminiService", "BuildConfig.GEMINI_API_KEY length: ${apiKeyValue.length}, isBlank: ${apiKeyValue.isBlank()}")
-        
         if (apiKey == null || apiKey.isBlank()) {
-            Log.e("GeminiService", "API key is null or blank!")
+            Log.e("GeminiService", "API key not configured. Check local.properties or .env file")
             return@withContext null
         }
         
@@ -64,19 +67,63 @@ Trả về CHỈ JSON với format này, không có text khác:
                 })
             }
             
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-                .addHeader("Content-Type", "application/json")
-                .build()
+            // Thử các endpoint theo thứ tự ưu tiên
+            var lastError: Exception? = null
+            var responseBody: String? = null
+            var responseCode: Int = 0
             
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: return@withContext null
+            for (baseUrl in baseUrls) {
+                try {
+                    val request = Request.Builder()
+                        .url("$baseUrl?key=$apiKey")
+                        .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+                        .addHeader("Content-Type", "application/json")
+                        .build()
+                    
+                    val response = client.newCall(request).execute()
+                    responseBody = response.body?.string()
+                    responseCode = response.code
+                    
+                    if (responseBody != null) {
+                        try {
+                            val testJson = JSONObject(responseBody)
+                            if (testJson.has("error")) {
+                                val error = testJson.getJSONObject("error")
+                                val errorCode = error.optInt("code", 0)
+                                val errorStatus = error.optString("status", "")
+                                
+                                if (errorCode == 404 || errorStatus == "NOT_FOUND") {
+                                    continue // Thử endpoint tiếp theo
+                                } else if (errorCode == 403 || errorStatus == "PERMISSION_DENIED") {
+                                    Log.e("GeminiService", "Permission denied. Check API key access.")
+                                    return@withContext null
+                                } else {
+                                    Log.e("GeminiService", "API error: ${error.optString("message", "")}")
+                                    return@withContext null
+                                }
+                            } else if (response.isSuccessful) {
+                                break // Thành công
+                            }
+                        } catch (e: Exception) {
+                            if (response.isSuccessful) {
+                                break
+                            }
+                        }
+                    }
+                    
+                    if (!response.isSuccessful && responseCode != 404) {
+                        Log.e("GeminiService", "API failed: $responseCode")
+                        return@withContext null
+                    }
+                } catch (e: Exception) {
+                    lastError = e
+                    Log.w("GeminiService", "Error with endpoint $baseUrl: ${e.message}")
+                    continue
+                }
+            }
             
-            Log.d("GeminiService", "Response code: ${response.code}")
-            
-            if (!response.isSuccessful) {
-                Log.e("GeminiService", "API failed: ${response.code} - $responseBody")
+            if (responseBody == null || responseCode != 200) {
+                Log.e("GeminiService", "All endpoints failed. Check API key and model names.")
                 return@withContext null
             }
             
@@ -100,8 +147,6 @@ Trả về CHỈ JSON với format này, không có text khác:
                 .getJSONObject(0)
                 .getString("text")
             
-            Log.d("GeminiService", "Raw content: $content")
-            
             // Xử lý markdown code blocks và tìm JSON
             var jsonText = content.trim()
             jsonText = jsonText.replace("```json", "").replace("```", "").trim()
@@ -112,11 +157,9 @@ Trả về CHỈ JSON với format này, không có text khác:
             if (jsonStart >= 0 && jsonEnd > jsonStart) {
                 jsonText = jsonText.substring(jsonStart, jsonEnd + 1)
             } else {
-                Log.e("GeminiService", "No JSON found in content: $content")
+                Log.e("GeminiService", "No JSON found in response")
                 return@withContext null
             }
-            
-            Log.d("GeminiService", "Extracted JSON: $jsonText")
             
             val nutritionJson = JSONObject(jsonText)
             val caloriesValue = nutritionJson.optDouble("calories", 0.0).toFloat()
@@ -124,10 +167,8 @@ Trả về CHỈ JSON với format này, không có text khác:
             val fatValue = nutritionJson.optDouble("fat", 0.0).toFloat()
             val carbValue = nutritionJson.optDouble("carb", 0.0).toFloat()
             
-            Log.d("GeminiService", "Parsed: calories=$caloriesValue, protein=$proteinValue, fat=$fatValue, carb=$carbValue")
-            
             if (caloriesValue <= 0) {
-                Log.w("GeminiService", "Calories is 0 or negative")
+                Log.w("GeminiService", "Invalid calories value: $caloriesValue")
                 return@withContext null
             }
             
@@ -147,6 +188,72 @@ Trả về CHỈ JSON với format này, không có text khác:
      * Kiểm tra xem API key đã được cấu hình chưa
      */
     fun isApiKeyConfigured(): Boolean = apiKey != null && apiKey.isNotBlank()
+    
+    /**
+     * Lấy danh sách các model có sẵn từ Gemini API
+     * Sử dụng khi cần debug hoặc tìm model name đúng
+     */
+    suspend fun listAvailableModels(): List<String>? = withContext(Dispatchers.IO) {
+        if (apiKey == null || apiKey.isBlank()) {
+            Log.e("GeminiService", "API key is null or blank!")
+            return@withContext null
+        }
+        
+        try {
+            // Thử cả v1beta và v1
+            val listUrls = listOf(
+                "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey",
+                "https://generativelanguage.googleapis.com/v1/models?key=$apiKey"
+            )
+            
+            for (listUrl in listUrls) {
+                try {
+                    val request = Request.Builder()
+                        .url(listUrl)
+                        .get()
+                        .build()
+                    
+                    val response = client.newCall(request).execute()
+                    val responseBody = response.body?.string()
+                    
+                    if (response.isSuccessful && responseBody != null) {
+                        val jsonResponse = JSONObject(responseBody)
+                        if (jsonResponse.has("models")) {
+                            val models = jsonResponse.getJSONArray("models")
+                            val modelNames = mutableListOf<String>()
+                            
+                            for (i in 0 until models.length()) {
+                                val model = models.getJSONObject(i)
+                                val name = model.getString("name")
+                                val supportedMethods = model.optJSONArray("supportedGenerationMethods")
+                                
+                                // Chỉ lấy các model hỗ trợ generateContent
+                                if (supportedMethods != null) {
+                                    for (j in 0 until supportedMethods.length()) {
+                                        if (supportedMethods.getString(j) == "generateContent") {
+                                            modelNames.add(name)
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (modelNames.isNotEmpty()) {
+                                return@withContext modelNames
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    continue
+                }
+            }
+            
+            null
+        } catch (e: Exception) {
+            Log.e("GeminiService", "Error listing models: ${e.message}")
+            null
+        }
+    }
 }
 
 data class NutritionInfo(
