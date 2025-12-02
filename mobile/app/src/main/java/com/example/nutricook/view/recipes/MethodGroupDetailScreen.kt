@@ -292,7 +292,7 @@ private fun MethodGroupDetailContent(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .background(Color.White)
-                .padding(top = 80.dp)
+                .padding(top = 60.dp)
         ) {
             // 🔹 Header Recipe Banner
             Box(
@@ -466,19 +466,30 @@ private fun MethodGroupDetailContent(
             }
         }
 
-        // 🔹 Nút Back và Tim (overlay trên cùng)
-        Row(
+        // 🔹 TopAppBar với Back button và Logo ở giữa
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 36.dp)
-                .align(Alignment.TopCenter),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .align(Alignment.TopCenter)
         ) {
+            // Logo ở giữa
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Logo ứng dụng",
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(40.dp)
+                    .align(Alignment.Center),
+                contentScale = ContentScale.Fit
+            )
+            
+            // Nút Back ở bên trái
             Box(
                 modifier = Modifier
                     .size(42.dp)
                     .background(Color.White.copy(alpha = 0.85f), CircleShape)
+                    .align(Alignment.CenterStart)
             ) {
                 IconButton(
                     onClick = { navController.popBackStack() },
@@ -488,24 +499,6 @@ private fun MethodGroupDetailContent(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = Color.Black,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(Color.White.copy(alpha = 0.85f), CircleShape)
-            ) {
-                IconButton(
-                    onClick = { isFavorite = !isFavorite },
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) Color(0xFFFF4F4F) else Color.Black,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -631,67 +624,81 @@ fun MethodGroupViewersRow(
     if (viewers.isEmpty() && additionalCount == 0) {
         return
     }
-    
+
     val displayViewers = viewers.take(3)
     val remainingCount = (viewers.size - 3).coerceAtLeast(0) + additionalCount
-    
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier.padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start
     ) {
-        displayViewers.forEachIndexed { index, viewer ->
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White, CircleShape)
-                    .border(2.dp, Color.White, CircleShape)
-                    .then(
-                        if (index > 0) {
-                            Modifier.offset(x = (-10 * index).dp)
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .zIndex((displayViewers.size - index).toFloat())
-            ) {
-                if (!viewer.avatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(viewer.avatarUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = viewer.userName,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                        error = painterResource(id = R.drawable.avatar_sample),
-                        placeholder = painterResource(id = R.drawable.avatar_sample)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(Color(0xFFE5E7EB)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = (viewer.userName.firstOrNull()?.toString() ?: "?").uppercase(),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF6B7280)
+        // Cấu hình kích thước và độ chồng lấn
+        val avatarSizeDp = 32
+        val overlapValue = 10 // Phần bị che đi (càng lớn thì chồng lên nhau càng nhiều)
+        val shiftAmount = avatarSizeDp - overlapValue // Khoảng cách dịch chuyển sang phải
+
+        // Tính toán chiều rộng tổng của container
+        val containerWidth = if (displayViewers.size > 1) {
+            (avatarSizeDp + (displayViewers.size - 1) * shiftAmount).dp
+        } else {
+            avatarSizeDp.dp
+        }
+
+        Box(
+            modifier = Modifier
+                .width(containerWidth)
+                .height(avatarSizeDp.dp)
+        ) {
+            displayViewers.forEachIndexed { index, viewer ->
+                Box(
+                    modifier = Modifier
+                        .size(avatarSizeDp.dp)
+                        // SỬA LỖI TẠI ĐÂY:
+                        // Dịch chuyển sang phải dựa trên index và khoảng cách shift
+                        .offset(x = (index * shiftAmount).dp)
+                        // Giữ nguyên zIndex để avatar đầu tiên nằm trên cùng
+                        .zIndex((displayViewers.size - index).toFloat())
+                        .clip(CircleShape)
+                        .background(Color.White, CircleShape)
+                        .border(2.dp, Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!viewer.avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(viewer.avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = viewer.userName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = painterResource(id = R.drawable.ic_launcher_background), // Thay bằng ảnh default của bạn
+                            placeholder = painterResource(id = R.drawable.ic_launcher_foreground) // Thay bằng ảnh default của bạn
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFE5E7EB)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = (viewer.userName.firstOrNull()?.toString() ?: "?").uppercase(),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF6B7280)
+                            )
+                        }
                     }
                 }
             }
         }
-        
+
         if (displayViewers.isNotEmpty()) {
             Spacer(modifier = Modifier.width(8.dp))
         }
-        
+
         if (remainingCount > 0) {
             Text(
                 text = "+$remainingCount others",

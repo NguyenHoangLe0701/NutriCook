@@ -74,46 +74,44 @@ fun UserRecipeInfoScreen(
     Scaffold(
         containerColor = Color(0xFFF9FAFC),
         topBar = {
-            TopAppBar(
-                title = {
-                    // Logo ở giữa
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Logo ở giữa - luôn căn giữa bất kể có hay không có nút chỉnh sửa
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Logo ứng dụng",
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(50.dp)
+                        .align(Alignment.Center),
+                    contentScale = ContentScale.Fit
+                )
+                
+                // Nút Back ở bên trái
+                IconButton(
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                
+                // Nút chỉnh sửa ở bên phải (nếu user là chủ sở hữu)
+                if (isOwner) {
+                    IconButton(
+                        onClick = {
+                            navController.navigate("edit_recipe_$recipeId")
+                        },
+                        modifier = Modifier.align(Alignment.CenterEnd)
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo),
-                            contentDescription = "Logo ứng dụng",
-                            modifier = Modifier
-                                .width(120.dp)
-                                .height(50.dp),
-                            contentScale = ContentScale.Fit
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Chỉnh sửa",
+                            tint = Color(0xFF00BFA5)
                         )
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    // Hiển thị nút chỉnh sửa nếu user là chủ sở hữu
-                    if (isOwner) {
-                        IconButton(
-                            onClick = {
-                                navController.navigate("edit_recipe_$recipeId")
-                            }
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "Chỉnh sửa",
-                                tint = Color(0xFF00BFA5)
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+                }
+            }
         }
     ) { padding ->
         when {
@@ -175,7 +173,7 @@ fun UserRecipeInfoScreen(
                             modifier = Modifier.padding(horizontal = 24.dp)
                         )
                         Text(
-                            text = "By ${userEmail.split("@").firstOrNull() ?: "Unknown"}",
+                            text = "Người đăng: ${userEmail.split("@").firstOrNull() ?: "Unknown"}",
                             fontSize = 15.sp,
                             color = Color(0xFF12B3AD),
                             modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)

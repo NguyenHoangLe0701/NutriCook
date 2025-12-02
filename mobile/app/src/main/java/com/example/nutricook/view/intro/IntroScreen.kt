@@ -3,7 +3,6 @@ package com.example.nutricook.view.intro
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,8 +34,6 @@ fun IntroScreen(
     var hasNavigated by remember { mutableStateOf(false) } // Flag để tránh navigate nhiều lần
     var startTime by remember { mutableStateOf<Long?>(null) }
     val preloadState by viewModel.preloadState.collectAsState()
-    val preloadProgress by viewModel.preloadProgress.collectAsState()
-    val preloadMessage by viewModel.preloadMessage.collectAsState()
 
     // Bắt đầu preload data và đếm thời gian khi màn hình được hiển thị
     LaunchedEffect(Unit) {
@@ -100,33 +97,6 @@ fun IntroScreen(
                 color = Orange,
                 fontWeight = FontWeight.Bold
             )
-            
-            // Hiển thị progress indicator và message khi đang preload
-            if (preloadState == PreloadState.LOADING || preloadState == PreloadState.COMPLETED) {
-                Spacer(modifier = Modifier.height(32.dp))
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = Cyan,
-                    progress = { if (preloadState == PreloadState.COMPLETED) 1f else preloadProgress / 100f }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = if (preloadState == PreloadState.COMPLETED) "Đã tải xong dữ liệu!" else preloadMessage,
-                    fontSize = 14.sp,
-                    color = if (preloadState == PreloadState.COMPLETED) Cyan else Color.Gray,
-                    fontWeight = if (preloadState == PreloadState.COMPLETED) FontWeight.SemiBold else FontWeight.Normal,
-                    modifier = Modifier.padding(horizontal = 32.dp)
-                )
-                if (preloadState == PreloadState.LOADING) {
-                    Text(
-                        text = "$preloadProgress%",
-                        fontSize = 16.sp,
-                        color = Cyan,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
         }
     }
 

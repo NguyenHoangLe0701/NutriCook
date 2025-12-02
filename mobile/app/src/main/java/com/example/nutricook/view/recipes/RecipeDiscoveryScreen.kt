@@ -2,6 +2,7 @@ package com.example.nutricook.view.recipes
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -899,71 +900,73 @@ fun MethodGroupViewersRowCompact(
     additionalCount: Int
 ) {
     if (viewers.isEmpty() && additionalCount == 0) {
-        // Không hiển thị gì nếu không có viewers
         return
     }
-    
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        viewers.forEachIndexed { index, viewer ->
-            // Avatar với border overlap (như hình 2) - 24dp
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color.White, CircleShape)
-                    .then(
-                        if (index > 0) {
-                            Modifier.offset(x = (-8 * index).dp)
-                        } else {
-                            Modifier
-                        }
-                    )
-            ) {
-                if (!viewer.avatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(viewer.avatarUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = viewer.userName,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                        error = painterResource(id = R.drawable.avatar_sample),
-                        placeholder = painterResource(id = R.drawable.avatar_sample)
-                    )
-                } else {
-                    // Hiển thị chữ cái đầu nếu không có avatar (màu xám nhạt như hình)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(Color.LightGray),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = (viewer.userName.firstOrNull()?.toString() ?: "?").uppercase(),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Gray
+
+    val displayViewers = viewers.take(3)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
+    ) {
+        // 🔹 GROUP AVATAR: Sử dụng Row với khoảng cách âm (negative spacing)
+        Row(
+            // -8.dp để các avatar lấn vào nhau. Không cần tính toán thủ công.
+            horizontalArrangement = Arrangement.spacedBy((-8).dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            displayViewers.forEachIndexed { index, viewer ->
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        // zIndex: Đảm bảo avatar đầu tiên (index 0) nằm đè lên avatar sau
+                        .zIndex((displayViewers.size - index).toFloat())
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        // Border trắng để tạo ranh giới rõ ràng
+                        .border(1.5.dp, Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!viewer.avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(viewer.avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = viewer.userName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            error = painterResource(id = R.drawable.beefandcabbage),
+                            placeholder = painterResource(id = R.drawable.beefandcabbage)
                         )
+                    } else {
+                        // Fallback avatar (chữ cái)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.LightGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = (viewer.userName.firstOrNull()?.toString() ?: "?").uppercase(),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Gray
+                            )
+                        }
                     }
                 }
             }
         }
-        
-        // Spacing sau avatars
-        if (viewers.isNotEmpty()) {
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-        
-        // Hiển thị số người còn lại
+
+        // 🔹 TEXT ĐẾM SỐ LƯỢNG (cách ra 8dp so với cụm avatar)
         if (additionalCount > 0) {
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "+$additionalCount Khác",
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = Color.Gray,
+                fontWeight = FontWeight.Medium
             )
         }
     }
