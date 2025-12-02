@@ -108,10 +108,6 @@ fun AdvancedSearchScreen(
                             is SearchResult.NewsResult -> {
                                 navController.navigate("article_detail")
                             }
-                            is SearchResult.UserResult -> {
-                                // Navigate to user profile
-                                navController.navigate("profile")
-                            }
                         }
                     }
                 )
@@ -240,15 +236,6 @@ fun FilterSection(
                 onClick = { onTypeToggle(SearchType.NEWS) },
                 label = { Text("Tin tức") },
                 leadingIcon = if (selectedTypes.contains(SearchType.NEWS)) {
-                    { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
-                } else null
-            )
-            
-            FilterChip(
-                selected = selectedTypes.contains(SearchType.USERS),
-                onClick = { onTypeToggle(SearchType.USERS) },
-                label = { Text("Người dùng") },
-                leadingIcon = if (selectedTypes.contains(SearchType.USERS)) {
                     { Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp)) }
                 } else null
             )
@@ -414,18 +401,6 @@ fun SearchResultsSection(
             items(results[SearchType.NEWS]!!) { result ->
                 if (result is SearchResult.NewsResult) {
                     NewsResultItem(result, onClick = { onResultClick(result) })
-                }
-            }
-        }
-        
-        // Users
-        if (results[SearchType.USERS]?.isNotEmpty() == true) {
-            item {
-                SectionHeader("Người dùng")
-            }
-            items(results[SearchType.USERS]!!) { result ->
-                if (result is SearchResult.UserResult) {
-                    UserResultItem(result, onClick = { onResultClick(result) })
                 }
             }
         }

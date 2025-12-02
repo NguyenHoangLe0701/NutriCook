@@ -25,11 +25,6 @@ Tính năng tìm kiếm nâng cao cho phép người dùng tìm kiếm đa dạn
    - Hiển thị: Tiêu đề, hình thumbnail, category
    - Click để xem chi tiết bài viết
 
-4. **👤 Users (Người dùng khác)**
-   - Tìm kiếm từ `ProfileRepository` (Firestore collection `users`)
-   - Tìm theo tên hiển thị hoặc email
-   - Hiển thị: Avatar, tên, email
-   - Click để xem profile người dùng
 
 ### 🔍 Các Loại Nội Dung Có Thể Mở Rộng (Chưa triển khai):
 
@@ -292,22 +287,6 @@ HomeScreen
 - `thumbnailUrl`: URL hình thumbnail
 - `category`: Danh mục bài viết
 
-### Tìm Kiếm Users
-
-**Collection**: `users` trong Firestore
-
-**Cách hoạt động**:
-- Sử dụng `ProfileRepository.searchProfiles()`
-- Tìm theo displayName hoặc email
-
-**Ví dụ tìm kiếm**:
-- "Nguyễn" → Tìm thấy users có tên chứa "Nguyễn"
-- "example@email.com" → Tìm thấy user với email đó
-
-**Dữ liệu hiển thị**:
-- `displayName`: Tên hiển thị
-- `email`: Email
-- `avatarUrl`: URL avatar
 
 ## 🎯 Các Bước Triển Khai
 
@@ -354,19 +333,219 @@ sealed class SearchResult {
 
 **File**: `mobile/app/src/main/java/com/example/nutricook/data/search/SearchRepository.kt`
 
-- Combine kết quả từ nhiều repository
-- Xử lý debouncing và caching
-- Filter và sort results
+**Chức năng chính**:
+
+1. **searchAll()**: Tìm kiếm tất cả các loại nội dung song song
+   - Sử dụng `coroutineScope` và `async` để tìm kiếm song song
+   - Chỉ tìm kiếm các loại được chọn trong `types` parameter
+   - Trả về `Map<SearchType, List<SearchResult>>`
+
+2. **searchRecipes()**: Tìm kiếm công thức từ Firestore
+   - Collection: `recipes`
+   - Query: `whereGreaterThanOrEqualTo("name", query)` và `whereLessThanOrEqualTo("name", query + "\uf8ff")`
+   - Filter thêm với `contains` check (case-insensitive)
+   - Limit: 10 kết quả
+
+3. **searchFoods()**: Tìm kiếm thực phẩm từ Firestore
+   - Collection: `foodItems`
+   - **Cải tiến**: Lấy tất cả items và filter trong memory (hỗ trợ tìm kiếm đa từ tốt hơn)
+   - Hỗ trợ tìm kiếm đa từ: "Bắp cải trắng" → tìm items chứa cả "bắp", "cải", "trắng"
+   - Sort theo relevance: Exact match > Starts with > Contains
+   - Limit: 20 kết quả
+
+4. **searchNews()**: Tìm kiếm tin tức từ HotNewsRepository
+   - Sử dụng `hotNewsRepository.getAllArticles()`
+   - Filter theo: title, content, category (case-insensitive)
+   - Limit: 10 kết quả
+
+**Code mẫu - searchAll()**:
+
+```kotlin
+suspend fun searchAll(
+    query: String,
+    types: Set<SearchType> = SearchType.values().toSet()
+): Map<SearchType, List<SearchResult>> = coroutineScope {
+    val queryLower = query.lowercase().trim()
+    if (queryLower.isBlank()) {
+        return@coroutineScope emptyMap()
+    }
+    
+    val results = mutableMapOf<SearchType, List<SearchResult>>()
+    
+    // Parallel search - Tìm kiếm song song để tối ưu performance
+    val recipesDeferred = if (types.contains(SearchType.RECIPES)) {
+        async { searchRecipes(queryLower) }
+    } else null
+    
+    val foodsDeferred = if (types.contains(SearchType.FOODS)) {
+        async { searchFoods(queryLower) }
+    } else null
+    
+    val newsDeferred = if (types.contains(SearchType.NEWS)) {
+        async { searchNews(queryLower) }
+    } else null
+    
+    // Await all results - Đợi tất cả kết quả song song
+    recipesDeferred?.await()?.let { results[SearchType.RECIPES] = it }
+    foodsDeferred?.await()?.let { results[SearchType.FOODS] = it }
+    newsDeferred?.await()?.let { results[SearchType.NEWS] = it }
+    
+    results
+}
+```
+
+**Code mẫu - searchFoods() với multi-word search**:
+
+```kotlin
+private suspend fun searchFoods(query: String): List<SearchResult.FoodResult> {
+    val queryLower = query.lowercase().trim()
+    val queryWords = queryLower.split(" ").filter { it.isNotBlank() }
+    
+    // Lấy tất cả foodItems
+    val allFoodsSnapshot = firestore.collection("foodItems")
+        .get()
+        .await()
+    
+    val allFoods = allFoodsSnapshot.documents.mapNotNull { doc ->
+        val data = doc.data ?: return@mapNotNull null
+        val name = data["name"] as? String ?: return@mapNotNull null
+        val nameLower = name.lowercase()
+        
+        // Kiểm tra nếu tên chứa query hoặc tất cả các từ trong query
+        val matches = if (queryWords.size > 1) {
+            // Multi-word search: Tất cả các từ phải có trong tên
+            queryWords.all { word -> nameLower.contains(word) }
+        } else {
+            // Single word search: Tên chứa query
+            nameLower.contains(queryLower)
+        }
+        
+        if (matches) {
+            // Parse nutrition data
+            SearchResult.FoodResult(...)
+        } else null
+    }
+    
+    // Sort theo relevance
+    allFoods.sortedWith(compareBy(
+        { !it.title.lowercase().startsWith(queryLower) }, // Exact match first
+        { !it.title.lowercase().contains(queryLower) }   // Starts with second
+    )).take(20)
+}
+```
 
 ### Bước 3: Tạo SearchViewModel
 
 **File**: `mobile/app/src/main/java/com/example/nutricook/viewmodel/search/SearchViewModel.kt`
 
-- Quản lý search query
-- Debounce input (500ms)
-- Combine results từ nhiều nguồn
-- Filter theo category/type
-- Recent searches (SharedPreferences)
+**Chức năng chính**:
+
+1. **onQueryChange()**: Xử lý khi người dùng nhập query
+   - **Debouncing**: Đợi 500ms sau khi ngừng gõ mới gọi API
+   - Hủy tìm kiếm cũ nếu người dùng gõ tiếp
+   - Gọi `repository.searchAll()` với query và selectedTypes
+   - Apply filters và sort results
+   - Lưu vào recent searches
+
+2. **toggleSearchType()**: Bật/tắt loại tìm kiếm
+   - Thêm/xóa SearchType khỏi selectedTypes
+   - Tự động re-search với types mới
+
+3. **applyFilters()**: Áp dụng filters
+   - Filter by category (cho News)
+   - Filter by calories range (cho Recipes và Foods)
+
+4. **sortResults()**: Sắp xếp kết quả
+   - RELEVANCE: Giữ nguyên thứ tự từ Firestore
+   - NEWEST: Sắp xếp theo ID (proxy cho date)
+   - CALORIES_LOW_TO_HIGH / CALORIES_HIGH_TO_LOW: Sắp xếp theo calories
+
+5. **Recent Searches**: Lưu và load từ SharedPreferences
+   - Lưu tối đa 10 searches gần nhất
+   - Load khi init ViewModel
+
+**Code mẫu - onQueryChange() với debouncing**:
+
+```kotlin
+fun onQueryChange(newQuery: String) {
+    _uiState.update { it.copy(query = newQuery) }
+    
+    // Debounce: Hủy tìm kiếm cũ nếu người dùng gõ tiếp nhanh quá
+    searchJob?.cancel()
+    
+    if (newQuery.isBlank()) {
+        _uiState.update { it.copy(results = emptyMap(), isLoading = false) }
+        return
+    }
+    
+    searchJob = viewModelScope.launch {
+        delay(500) // Đợi 500ms sau khi ngừng gõ mới gọi API
+        
+        val currentState = _uiState.value
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        
+        try {
+            // Gọi repository để tìm kiếm
+            val results = repository.searchAll(
+                query = newQuery,
+                types = currentState.selectedTypes
+            )
+            
+            // Apply filters (category, calories range)
+            val filteredResults = applyFilters(results, currentState)
+            
+            // Sort results
+            val sortedResults = sortResults(filteredResults, currentState.sortBy)
+            
+            _uiState.update { 
+                it.copy(
+                    results = sortedResults,
+                    isLoading = false,
+                    error = null
+                )
+            }
+            
+            // Save to recent searches
+            if (newQuery.isNotBlank()) {
+                saveRecentSearch(newQuery)
+            }
+        } catch (e: Exception) {
+            _uiState.update { 
+                it.copy(
+                    isLoading = false,
+                    error = e.message ?: "Lỗi khi tìm kiếm"
+                )
+            }
+        }
+    }
+}
+```
+
+**Code mẫu - Recent Searches**:
+
+```kotlin
+private fun saveRecentSearch(query: String) {
+    viewModelScope.launch {
+        try {
+            val current = prefs.getStringSet("recent_searches", mutableSetOf())
+                ?.toMutableList() ?: mutableListOf()
+            
+            // Remove if exists and add to front
+            current.remove(query)
+            current.add(0, query)
+            
+            // Keep only last 10
+            val limited = current.take(10)
+            
+            prefs.edit().putStringSet("recent_searches", limited.toSet()).apply()
+            
+            _uiState.update { it.copy(recentSearches = limited) }
+        } catch (e: Exception) {
+            android.util.Log.e("SearchViewModel", "Error saving recent search: ${e.message}")
+        }
+    }
+}
+```
 
 ### Bước 4: Tích Hợp Vào HomeScreen
 
@@ -382,10 +561,77 @@ sealed class SearchResult {
 
 **File**: `mobile/app/src/main/java/com/example/nutricook/view/search/SearchResultItems.kt`
 
-- `RecipeResultItem`
-- `FoodResultItem`
-- `NewsResultItem`
-- `UserResultItem`
+**Các composable items**:
+
+1. **RecipeResultItem**: Hiển thị công thức
+   - Image (Coil AsyncImage)
+   - Title (tên công thức)
+   - Calories badge
+   - Click để navigate đến detail
+
+2. **FoodResultItem**: Hiển thị thực phẩm
+   - Image (Coil AsyncImage)
+   - Name (tên thực phẩm)
+   - Nutrition info (calories, protein, fat, carb)
+   - Click để navigate đến add_meal
+
+3. **NewsResultItem**: Hiển thị tin tức
+   - Thumbnail image
+   - Title (tiêu đề)
+   - Category badge
+   - Click để navigate đến article_detail
+
+**Code mẫu - RecipeResultItem**:
+
+```kotlin
+@Composable
+fun RecipeResultItem(
+    result: SearchResult.RecipeResult,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Image
+            AsyncImage(
+                model = result.imageUrl ?: R.drawable.placeholder,
+                contentDescription = result.title,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Content
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = result.title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                if (result.calories != null) {
+                    Text(
+                        text = "${result.calories} kcal",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+            
+            Icon(Icons.Default.ChevronRight, contentDescription = null)
+        }
+    }
+}
+```
 
 ### Bước 6: Tích Hợp SearchViewModel Vào HomeScreen
 
@@ -729,10 +975,13 @@ Recompose UI
 ## 🚀 Next Steps & Tính Năng Mở Rộng
 
 ### Đã Triển Khai ✅
-1. ✅ Tìm kiếm Recipes, Foods, News, Users
+1. ✅ Tìm kiếm Recipes, Foods, News
 2. ✅ Debouncing và filtering
 3. ✅ Tích hợp vào HomeScreen
 4. ✅ Recent searches
+5. ✅ Multi-word search cho Foods
+6. ✅ Parallel search (tìm kiếm song song)
+7. ✅ Relevance sorting
 
 ### Cần Triển Khai 🔄
 1. **Tìm kiếm Posts** (Bài đăng cộng đồng)

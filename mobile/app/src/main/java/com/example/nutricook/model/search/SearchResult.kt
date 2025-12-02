@@ -30,21 +30,12 @@ sealed class SearchResult {
         val category: String,
         val content: String? = null
     ) : SearchResult()
-    
-    data class UserResult(
-        override val id: String,
-        override val title: String,
-        override val imageUrl: String?,
-        val email: String,
-        val displayName: String
-    ) : SearchResult()
 }
 
 enum class SearchType {
     RECIPES,
     FOODS,
-    NEWS,
-    USERS
+    NEWS
 }
 
 enum class SortOption {
