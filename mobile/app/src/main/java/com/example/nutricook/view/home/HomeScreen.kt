@@ -1062,7 +1062,7 @@ fun HomeScreen(
 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = article.category,
+                                        text = article.getTranslatedCategory(),
                                         color = Color(0xFF20B2AA),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium

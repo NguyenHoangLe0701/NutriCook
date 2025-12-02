@@ -95,7 +95,7 @@ fun HotNewsDetailScreen(
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = article.category,
+                    text = article.getTranslatedCategory(),
                     fontSize = 13.sp,
                     color = Color(0xFF20B2AA),
                     fontWeight = FontWeight.Medium

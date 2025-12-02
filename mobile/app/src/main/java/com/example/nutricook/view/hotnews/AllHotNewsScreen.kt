@@ -134,7 +134,7 @@ fun AllHotNewsScreen(
                     FilterChip(
                         selected = true,
                         onClick = { viewModel.filterByCategory(null) },
-                        label = { Text(uiState.selectedCategory ?: "") },
+                        label = { Text(translateCategory(uiState.selectedCategory ?: "")) },
                         trailingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -240,7 +240,7 @@ fun HotNewsCard(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = article.category,
+                        text = article.getTranslatedCategory(),
                         color = Color(0xFF20B2AA),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -255,7 +255,9 @@ fun HotNewsCard(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1B1B1B),
-                    maxLines = 2
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -301,6 +303,21 @@ fun HotNewsCard(
     }
 }
 
+// Helper function để dịch category
+fun translateCategory(category: String): String {
+    return when (category.trim()) {
+        "Food News and Trends", "Food News And Trends" -> "Tin tức và xu hướng ẩm thực"
+        "Kitchen Tips" -> "Mẹo bếp núc"
+        "Healthy Eating" -> "Ăn uống lành mạnh"
+        "Recipes" -> "Công thức nấu ăn"
+        "Nutrition" -> "Dinh dưỡng"
+        "Cooking Techniques" -> "Kỹ thuật nấu ăn"
+        "Food Safety" -> "An toàn thực phẩm"
+        "Meal Planning" -> "Lập kế hoạch bữa ăn"
+        else -> category // Nếu không khớp, trả về category gốc
+    }
+}
+
 @Composable
 fun FilterDialog(
     availableCategories: List<String>,
@@ -327,7 +344,7 @@ fun FilterDialog(
                     FilterChip(
                         selected = selectedCategory == category,
                         onClick = { onCategorySelected(category) },
-                        label = { Text(category) },
+                        label = { Text(translateCategory(category)) },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))

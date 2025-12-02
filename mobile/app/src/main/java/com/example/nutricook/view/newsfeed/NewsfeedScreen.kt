@@ -816,7 +816,7 @@ fun ModernHotNewsCard(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = article.category,
+                    text = article.getTranslatedCategory(),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = AccentOrange,
@@ -832,7 +832,9 @@ fun ModernHotNewsCard(
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = TextDark,
-                lineHeight = 24.sp
+                lineHeight = 24.sp,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(8.dp))

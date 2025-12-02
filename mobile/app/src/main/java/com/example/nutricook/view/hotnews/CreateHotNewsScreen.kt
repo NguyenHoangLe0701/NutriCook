@@ -54,15 +54,16 @@ fun CreateHotNewsScreen(
         thumbnailUri = uri
     }
     
-    // Common categories
-    val categories = listOf(
-        "Food News and Trends",
-        "Kitchen Tips",
-        "Recipe Ideas",
-        "Nutrition Facts",
-        "Cooking Techniques",
-        "Food Reviews"
+    // Common categories - Mapping giữa tiếng Việt (hiển thị) và tiếng Anh (lưu vào DB)
+    val categoryMap = mapOf(
+        "Tin tức và xu hướng ẩm thực" to "Food News and Trends",
+        "Mẹo bếp núc" to "Kitchen Tips",
+        "Ý tưởng công thức" to "Recipe Ideas",
+        "Thông tin dinh dưỡng" to "Nutrition Facts",
+        "Kỹ thuật nấu ăn" to "Cooking Techniques",
+        "Đánh giá món ăn" to "Food Reviews"
     )
+    val categories = categoryMap.keys.toList()
     
     Scaffold(
         topBar = {
@@ -154,7 +155,7 @@ fun CreateHotNewsScreen(
                         DropdownMenuItem(
                             text = { Text(cat) },
                             onClick = {
-                                category = cat
+                                category = cat // Hiển thị tiếng Việt trong TextField
                                 expanded = false
                             }
                         )
@@ -273,10 +274,13 @@ fun CreateHotNewsScreen(
                     isUploading = true
                     errorMessage = null
                     
+                    // Chuyển category từ tiếng Việt sang tiếng Anh để lưu vào DB
+                    val categoryToSave = categoryMap[category] ?: category
+                    
                     viewModel.createArticle(
                         title = title,
                         content = content,
-                        category = category,
+                        category = categoryToSave, // Lưu tiếng Anh vào DB
                         thumbnailUri = thumbnailUri,
                         link = if (link.isNotBlank()) link else null,
                         onSuccess = {
