@@ -22,18 +22,26 @@ import com.example.nutricook.R
 import com.example.nutricook.ui.theme.Cyan
 import com.example.nutricook.ui.theme.Orange
 import com.example.nutricook.viewmodel.intro.IntroViewModel
+import com.example.nutricook.viewmodel.auth.AuthViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun IntroScreen(
     navController: NavController,
-    viewModel: IntroViewModel = hiltViewModel()
+    viewModel: IntroViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel? = null
 ) {
     var showVitamins by remember { mutableStateOf(false) }
     var hasNavigated by remember { mutableStateOf(false) } // Flag để tránh navigate nhiều lần
     var startTime by remember { mutableStateOf<Long?>(null) }
     val preloadState by viewModel.preloadState.collectAsState()
+    
+    // Kiểm tra trạng thái đăng nhập
+    val isLoggedIn = remember {
+        authViewModel?.uiState?.value?.currentUser != null || FirebaseAuth.getInstance().currentUser != null
+    }
 
     // Bắt đầu preload data và đếm thời gian khi màn hình được hiển thị
     LaunchedEffect(Unit) {
@@ -147,11 +155,15 @@ fun IntroScreen(
         }
         
         // Navigate sau khi đã chờ đủ thời gian
+        // Nếu đã đăng nhập thì đi tới home, nếu chưa thì đi tới onboarding
         if (!hasNavigated) {
             hasNavigated = true
             val totalElapsed = System.currentTimeMillis() - startTime!!
-            android.util.Log.d("IntroScreen", "Navigating to onboarding after ${totalElapsed}ms")
-            navController.navigate("onboarding") {
+            // Kiểm tra trạng thái đăng nhập khi navigate
+            val currentUser = authViewModel?.uiState?.value?.currentUser ?: FirebaseAuth.getInstance().currentUser
+            val destination = if (currentUser != null) "home" else "onboarding"
+            android.util.Log.d("IntroScreen", "Navigating to $destination after ${totalElapsed}ms (isLoggedIn: ${currentUser != null})")
+            navController.navigate(destination) {
                 popUpTo("intro") { inclusive = true }
                 launchSingleTop = true
             }

@@ -78,7 +78,8 @@ fun NavGraph(navController: NavHostController) {
 
     val createRecipeViewModel: CreateRecipeViewModel = hiltViewModel()
 
-    val startDestination = if (authState.currentUser != null) "home" else "intro"
+    // Luôn bắt đầu từ intro để hiển thị màn hình intro cho mọi người dùng
+    val startDestination = "intro"
 
     NavHost(
         navController = navController,
@@ -86,11 +87,7 @@ fun NavGraph(navController: NavHostController) {
     ) {
         // ========== INTRO & AUTH ==========
         composable("intro") {
-            if (authState.currentUser != null) {
-                LaunchedEffect(Unit) { navController.navigate("home") { popUpTo("intro") { inclusive = true } } }
-            } else {
-                IntroScreen(navController = navController)
-            }
+            IntroScreen(navController = navController, authViewModel = authVm)
         }
         composable("onboarding") {
             if (authState.currentUser != null) {
