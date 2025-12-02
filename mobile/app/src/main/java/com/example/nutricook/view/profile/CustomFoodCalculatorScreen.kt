@@ -27,6 +27,8 @@ import androidx.navigation.NavController
 import com.example.nutricook.data.nutrition.GeminiNutritionService
 import com.example.nutricook.utils.DecimalInputHelper
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.util.Log
 
@@ -66,6 +68,10 @@ fun CustomFoodCalculatorScreen(
     var isLoadingGemini by remember { mutableStateOf(false) }
     var geminiError by remember { mutableStateOf<String?>(null) }
     var showSuccess by remember { mutableStateOf(false) }
+    var hasAutoCalculated by remember { mutableStateOf(false) }
+    
+    // Auto-trigger Gemini khi người dùng nhập tên món ăn (debounce)
+    var autoCalculateJob by remember { mutableStateOf<Job?>(null) }
     
     Scaffold(
         topBar = {
@@ -144,7 +150,60 @@ fun CustomFoodCalculatorScreen(
                 )
                 OutlinedTextField(
                     value = foodName,
-                    onValueChange = { foodName = it },
+                    onValueChange = { newValue ->
+                        foodName = newValue
+                        hasAutoCalculated = false
+                        showSuccess = false
+                        geminiError = null
+                        
+                        // Auto-trigger Gemini sau khi người dùng ngừng gõ 1.5 giây
+                        // Chỉ tự động tính nếu:
+                        // 1. Có tên món ăn (ít nhất 3 ký tự)
+                        // 2. Calories chưa được nhập thủ công (trống hoặc = "0")
+                        // 3. Gemini service có sẵn và đã config API key
+                        autoCalculateJob?.cancel()
+                        if (newValue.trim().length >= 3 && 
+                            (calories.isBlank() || calories == "0") &&
+                            geminiService != null && 
+                            geminiService.isApiKeyConfigured() &&
+                            !isLoadingGemini) {
+                            
+                            autoCalculateJob = coroutineScope.launch {
+                                delay(1500) // Đợi 1.5 giây sau khi ngừng gõ
+                                
+                                // Kiểm tra lại điều kiện sau khi delay
+                                if (foodName.trim().length >= 3 && 
+                                    (calories.isBlank() || calories == "0") &&
+                                    !hasAutoCalculated) {
+                                    
+                                    isLoadingGemini = true
+                                    geminiError = null
+                                    
+                                    try {
+                                        val nutrition = geminiService.calculateNutrition(foodName.trim())
+                                        
+                                        if (nutrition != null && nutrition.calories > 0) {
+                                            calories = nutrition.calories.toInt().toString()
+                                            protein = String.format("%.1f", nutrition.protein)
+                                            fat = String.format("%.1f", nutrition.fat)
+                                            carb = String.format("%.1f", nutrition.carb)
+                                            showSuccess = true
+                                            hasAutoCalculated = true
+                                            geminiError = null
+                                            Log.d("CustomFoodCalc", "Auto-calculated: Calories=${nutrition.calories}, Protein=${nutrition.protein}, Fat=${nutrition.fat}, Carb=${nutrition.carb}")
+                                        } else {
+                                            geminiError = "Không thể tính calories tự động. Vui lòng nhập thủ công hoặc click icon ✨ để thử lại."
+                                        }
+                                    } catch (e: Exception) {
+                                        geminiError = "Lỗi khi tính calories: ${e.message}"
+                                        Log.e("CustomFoodCalc", "Error calculating nutrition", e)
+                                    } finally {
+                                        isLoadingGemini = false
+                                    }
+                                }
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { 
                         Text(
@@ -171,25 +230,21 @@ fun CustomFoodCalculatorScreen(
                                             val nutrition = geminiService.calculateNutrition(foodName.trim())
                                             
                                             if (nutrition != null && nutrition.calories > 0) {
-                                                // Chỉ cập nhật nếu người dùng chưa nhập thủ công hoặc đang trống
-                                                if (calories.isBlank() || calories == "0") {
-                                                    calories = nutrition.calories.toInt().toString()
-                                                    protein = String.format("%.1f", nutrition.protein)
-                                                    fat = String.format("%.1f", nutrition.fat)
-                                                    carb = String.format("%.1f", nutrition.carb)
-                                                    showSuccess = true
-                                                    geminiError = null
-                                                    Log.d("CustomFoodCalc", "Auto-calculated: Calories=${nutrition.calories}, Protein=${nutrition.protein}, Fat=${nutrition.fat}, Carb=${nutrition.carb}")
-                                                } else {
-                                                    // Nếu đã có giá trị thủ công, chỉ cập nhật nếu người dùng muốn
-                                                    Log.d("CustomFoodCalc", "User already entered manual values, keeping them")
-                                                    geminiError = "Bạn đã nhập giá trị thủ công. Giữ nguyên hoặc xóa để dùng giá trị tự động."
-                                                }
+                                                // Cập nhật bất kể giá trị hiện tại (người dùng click để tính lại)
+                                                calories = nutrition.calories.toInt().toString()
+                                                protein = String.format("%.1f", nutrition.protein)
+                                                fat = String.format("%.1f", nutrition.fat)
+                                                carb = String.format("%.1f", nutrition.carb)
+                                                showSuccess = true
+                                                hasAutoCalculated = true
+                                                geminiError = null
+                                                Log.d("CustomFoodCalc", "Manual trigger - Calculated: Calories=${nutrition.calories}, Protein=${nutrition.protein}, Fat=${nutrition.fat}, Carb=${nutrition.carb}")
                                             } else {
                                                 geminiError = "Không thể tính calories tự động. Vui lòng nhập thủ công."
                                             }
                                         } catch (e: Exception) {
                                             geminiError = "Lỗi khi tính calories: ${e.message}"
+                                            Log.e("CustomFoodCalc", "Error calculating nutrition", e)
                                         } finally {
                                             isLoadingGemini = false
                                         }
@@ -225,14 +280,14 @@ fun CustomFoodCalculatorScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Đang tính calories...",
+                            "Đang tính calories tự động...",
                             fontSize = 14.sp,
                             color = TextGray
                         )
                     }
                 }
                 
-                if (showSuccess) {
+                if (showSuccess && hasAutoCalculated) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -250,7 +305,7 @@ fun CustomFoodCalculatorScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Đã tính calories tự động!",
+                                "✨ Đã tự động tính calories và dinh dưỡng! Bạn có thể chỉnh sửa nếu cần.",
                                 fontSize = 14.sp,
                                 color = Color(0xFF4CAF50),
                                 fontWeight = FontWeight.Medium
@@ -293,6 +348,7 @@ fun CustomFoodCalculatorScreen(
                 if (foodName.isNotBlank() || calories.isNotBlank() || protein.isNotBlank() || fat.isNotBlank() || carb.isNotBlank()) {
                     OutlinedButton(
                         onClick = {
+                            autoCalculateJob?.cancel()
                             foodName = ""
                             calories = ""
                             protein = ""
@@ -300,6 +356,7 @@ fun CustomFoodCalculatorScreen(
                             carb = ""
                             geminiError = null
                             showSuccess = false
+                            hasAutoCalculated = false
                         },
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Color(0xFFEF4444)
@@ -503,7 +560,8 @@ fun CustomFoodCalculatorScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "• Nhập tên món ăn kèm số lượng (ví dụ: Cá ngừ 200gr, 1 quả táo)\n" +
-                        "• Bấm icon ✨ để tự động tính calories\n" +
+                        "• Hệ thống sẽ tự động tính calories sau 1.5 giây khi bạn nhập xong\n" +
+                        "• Hoặc bấm icon ✨ để tính ngay lập tức\n" +
                         "• Có thể chỉnh sửa thông tin dinh dưỡng sau khi tính tự động",
                         fontSize = 13.sp,
                         color = Color(0xFFE65100),
