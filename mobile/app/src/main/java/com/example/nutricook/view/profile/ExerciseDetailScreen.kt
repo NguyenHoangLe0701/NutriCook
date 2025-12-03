@@ -65,14 +65,43 @@ fun ExerciseDetailScreen(
         exerciseDuration.replace(" phút", "").toIntOrNull()?.times(60) ?: 900
     }
     
-    // Timer state - Chạy timer trực tiếp trong UI
-    var currentSeconds by remember { mutableStateOf(0) }
-    var caloriesBurned by remember { mutableStateOf(0) }
-    var isRunning by remember { mutableStateOf(false) }
+    // Timer state - Reset khi chuyển sang exercise khác
+    var currentSeconds by remember(exerciseName) { mutableStateOf(0) }
+    var caloriesBurned by remember(exerciseName) { mutableStateOf(0) }
+    var isRunning by remember(exerciseName) { mutableStateOf(false) }
     
-    // Service connection để update notification
+    // Service connection để update notification - Phải khai báo trước LaunchedEffect
     var service: ExerciseService? by remember { mutableStateOf(null) }
     var isServiceBound by remember { mutableStateOf(false) }
+    
+    // QUAN TRỌNG: Kiểm tra và sync state với service khi chuyển exercise
+    LaunchedEffect(exerciseName) {
+        // Đợi service bind xong
+        delay(500)
+        
+        // Kiểm tra xem service có đang chạy exercise khác không
+        if (isServiceBound && service != null) {
+            val serviceExerciseName = service!!.getExerciseName()
+            val serviceIsRunning = service!!.getIsRunning()
+            val serviceHasActive = service!!.hasActiveExercise()
+            
+            // Nếu service đang chạy exercise khác, KHÔNG reset state ở đây
+            // State sẽ được sync từ service
+            if (serviceHasActive && serviceExerciseName != exerciseName) {
+                // Service đang chạy exercise khác, sync state từ service
+                currentSeconds = service!!.getCurrentSeconds()
+                caloriesBurned = service!!.getCaloriesBurned()
+                isRunning = serviceIsRunning
+                // KHÔNG reset service, để user có thể resume exercise cũ
+                return@LaunchedEffect
+            }
+        }
+        
+        // Nếu không có exercise đang chạy hoặc cùng exercise, reset state về mặc định
+        currentSeconds = 0
+        caloriesBurned = 0
+        isRunning = false
+    }
     
     val serviceConnection = remember {
         object : ServiceConnection {
@@ -105,14 +134,24 @@ fun ExerciseDetailScreen(
             delay(500) // Update mỗi 500ms để UI mượt
             try {
                 if (isServiceBound && service != null) {
+                    val serviceExerciseName = service!!.getExerciseName()
                     val newSeconds = service!!.getCurrentSeconds()
                     val newCalories = service!!.getCaloriesBurned()
                     val newRunning = service!!.getIsRunning()
                     
-                    // Update state từ service - UI sync với service
-                    currentSeconds = newSeconds
-                    caloriesBurned = newCalories
-                    isRunning = newRunning
+                    // QUAN TRỌNG: Chỉ update state nếu cùng exercise hoặc không có exercise nào đang chạy
+                    // Nếu service đang chạy exercise khác, không update state ở màn hình này
+                    if (serviceExerciseName == exerciseName || serviceExerciseName.isEmpty()) {
+                        // Update state từ service - UI sync với service
+                        currentSeconds = newSeconds
+                        caloriesBurned = newCalories
+                        isRunning = newRunning
+                    } else {
+                        // Service đang chạy exercise khác, reset state về 0
+                        currentSeconds = 0
+                        caloriesBurned = 0
+                        isRunning = false
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -442,48 +481,65 @@ fun ExerciseDetailScreen(
                                                 context.startService(intent)
                                                 // UI sẽ update từ service
                                             } else {
-                                                // Start exercise - Reset nếu là lần đầu
-                                                if (currentSeconds == 0) {
-                                                    currentSeconds = 0
-                                                    caloriesBurned = 0
+                                                // QUAN TRỌNG: Kiểm tra xem có exercise khác đang dừng không
+                                                var shouldStartNewExercise = true
+                                                if (isServiceBound && service != null) {
+                                                    val serviceExerciseName = service!!.getExerciseName()
+                                                    val serviceHasActive = service!!.hasActiveExercise()
+                                                    val serviceIsRunning = service!!.getIsRunning()
+                                                    
+                                                    // Nếu có exercise khác đang dừng, resume exercise đó thay vì start exercise mới
+                                                    if (serviceHasActive && serviceExerciseName != exerciseName && !serviceIsRunning) {
+                                                        // Resume exercise cũ
+                                                        val resumeIntent = Intent(context, ExerciseService::class.java).apply {
+                                                            action = ExerciseService.ACTION_RESUME
+                                                        }
+                                                        context.startService(resumeIntent)
+                                                        // Chuyển về màn hình exercise cũ
+                                                        // TODO: Navigate to serviceExerciseName screen
+                                                        shouldStartNewExercise = false
+                                                    }
                                                 }
                                                 
-                                                // Start foreground service để chạy timer
-                                                val intent = Intent(context, ExerciseService::class.java).apply {
-                                                    action = ExerciseService.ACTION_START
-                                                    putExtra(ExerciseService.EXTRA_EXERCISE_NAME, exerciseName)
-                                                    putExtra(ExerciseService.EXTRA_TOTAL_SECONDS, totalSeconds)
-                                                    putExtra(ExerciseService.EXTRA_TOTAL_CALORIES, exerciseCalories)
-                                                    putExtra(ExerciseService.EXTRA_CURRENT_SECONDS, currentSeconds)
-                                                }
-                                                
-                                                // Start foreground service
-                                                try {
-                                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                                        context.startForegroundService(intent)
-                                                    } else {
-                                                        @Suppress("DEPRECATION")
-                                                        context.startService(intent)
+                                                // Start exercise mới hoặc resume exercise hiện tại
+                                                if (shouldStartNewExercise) {
+                                                    val intent = Intent(context, ExerciseService::class.java).apply {
+                                                        action = ExerciseService.ACTION_START
+                                                        putExtra(ExerciseService.EXTRA_EXERCISE_NAME, exerciseName)
+                                                        putExtra(ExerciseService.EXTRA_TOTAL_SECONDS, totalSeconds)
+                                                        putExtra(ExerciseService.EXTRA_TOTAL_CALORIES, exerciseCalories)
+                                                        // Gửi currentSeconds hiện tại để resume nếu cùng exercise
+                                                        putExtra(ExerciseService.EXTRA_CURRENT_SECONDS, currentSeconds)
                                                     }
                                                     
-                                                    // Bind service sau 1s để service start xong và timer chạy
-                                                    CoroutineScope(Dispatchers.Main).launch {
-                                                        delay(1000)
-                                                        try {
-                                                            if (!isServiceBound) {
-                                                                context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            e.printStackTrace()
-                                                        }
-                                                    }
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                    // Fallback nếu foreground service fail
+                                                    // Start foreground service
                                                     try {
-                                                        context.startService(intent)
-                                                    } catch (e2: Exception) {
-                                                        e2.printStackTrace()
+                                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                                            context.startForegroundService(intent)
+                                                        } else {
+                                                            @Suppress("DEPRECATION")
+                                                            context.startService(intent)
+                                                        }
+                                                        
+                                                        // Bind service sau 1s để service start xong và timer chạy
+                                                        CoroutineScope(Dispatchers.Main).launch {
+                                                            delay(1000)
+                                                            try {
+                                                                if (!isServiceBound) {
+                                                                    context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+                                                                }
+                                                            } catch (e: Exception) {
+                                                                e.printStackTrace()
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                        // Fallback nếu foreground service fail
+                                                        try {
+                                                            context.startService(intent)
+                                                        } catch (e2: Exception) {
+                                                            e2.printStackTrace()
+                                                        }
                                                     }
                                                 }
                                             }

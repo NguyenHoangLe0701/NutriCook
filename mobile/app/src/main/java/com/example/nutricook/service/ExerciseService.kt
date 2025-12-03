@@ -47,15 +47,47 @@ class ExerciseService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                exerciseName = intent.getStringExtra(EXTRA_EXERCISE_NAME) ?: "Bài tập"
-                totalSeconds = intent.getIntExtra(EXTRA_TOTAL_SECONDS, 900)
-                totalCalories = intent.getIntExtra(EXTRA_TOTAL_CALORIES, 150)
-                // Nhận current state từ UI nếu có (để resume từ vị trí cũ)
+                val newExerciseName = intent.getStringExtra(EXTRA_EXERCISE_NAME) ?: "Bài tập"
+                val newTotalSeconds = intent.getIntExtra(EXTRA_TOTAL_SECONDS, 900)
+                val newTotalCalories = intent.getIntExtra(EXTRA_TOTAL_CALORIES, 150)
                 val savedSeconds = intent.getIntExtra(EXTRA_CURRENT_SECONDS, 0)
-                if (savedSeconds > 0 && currentSeconds == 0) {
+                
+                // QUAN TRỌNG: Kiểm tra nếu có exercise đang dừng và khác với exercise mới
+                val hasActiveExercise = exerciseName.isNotEmpty() && (isRunning || currentSeconds > 0)
+                val isDifferentExercise = exerciseName != newExerciseName && exerciseName.isNotEmpty()
+                
+                // Nếu có exercise đang dừng và khác với exercise mới, KHÔNG start exercise mới
+                // Thay vào đó, chỉ resume exercise cũ (sẽ được xử lý ở UI)
+                if (hasActiveExercise && isDifferentExercise && !isRunning) {
+                    // Có exercise đang dừng, không start exercise mới
+                    // UI sẽ phải kiểm tra và resume exercise cũ
+                    return START_STICKY
+                }
+                
+                // Nếu chuyển sang exercise khác và không có exercise đang dừng, reset hoàn toàn
+                if (isDifferentExercise && !hasActiveExercise) {
+                    // Reset hoàn toàn khi chuyển exercise
+                    isRunning = false
+                    currentSeconds = 0
+                    elapsedTime = 0L
+                    job?.cancel()
+                }
+                
+                // Update exercise info
+                exerciseName = newExerciseName
+                totalSeconds = newTotalSeconds
+                totalCalories = newTotalCalories
+                
+                // Chỉ resume từ vị trí cũ nếu KHÔNG phải exercise mới và có savedSeconds
+                if (!isDifferentExercise && savedSeconds > 0 && currentSeconds == 0) {
                     currentSeconds = savedSeconds
                     elapsedTime = (savedSeconds * 1000).toLong()
+                } else if (isDifferentExercise && !hasActiveExercise) {
+                    // Đảm bảo reset khi exercise mới
+                    currentSeconds = 0
+                    elapsedTime = 0L
                 }
+                
                 startExercise()
             }
             ACTION_PAUSE -> pauseExercise()
@@ -316,7 +348,9 @@ class ExerciseService : Service() {
     fun getCaloriesBurned(): Int = calculateCaloriesBurned()
     fun getTotalCalories(): Int = totalCalories
     fun getIsRunning(): Boolean = isRunning
+    fun getExerciseName(): String = exerciseName
     fun getProgress(): Float = if (totalSeconds > 0) currentSeconds.toFloat() / totalSeconds else 0f
+    fun hasActiveExercise(): Boolean = exerciseName.isNotEmpty() && (isRunning || currentSeconds > 0)
     
     override fun onDestroy() {
         super.onDestroy()
