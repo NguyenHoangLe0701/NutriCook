@@ -60,8 +60,15 @@ public class NotificationService {
      */
     private int sendNotificationToTokens(List<String> fcmTokens, String title, String message) throws FirebaseMessagingException {
         if (fcmTokens == null || fcmTokens.isEmpty()) {
+            System.out.println("⚠️ No FCM tokens found!");
             return 0;
         }
+
+        // Log để debug
+        System.out.println("========== NotificationService.sendNotificationToTokens ==========");
+        System.out.println("Title: [" + title + "]");
+        System.out.println("Message: [" + message + "]");
+        System.out.println("Number of tokens: " + fcmTokens.size());
 
         int successCount = 0;
         List<String> invalidTokens = new ArrayList<>();
@@ -72,6 +79,11 @@ public class NotificationService {
             }
 
             try {
+                // Log giá trị trước khi gửi
+                System.out.println("Sending to token: " + token.substring(0, Math.min(20, token.length())) + "...");
+                System.out.println("  Title: [" + title + "]");
+                System.out.println("  Body: [" + message + "]");
+                
                 // Tạo Android notification config để hiển thị trên lock screen
                 AndroidConfig androidConfig = AndroidConfig.builder()
                     .setPriority(AndroidConfig.Priority.HIGH) // High priority để hiển thị trên lock screen
@@ -102,6 +114,7 @@ public class NotificationService {
                 String response = firebaseMessaging.send(fcmMessage);
                 successCount++;
                 System.out.println("✅ Successfully sent message to token: " + token.substring(0, Math.min(20, token.length())) + "...");
+                System.out.println("   Response: " + response);
 
             } catch (FirebaseMessagingException e) {
                 System.err.println("❌ Error sending message to token: " + e.getMessage());

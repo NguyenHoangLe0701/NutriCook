@@ -39,7 +39,12 @@ class NutriCookMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
+        Log.d(TAG, "========== FCM Message Received ==========")
         Log.d(TAG, "From: ${remoteMessage.from}")
+        Log.d(TAG, "Message ID: ${remoteMessage.messageId}")
+
+        // Đảm bảo channel được tạo trước khi hiển thị notification
+        createNotificationChannel()
 
         // Kiểm tra xem message có data payload không
         if (remoteMessage.data.isNotEmpty()) {
@@ -48,17 +53,31 @@ class NutriCookMessagingService : FirebaseMessagingService() {
 
         // Kiểm tra xem message có notification payload không
         remoteMessage.notification?.let {
-            Log.d(TAG, "Message Notification Body: ${it.body}")
+            Log.d(TAG, "Notification payload found:")
+            Log.d(TAG, "  Title: ${it.title}")
+            Log.d(TAG, "  Body: ${it.body}")
             // Hiển thị notification
             sendNotification(it.title ?: "NutriCook", it.body ?: "")
+            return // Đã xử lý, không cần xử lý data payload nữa
         }
 
         // Nếu không có notification payload, tạo từ data
         if (remoteMessage.notification == null && remoteMessage.data.isNotEmpty()) {
             val title = remoteMessage.data["title"] ?: "NutriCook"
             val message = remoteMessage.data["message"] ?: ""
-            sendNotification(title, message)
+            Log.d(TAG, "No notification payload, creating from data:")
+            Log.d(TAG, "  Title: $title")
+            Log.d(TAG, "  Message: $message")
+            if (message.isNotEmpty()) {
+                sendNotification(title, message)
+            } else {
+                Log.w(TAG, "Message is empty, skipping notification")
+            }
+        } else {
+            Log.w(TAG, "No notification payload and no data payload, skipping")
         }
+        
+        Log.d(TAG, "========== End FCM Message ==========")
     }
 
     /**
@@ -66,6 +85,15 @@ class NutriCookMessagingService : FirebaseMessagingService() {
      */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            
+            // Kiểm tra xem channel đã tồn tại chưa
+            val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID)
+            if (existingChannel != null) {
+                Log.d(TAG, "Notification channel already exists: $CHANNEL_ID")
+                return
+            }
+            
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
@@ -79,8 +107,8 @@ class NutriCookMessagingService : FirebaseMessagingService() {
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
 
-            val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
+            Log.d(TAG, "Notification channel created: $CHANNEL_ID")
         }
     }
 
@@ -88,6 +116,22 @@ class NutriCookMessagingService : FirebaseMessagingService() {
      * Gửi notification đến người dùng
      */
     private fun sendNotification(title: String, messageBody: String) {
+        Log.d(TAG, "Attempting to send notification:")
+        Log.d(TAG, "  Title: $title")
+        Log.d(TAG, "  Message: $messageBody")
+        
+        // Đảm bảo channel được tạo
+        createNotificationChannel()
+        
+        // Kiểm tra quyền notification (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            if (!notificationManager.areNotificationsEnabled()) {
+                Log.e(TAG, "Notifications are disabled by user!")
+                return
+            }
+        }
+        
         // Intent để mở MainActivity khi click vào notification
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -102,7 +146,7 @@ class NutriCookMessagingService : FirebaseMessagingService() {
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            System.currentTimeMillis().toInt(), // Sử dụng unique request code
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -157,7 +201,21 @@ class NutriCookMessagingService : FirebaseMessagingService() {
             .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound, vibration, lights
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(System.currentTimeMillis().toInt(), notificationBuilder.build())
+        
+        // Kiểm tra channel có tồn tại không
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = notificationManager.getNotificationChannel(CHANNEL_ID)
+            if (channel == null) {
+                Log.e(TAG, "Notification channel does not exist! Creating now...")
+                createNotificationChannel()
+            } else {
+                Log.d(TAG, "Notification channel exists with importance: ${channel.importance}")
+            }
+        }
+        
+        val notificationId = System.currentTimeMillis().toInt()
+        notificationManager.notify(notificationId, notificationBuilder.build())
+        Log.d(TAG, "✅ Notification sent successfully with ID: $notificationId")
     }
 
     /**

@@ -2163,6 +2163,14 @@ public class AdminController {
                                    @RequestParam(required = false, defaultValue = "all") String target,
                                    RedirectAttributes redirectAttributes) {
         try {
+            // Log để debug
+            System.out.println("========== Sending Notification ==========");
+            System.out.println("Title received: [" + title + "]");
+            System.out.println("Message received: [" + message + "]");
+            System.out.println("Target: " + target);
+            System.out.println("Title length: " + (title != null ? title.length() : 0));
+            System.out.println("Message length: " + (message != null ? message.length() : 0));
+            
             if (notificationService == null) {
                 redirectAttributes.addFlashAttribute("error", "Dịch vụ thông báo chưa được kích hoạt. Vui lòng kiểm tra cấu hình Firebase.");
                 return "redirect:/admin/notifications";

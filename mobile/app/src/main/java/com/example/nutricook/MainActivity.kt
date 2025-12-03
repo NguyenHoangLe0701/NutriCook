@@ -54,6 +54,9 @@ class MainActivity : ComponentActivity() {
         // 🔹 Tạo kênh thông báo (chỉ cần 1 lần)
         NotificationUtils.createNotificationChannel(this)
         
+        // 🔹 Tạo kênh thông báo cho FCM (quan trọng - phải tạo trước khi nhận notification)
+        createFcmNotificationChannel(this)
+        
         // 🔹 Tạo kênh thông báo cho Exercise Service
         createExerciseNotificationChannel(this)
 
@@ -79,6 +82,44 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     NavGraph(navController = navController)
                 }
+            }
+        }
+    }
+    
+    /**
+     * Tạo notification channel cho FCM notifications
+     * QUAN TRỌNG: Phải tạo channel này trước khi nhận notification từ FCM
+     */
+    private fun createFcmNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = context.getSystemService(NotificationManager::class.java)
+            val CHANNEL_ID = "nutricook_notifications"
+            val CHANNEL_NAME = "NutriCook Notifications"
+            val CHANNEL_DESCRIPTION = "Thông báo từ NutriCook"
+            
+            // Kiểm tra channel đã tồn tại chưa
+            val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID)
+            if (existingChannel == null || existingChannel.importance != NotificationManager.IMPORTANCE_HIGH) {
+                // Xóa channel cũ nếu có (để tạo lại với đúng importance)
+                if (existingChannel != null) {
+                    notificationManager.deleteNotificationChannel(CHANNEL_ID)
+                }
+                
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH // High để hiển thị notification
+                ).apply {
+                    description = CHANNEL_DESCRIPTION
+                    enableLights(true)
+                    enableVibration(true)
+                    setShowBadge(true)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC // Hiển thị trên lock screen
+                }
+                notificationManager.createNotificationChannel(channel)
+                android.util.Log.d("MainActivity", "FCM notification channel created: $CHANNEL_ID")
+            } else {
+                android.util.Log.d("MainActivity", "FCM notification channel already exists: $CHANNEL_ID")
             }
         }
     }
