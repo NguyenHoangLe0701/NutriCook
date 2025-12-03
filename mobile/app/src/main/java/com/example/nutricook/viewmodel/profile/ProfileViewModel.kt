@@ -6,6 +6,7 @@ import com.example.nutricook.data.profile.ProfileRepository
 import com.example.nutricook.data.repository.UserRecipeRepository
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.profile.Profile
+import com.example.nutricook.model.user.User
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,13 +35,20 @@ class ProfileViewModel @Inject constructor(
     private val _savedPosts = MutableStateFlow<List<Post>>(emptyList())
     val savedPosts: StateFlow<List<Post>> = _savedPosts.asStateFlow()
 
-    // [MỚI] Danh sách bài viết của chính tôi
+    // Danh sách bài viết của chính tôi
     private val _userPosts = MutableStateFlow<List<Post>>(emptyList())
     val userPosts: StateFlow<List<Post>> = _userPosts.asStateFlow()
 
-    // [MỚI] Danh sách công thức của chính tôi
+    // Danh sách công thức của chính tôi
     private val _userRecipes = MutableStateFlow<List<Map<String, Any>>>(emptyList())
     val userRecipes: StateFlow<List<Map<String, Any>>> = _userRecipes.asStateFlow()
+
+    // [MỚI] State cho danh sách Follow
+    private val _followers = MutableStateFlow<List<User>>(emptyList())
+    val followers: StateFlow<List<User>> = _followers.asStateFlow()
+
+    private val _following = MutableStateFlow<List<User>>(emptyList())
+    val following: StateFlow<List<User>> = _following.asStateFlow()
 
     init {
         // 1. Tự động lắng nghe thay đổi từ Firestore (Real-time)
@@ -68,9 +76,10 @@ class ProfileViewModel @Inject constructor(
             }
         }
 
-        // 3. Tự động load dữ liệu bài viết
+        // 3. Tự động load dữ liệu
         loadSavedPosts()
-        loadUserPosts() // [MỚI] Load bài viết của mình
+        loadUserPosts()
+        loadUserRecipes()
     }
 
     // --- CÁC HÀM UPDATE ---
@@ -136,7 +145,21 @@ class ProfileViewModel @Inject constructor(
 
     // --- CÁC HÀM KHÁC ---
 
-    // Hàm lấy bài viết đã lưu
+    // [MỚI] Hàm load danh sách Follow (gọi từ UI khi mở màn hình Follow)
+    fun loadFollowLists(uid: String) = viewModelScope.launch {
+        // Chạy song song để tối ưu thời gian
+        launch {
+            runCatching { repo.getFollowers(uid) }
+                .onSuccess { _followers.value = it }
+                .onFailure { e -> e.printStackTrace() }
+        }
+        launch {
+            runCatching { repo.getFollowing(uid) }
+                .onSuccess { _following.value = it }
+                .onFailure { e -> e.printStackTrace() }
+        }
+    }
+
     fun loadSavedPosts() = viewModelScope.launch {
         val uid = auth.currentUser?.uid ?: return@launch
 
@@ -149,7 +172,6 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    // [MỚI] Hàm lấy bài viết của chính mình
     fun loadUserPosts() = viewModelScope.launch {
         val uid = auth.currentUser?.uid ?: return@launch
 
@@ -162,10 +184,9 @@ class ProfileViewModel @Inject constructor(
             }
     }
 
-    // [MỚI] Hàm lấy công thức của chính mình
     fun loadUserRecipes() = viewModelScope.launch {
         val uid = auth.currentUser?.uid ?: return@launch
-        
+
         android.util.Log.d("ProfileViewModel", "Loading user recipes for userId: $uid")
 
         runCatching { userRecipeRepo.getUserRecipes(uid) }

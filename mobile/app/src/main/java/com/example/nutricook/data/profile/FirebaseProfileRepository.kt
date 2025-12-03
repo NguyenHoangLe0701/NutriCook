@@ -22,7 +22,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -137,9 +140,6 @@ class FirebaseProfileRepository @Inject constructor(
         return getMyProfile()
     }
 
-    /**
-     * [FIX 1] Sử dụng Cloudinary Upload
-     */
     override suspend fun updateAvatar(localUri: String): String {
         val uid = requireUid()
 
@@ -281,10 +281,6 @@ class FirebaseProfileRepository @Inject constructor(
         return Paged(items, nextKey)
     }
 
-    /**
-     * [FIX 2] Hàm lấy bài đã lưu (Saved Posts) an toàn hơn.
-     * Tự động handle trường hợp tác giả bài viết bị null hoặc lỗi data.
-     */
     override suspend fun getSavedPosts(uid: String, cursor: String?): Paged<Post> {
         var query = savesCol(uid)
             .orderBy("at", Query.Direction.DESCENDING)
@@ -298,10 +294,7 @@ class FirebaseProfileRepository @Inject constructor(
         val postIds = saveDocs.mapNotNull { it.getString("postId") }
         if (postIds.isEmpty()) return Paged(emptyList(), null)
 
-        // Lấy chi tiết bài viết
         val postsSnapshots = postIds.map { pid -> posts().document(pid).get() }.map { it.await() }
-
-        // Lấy danh sách tác giả
         val authorIds = postsSnapshots.mapNotNull { it.getString("author.id") }.distinct()
         val authorsMap = mutableMapOf<String, User>()
 
@@ -315,18 +308,14 @@ class FirebaseProfileRepository @Inject constructor(
             }
         }
 
-        // Map data an toàn
         val items = postsSnapshots.mapNotNull { snap ->
             if (!snap.exists()) return@mapNotNull null
-
             val authorId = snap.getString("author.id")
-            // Fallback nếu không tìm thấy user
             val author = if (authorId != null) {
                 authorsMap[authorId] ?: User(id = authorId, displayName = "Unknown User")
             } else {
                 User(id = "unknown", displayName = "Unknown")
             }
-
             snap.toPostDomain(author)
         }
 
@@ -350,6 +339,41 @@ class FirebaseProfileRepository @Inject constructor(
             .get()
             .await()
         return snapshot.documents.mapNotNull { it.toProfileDomain() }
+    }
+
+    // ===================== 8. FOLLOW LISTS (MỚI THÊM) =====================
+
+    override suspend fun getFollowers(uid: String): List<User> {
+        val snapshot = userDoc(uid).collection("followers").get().await()
+        val ids = snapshot.documents.map { it.id }
+
+        if (ids.isEmpty()) return emptyList()
+
+        // Lấy thông tin chi tiết User
+        return fetchUsersByIds(ids)
+    }
+
+    override suspend fun getFollowing(uid: String): List<User> {
+        val snapshot = userDoc(uid).collection("following").get().await()
+        val ids = snapshot.documents.map { it.id }
+
+        if (ids.isEmpty()) return emptyList()
+
+        // Lấy thông tin chi tiết User
+        return fetchUsersByIds(ids)
+    }
+
+    // Helper: Lấy danh sách user song song để tăng tốc độ
+    private suspend fun fetchUsersByIds(ids: List<String>): List<User> = coroutineScope {
+        ids.map { id ->
+            async {
+                try {
+                    fetchUser(id)
+                } catch (e: Exception) {
+                    null
+                }
+            }
+        }.awaitAll().filterNotNull()
     }
 
     // ===================== MAPPERS =====================
@@ -419,16 +443,12 @@ class FirebaseProfileRepository @Inject constructor(
         cursor?.toLongOrNull()?.let { Timestamp(Date(it)) }
 
     private fun nextCursorFrom(snap: DocumentSnapshot): String? {
-        // Handle both Long and Timestamp types for createdAt
-        // Use get() to safely check the field type without throwing exceptions
         val createdAtValue = snap.get("createdAt") ?: return null
-        
         return when (createdAtValue) {
             is Long -> createdAtValue.toString()
             is com.google.firebase.Timestamp -> createdAtValue.toDate().time.toString()
             is Number -> createdAtValue.toLong().toString()
             else -> {
-                // Try to parse as Long or Timestamp as fallback
                 try {
                     val asLong = snap.getLong("createdAt")
                     asLong?.toString()

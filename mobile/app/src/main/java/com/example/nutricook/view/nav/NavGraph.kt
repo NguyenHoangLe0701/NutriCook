@@ -21,7 +21,7 @@ import androidx.navigation.navDeepLink
 import com.example.nutricook.R
 // Import các màn hình Auth
 import com.example.nutricook.view.auth.ForgotPasswordScreen
-import com.example.nutricook.view.auth.ManualResetCodeScreen // 👇 IMPORT MỚI
+import com.example.nutricook.view.auth.ManualResetCodeScreen
 import com.example.nutricook.view.auth.NewPasswordScreen
 import com.example.nutricook.view.auth.PhoneVerificationScreen
 import com.example.nutricook.view.articles.ArticleDetailScreen
@@ -44,6 +44,7 @@ import com.example.nutricook.view.profile.AddMealScreen
 import com.example.nutricook.view.profile.CustomFoodCalculatorScreen
 import com.example.nutricook.view.profile.ExerciseDetailScreen
 import com.example.nutricook.view.profile.ExerciseSuggestionsScreen
+import com.example.nutricook.view.profile.FollowListScreen // Import FollowListScreen
 import com.example.nutricook.view.profile.ProfileScreen
 import com.example.nutricook.view.profile.PublicProfileScreen
 import com.example.nutricook.view.profile.RecipeGuidanceScreen
@@ -143,7 +144,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // 👇 ĐÃ SỬA: Forgot Password -> Chuyển sang Manual Code Reset
+        // Forgot Password -> Chuyển sang Manual Code Reset
         composable("forgot_password") {
             ForgotPasswordScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -151,7 +152,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // 👇 THÊM MÀN HÌNH: Nhập Mã Khôi Phục Thủ Công
+        // Nhập Mã Khôi Phục Thủ Công
         composable("manual_code_reset") {
             ManualResetCodeScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -169,7 +170,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // Màn hình New Password (Giữ lại cho Deep Link, nhưng sẽ dẫn đến ManualResetCodeScreen nếu cần)
+        // Màn hình New Password (Giữ lại cho Deep Link)
         composable(
             route = "new_password?oobCode={oobCode}",
             arguments = listOf(
@@ -184,12 +185,7 @@ fun NavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             val oobCode = backStackEntry.arguments?.getString("oobCode") ?: ""
 
-            // Xử lý luồng: Nếu app được mở bằng Deep Link, ta dùng oobCode đó
-            // và chuyển hướng đến màn hình nhập mật khẩu mới.
             if (oobCode.isNotBlank()) {
-                // Nếu có Deep Link, chuyển đến màn hình nhập mã thủ công,
-                // nhưng phải truyền oobCode này cho ManualResetCodeScreen nếu nó có hỗ trợ (hiện tại thì không)
-                // Tốt nhất là giữ nguyên NewPasswordScreen cho luồng Deep Link
                 NewPasswordScreen(
                     oobCode = oobCode,
                     onNavigateToLogin = {
@@ -199,7 +195,6 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             } else {
-                // Nếu không có Deep Link, quay về màn Forgot Password hoặc Login
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Lỗi: Không tìm thấy mã khôi phục oobCode. Vui lòng thử lại từ email.")
                 }
@@ -279,6 +274,15 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onOpenSearch = { navController.navigate("search_profiles") },
                 onNavigateToCalculator = { navController.navigate("add_meal") },
+
+                // [CẬP NHẬT] Điều hướng Follow List kèm tên
+                onOpenFollowers = { uid, name ->
+                    navController.navigate("follow_list/$uid/0?name=$name")
+                },
+                onOpenFollowing = { uid, name ->
+                    navController.navigate("follow_list/$uid/1?name=$name")
+                },
+
                 bottomBar = { BottomNavigationBar(navController) }
             )
         }
@@ -296,6 +300,33 @@ fun NavGraph(navController: NavHostController) {
             }
         }
 
+        // [MỚI] Màn hình danh sách Follow nhận thêm biến "name"
+        composable(
+            route = "follow_list/{userId}/{initialTab}?name={name}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.StringType },
+                navArgument("initialTab") { type = NavType.IntType },
+                navArgument("name") {
+                    type = NavType.StringType
+                    defaultValue = "Danh sách"
+                }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            val initialTab = backStackEntry.arguments?.getInt("initialTab") ?: 0
+            val targetName = backStackEntry.arguments?.getString("name") ?: "Danh sách"
+
+            FollowListScreen(
+                userId = userId,
+                initialTab = initialTab,
+                targetName = targetName, // Truyền tên vào Header
+                onBack = { navController.popBackStack() },
+                onUserClick = { targetUid ->
+                    navController.navigate("public_profile/$targetUid")
+                }
+            )
+        }
+
         composable("search_profiles") {
             SearchProfileScreen(
                 onBack = { navController.popBackStack() },
@@ -309,7 +340,14 @@ fun NavGraph(navController: NavHostController) {
         ) {
             PublicProfileScreen(
                 onBack = { navController.popBackStack() },
-                onPostClick = { }
+                onPostClick = { },
+                // [CẬP NHẬT] Điều hướng Follow List từ Public Profile
+                onOpenFollowers = { uid, name ->
+                    navController.navigate("follow_list/$uid/0?name=$name")
+                },
+                onOpenFollowing = { uid, name ->
+                    navController.navigate("follow_list/$uid/1?name=$name")
+                }
             )
         }
 
@@ -437,7 +475,7 @@ fun NavGraph(navController: NavHostController) {
                 }
             }
         }
-        
+
         // Edit recipe route
         composable(
             route = "edit_recipe_{recipeId}",
@@ -539,7 +577,7 @@ fun NavGraph(navController: NavHostController) {
             val profileVm: com.example.nutricook.viewmodel.profile.ProfileViewModel = hiltViewModel()
             val nutritionState by nutritionVm.ui.collectAsState()
             val profileState by profileVm.uiState.collectAsState()
-            
+
             // Lấy dateId từ state (nếu đang xem ngày khác)
             val selectedDateId = nutritionState.selectedDateId
             val displayLog = if (selectedDateId != null) {
@@ -547,7 +585,7 @@ fun NavGraph(navController: NavHostController) {
             } else {
                 nutritionState.todayLog
             }
-            
+
             val caloriesTarget = profileState.profile?.nutrition?.caloriesTarget ?: 2000f
 
             AddMealScreen(

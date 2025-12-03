@@ -4,6 +4,7 @@ import com.example.nutricook.model.common.Paged
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.profile.ActivityItem
 import com.example.nutricook.model.profile.Profile
+import com.example.nutricook.model.user.User
 import kotlinx.coroutines.flow.Flow
 
 interface ProfileRepository {
@@ -11,8 +12,8 @@ interface ProfileRepository {
     // --- 1. LOCAL DATA & STATE ---
     fun myProfileFlow(): Flow<Profile?>
 
-    /** * [SỬA LẠI TÊN Ở ĐÂY]: Đổi từ refreshMyProfile thành getMyProfile
-     * để khớp với code Implementation
+    /**
+     * Lấy thông tin Profile của chính mình (có refresh từ server)
      */
     suspend fun getMyProfile(): Profile
 
@@ -42,7 +43,8 @@ interface ProfileRepository {
     // --- 6. LIST DATA (PAGING) ---
     suspend fun getUserPosts(uid: String, cursor: String? = null): Paged<Post>
 
-    /** * Đảm bảo tên này khớp với bên Impl là getSavedPosts (không phải getUserSaves)
+    /**
+     * Lấy danh sách bài viết đã lưu
      */
     suspend fun getSavedPosts(uid: String, cursor: String? = null): Paged<Post>
 
@@ -50,4 +52,9 @@ interface ProfileRepository {
 
     // --- 7. SEARCH ---
     suspend fun searchProfiles(query: String): List<Profile>
+
+    // --- 8. FOLLOW LISTS ---
+    suspend fun getFollowers(uid: String): List<User>
+
+    suspend fun getFollowing(uid: String): List<User>
 }

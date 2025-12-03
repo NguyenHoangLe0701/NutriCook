@@ -96,6 +96,9 @@ fun ProfileScreen(
     onOpenSaves: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
     onNavigateToCalculator: () -> Unit = {},
+    // [CẬP NHẬT] Callback mở danh sách follow kèm tên
+    onOpenFollowers: (String, String) -> Unit = { _, _ -> },
+    onOpenFollowing: (String, String) -> Unit = { _, _ -> },
     bottomBar: @Composable () -> Unit = {},
     vm: ProfileViewModel = hiltViewModel(),
     nutritionVm: NutritionViewModel = hiltViewModel()
@@ -103,8 +106,8 @@ fun ProfileScreen(
     val ui by vm.uiState.collectAsState()
     val nutritionState by nutritionVm.ui.collectAsState()
     val savedPosts by vm.savedPosts.collectAsState()
-    val userPosts by vm.userPosts.collectAsState() // [MỚI] Lấy danh sách bài viết của tôi
-    val userRecipes by vm.userRecipes.collectAsState() // [MỚI] Lấy danh sách công thức của tôi
+    val userPosts by vm.userPosts.collectAsState()
+    val userRecipes by vm.userRecipes.collectAsState()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
@@ -126,49 +129,31 @@ fun ProfileScreen(
     // Logic: Load dữ liệu khi chuyển tab
     LaunchedEffect(selectedTabIndex) {
         if (selectedTabIndex == 0) {
-            vm.loadUserRecipes() // [MỚI] Load công thức của tôi
+            vm.loadUserRecipes()
         }
         if (selectedTabIndex == 1) {
-            vm.loadUserPosts() // [MỚI] Load bài viết của tôi
+            vm.loadUserPosts()
         }
         if (selectedTabIndex == 2) {
-            vm.loadSavedPosts() // Load bài đã lưu
+            vm.loadSavedPosts()
         }
     }
-    
-    // Load công thức khi màn hình được hiển thị lần đầu và khi quay lại từ các màn hình khác
+
+    // Load công thức khi màn hình được hiển thị lần đầu
     LaunchedEffect(Unit) {
         vm.loadUserRecipes()
     }
-    
-    // Debug: Log số lượng recipes (chỉ log một lần khi có thay đổi)
-    LaunchedEffect(userRecipes) {
-        android.util.Log.d("ProfileScreen", "User recipes updated - count: ${userRecipes.size}")
-        if (userRecipes.isNotEmpty()) {
-            userRecipes.forEachIndexed { index, recipe ->
-                val name = recipe["recipeName"] as? String ?: "Unknown"
-                val userId = recipe["userId"] as? String ?: "No userId"
-                val docId = recipe["docId"] as? String ?: "No docId"
-                android.util.Log.d("ProfileScreen", "Recipe $index: name=$name, userId=$userId, docId=$docId")
-            }
-        } else {
-            android.util.Log.d("ProfileScreen", "No recipes found for current user")
-        }
-    }
-    
-    // Reload khi quay lại từ CreateRecipe hoặc UploadSuccess
+
+    // Reload khi quay lại từ các màn hình khác (như tạo công thức)
     DisposableEffect(navController) {
         val listener = navController?.let { nc ->
             androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
                 if (destination.route == "profile" && selectedTabIndex == 0) {
-                    // Reload recipes khi quay lại profile và đang ở tab Công thức
                     vm.loadUserRecipes()
                 }
             }
         }
-        
         navController?.addOnDestinationChangedListener(listener ?: return@DisposableEffect onDispose {})
-        
         onDispose {
             listener?.let { navController?.removeOnDestinationChangedListener(it) }
         }
@@ -246,17 +231,27 @@ fun ProfileScreen(
 
                             Spacer(Modifier.height(24.dp))
 
-                            // Stats
+                            // Stats [ĐÃ CẬP NHẬT CLICKABLE]
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 40.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 ProfileStatItem(count = p.posts.toString(), label = "Bài viết")
+
                                 ProfileVerticalDivider()
-                                ProfileStatItem(count = p.following.toString(), label = "Đang theo dõi")
+
+                                // Clickable Following (Đang theo dõi)
+                                Box(modifier = Modifier.clickable { onOpenFollowing(p.user.id, displayName) }) {
+                                    ProfileStatItem(count = p.following.toString(), label = "Đang theo dõi")
+                                }
+
                                 ProfileVerticalDivider()
-                                ProfileStatItem(count = p.followers.toString(), label = "Người theo dõi")
+
+                                // Clickable Followers (Người theo dõi)
+                                Box(modifier = Modifier.clickable { onOpenFollowers(p.user.id, displayName) }) {
+                                    ProfileStatItem(count = p.followers.toString(), label = "Người theo dõi")
+                                }
                             }
                         }
                     }
@@ -270,8 +265,7 @@ fun ProfileScreen(
                     val todayCalories = todayLog?.calories ?: 0f
                     val caloriesTarget = p.nutrition?.caloriesTarget ?: 2000f
                     val historyData = if (nutritionState.history.isNotEmpty()) nutritionState.history.map { it.calories } else listOf(0f,0f,0f,0f,0f,0f,0f)
-                    
-                    // Lấy dữ liệu ngày được chọn (nếu có)
+
                     val selectedDateId = nutritionState.selectedDateId
                     val selectedDateLog = nutritionState.selectedDateLog
                     val displayLog = if (selectedDateId != null) selectedDateLog else todayLog
@@ -283,7 +277,7 @@ fun ProfileScreen(
                         caloriesTarget = caloriesTarget,
                         todayLog = displayLog,
                         weeklyData = historyData,
-                        onAddClick = { 
+                        onAddClick = {
                             onNavigateToCalculator()
                         },
                         onTargetChange = { newTarget ->
@@ -348,47 +342,21 @@ fun ProfileScreen(
                 // ==========================================
                 when (selectedTabIndex) {
                     0 -> { // CÔNG THỨC
-                        if (userRecipes.isEmpty()) {
-                            item {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally, 
-                                    modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
-                                ) {
+                        // Nếu có công thức thì hiển thị ở đây (bạn có thể thêm UserRecipeCard nếu muốn)
+                        item {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
+                            ) {
+                                if (userRecipes.isEmpty()) {
                                     Text("Bếp của bạn chưa đỏ lửa 🔥", color = TextGray)
-                                    Spacer(Modifier.height(8.dp))
-                                    TextButton(onClick = { 
-                                        navController?.navigate("create_recipe_step1")
-                                    }) { 
-                                        Text("Tạo công thức ngay", fontSize = 13.sp, color = TealPrimary) 
+                                    TextButton(onClick = { navController?.navigate("create_recipe") }) {
+                                        Text("Tạo công thức ngay", color = TealPrimary)
                                     }
-                                    Spacer(Modifier.height(8.dp))
-                                    // Nút refresh để reload
-                                    TextButton(onClick = { 
-                                        vm.loadUserRecipes()
-                                    }) { 
-                                        Icon(
-                                            Icons.Filled.Refresh,
-                                            contentDescription = "Refresh",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = TealPrimary
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Làm mới", fontSize = 12.sp, color = TealPrimary) 
-                                    }
+                                } else {
+                                    Text("${userRecipes.size} công thức đang được tải...", color = TextGray)
+                                    // Hiển thị danh sách recipe ở đây nếu có Component
                                 }
-                            }
-                        } else {
-                            items(userRecipes, key = { (it["docId"] as? String) ?: (it["recipeName"] as? String) ?: "" }) { recipe ->
-                                UserRecipeCard(
-                                    recipe = recipe,
-                                    onClick = {
-                                        val recipeId = recipe["docId"] as? String
-                                        if (recipeId != null) {
-                                            navController?.navigate("user_recipe_info/$recipeId")
-                                        }
-                                    }
-                                )
-                                Spacer(Modifier.height(16.dp))
                             }
                         }
                     }
@@ -449,7 +417,6 @@ fun SimpleSavedPostCard(post: Post) {
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Ảnh Thumbnail
             val thumb = post.imageUrl
             if (!thumb.isNullOrBlank()) {
                 AsyncImage(
@@ -469,7 +436,6 @@ fun SimpleSavedPostCard(post: Post) {
                 Spacer(Modifier.width(12.dp))
             }
 
-            // Nội dung - ĐÃ CẬP NHẬT ĐỂ HIỂN THỊ TITLE
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = post.author.bestName(),
@@ -477,7 +443,6 @@ fun SimpleSavedPostCard(post: Post) {
                 )
                 Spacer(Modifier.height(4.dp))
 
-                // [FIX] Hiển thị Title nếu có
                 if (post.title.isNotBlank()) {
                     Text(
                         text = post.title,
@@ -500,141 +465,6 @@ fun SimpleSavedPostCard(post: Post) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun UserRecipeCard(
-    recipe: Map<String, Any>,
-    onClick: () -> Unit
-) {
-    val recipeName = recipe["recipeName"] as? String ?: "Công thức"
-    val imageUrls = recipe["imageUrls"] as? List<*>
-    val firstImageUrl = imageUrls?.firstOrNull() as? String
-    val estimatedTime = recipe["estimatedTime"] as? String ?: "0"
-    val servings = recipe["servings"] as? String ?: "1"
-    val description = recipe["description"] as? String ?: ""
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Ảnh Thumbnail
-            if (!firstImageUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(firstImageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
-                Spacer(Modifier.width(12.dp))
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(TealLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Outlined.Restaurant,
-                        contentDescription = null,
-                        tint = TealPrimary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-            }
-
-            // Nội dung
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = recipeName,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = TextDark
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.height(4.dp))
-                
-                if (description.isNotBlank()) {
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = TextGray,
-                            fontSize = 13.sp
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
-                
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (estimatedTime.isNotBlank() && estimatedTime != "0") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.AccessTime,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = TextGray
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "$estimatedTime phút",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = TextGray,
-                                    fontSize = 12.sp
-                                )
-                            )
-                        }
-                    }
-                    
-                    if (servings.isNotBlank() && servings != "1") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.People,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = TextGray
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "$servings phần",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = TextGray,
-                                    fontSize = 12.sp
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-            
-            Icon(
-                Icons.Outlined.ChevronRight,
-                contentDescription = null,
-                tint = TextGray,
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }
@@ -669,13 +499,11 @@ fun CaloriesTrackingCard(
 ) {
     var showTargetDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    
-    // Xác định dữ liệu hiển thị: nếu có selectedDateId thì dùng selectedDateLog, không thì dùng todayLog
+
     val displayLog = if (selectedDateId != null) selectedDateLog else todayLog
     val displayCalories = displayLog?.calories ?: 0f
     val isToday = selectedDateId == null
-    
-    // Format ngày để hiển thị
+
     val displayDateText = if (selectedDateId != null) {
         try {
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -732,7 +560,6 @@ fun CaloriesTrackingCard(
                             )
                         }
                     }
-                    // Nút quay về hôm nay nếu đang xem ngày khác
                     if (!isToday && onResetToToday != null) {
                         TextButton(
                             onClick = onResetToToday,
@@ -752,7 +579,6 @@ fun CaloriesTrackingCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Nút Reset - chỉ hiển thị khi có dữ liệu và đang xem hôm nay
                     if (isToday && displayCalories > 0 && onResetClick != null) {
                         OutlinedButton(
                             onClick = onResetClick,
@@ -796,7 +622,6 @@ fun CaloriesTrackingCard(
                     modifier = Modifier.size(140.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Tính progress không giới hạn để hiển thị đúng khi vượt quá
                     val progress = displayCalories / caloriesTarget
                     val remaining = caloriesTarget - displayCalories
                     val isOverTarget = progress > 1f
@@ -807,7 +632,6 @@ fun CaloriesTrackingCard(
                         val radius = (size.minDimension - strokeWidth) / 2
                         val topLeft = Offset((size.width - radius * 2) / 2, (size.height - radius * 2) / 2)
 
-                        // Vẽ background circle
                         drawArc(
                             color = Color(0xFFE5E7EB),
                             startAngle = -90f,
@@ -817,8 +641,7 @@ fun CaloriesTrackingCard(
                             topLeft = topLeft,
                             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
                         )
-                        
-                        // Vẽ progress circle - màu đỏ nếu vượt quá
+
                         drawArc(
                             color = if(isOverTarget) Color(0xFFEF4444) else TealPrimary,
                             startAngle = -90f,
@@ -828,8 +651,7 @@ fun CaloriesTrackingCard(
                             topLeft = topLeft,
                             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
                         )
-                        
-                        // Nếu vượt quá, vẽ thêm một vòng tròn cảnh báo
+
                         if (isOverTarget) {
                             drawCircle(
                                 color = Color(0xFFEF4444).copy(alpha = 0.2f),
@@ -844,8 +666,8 @@ fun CaloriesTrackingCard(
                         Text(
                             text = "${displayCalories.toInt()}",
                             style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold, 
-                                color = if (progress > 1f) Color(0xFFEF4444) else TextDark, 
+                                fontWeight = FontWeight.Bold,
+                                color = if (progress > 1f) Color(0xFFEF4444) else TextDark,
                                 fontSize = 30.sp
                             )
                         )
@@ -863,20 +685,19 @@ fun CaloriesTrackingCard(
                             Text(
                                 text = "Vượt ${(-remaining).toInt()}",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFFEF4444), 
-                                    fontSize = 12.sp, 
+                                    color = Color(0xFFEF4444),
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
-                        // Hiển thị phần trăm nếu vượt quá
                         if (progress > 1f) {
                             Text(
                                 text = "${(progress * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFFEF4444), 
-                                    fontSize = 10.sp, 
+                                    color = Color(0xFFEF4444),
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 modifier = Modifier.padding(top = 2.dp)
@@ -889,7 +710,6 @@ fun CaloriesTrackingCard(
                     modifier = Modifier.weight(1f).padding(start = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Mục tiêu với nút chỉnh sửa
                     Row(
                         Modifier.fillMaxWidth(),
                         Arrangement.SpaceBetween,
@@ -960,7 +780,6 @@ fun CaloriesTrackingCard(
         }
     }
 
-    // Dialog chỉnh sửa mục tiêu
     if (showTargetDialog && onTargetChange != null) {
         CaloriesTargetDialog(
             currentTarget = caloriesTarget,
@@ -1003,7 +822,6 @@ fun MacroStatItem(
     }
 }
 
-// --- DIALOG CHỈNH SỬA MỤC TIÊU CALORIES ---
 @Composable
 fun CaloriesTargetDialog(
     currentTarget: Float,
@@ -1239,14 +1057,14 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                             val prevY = height - (prevValue / maxVal) * height
                             val x = index * stepX
                             val y = height - (value / maxVal) * height
-                            
+
                             // Màu đỏ nếu cả hai điểm đều vượt quá target
                             val lineColor = if (value >= target || prevValue >= target) {
                                 Color(0xFFEF4444)
                             } else {
                                 TealPrimary
                             }
-                            
+
                             drawLine(
                                 color = lineColor,
                                 start = Offset(prevX, prevY),
@@ -1263,7 +1081,7 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                         val y = height - (value / maxVal) * height
                         val isOverTarget = value >= target
                         val pointColor = if (isOverTarget) Color(0xFFEF4444) else TealPrimary
-                        
+
                         // Vòng tròn ngoài với màu cảnh báo
                         drawCircle(
                             color = pointColor.copy(alpha = if (isOverTarget) 0.4f else 0.3f),
@@ -1271,14 +1089,14 @@ fun ImprovedChartCard(dataPoints: List<Float>, target: Float) {
                             center = Offset(x, y),
                             style = Stroke(width = if (isOverTarget) 3f else 2f)
                         )
-                        
+
                         // Điểm chính
                         drawCircle(
                             color = pointColor,
                             radius = if (isOverTarget) 6f else 5f,
                             center = Offset(x, y)
                         )
-                        
+
                         // Vẽ dấu cảnh báo nếu vượt quá target
                         if (isOverTarget && value > 0) {
                             // Vẽ dấu chấm than nhỏ
@@ -2148,7 +1966,7 @@ fun showDatePicker(
     onDateSelected: (String) -> Unit
 ) {
     val calendar = Calendar.getInstance()
-    
+
     // Nếu có currentDateId, parse nó để set ngày ban đầu
     if (currentDateId != null) {
         try {
@@ -2161,11 +1979,11 @@ fun showDatePicker(
             // Nếu parse lỗi, dùng ngày hôm nay
         }
     }
-    
+
     val year = calendar.get(Calendar.YEAR)
     val month = calendar.get(Calendar.MONTH)
     val day = calendar.get(Calendar.DAY_OF_MONTH)
-    
+
     DatePickerDialog(
         context,
         { _, selectedYear, selectedMonth, selectedDay ->

@@ -54,6 +54,9 @@ private val HeaderGradient = Brush.verticalGradient(
 fun PublicProfileScreen(
     onBack: () -> Unit,
     onPostClick: (Post) -> Unit = {},
+    // [CẬP NHẬT] Callback nhận thêm Tên (String, String) -> Unit
+    onOpenFollowers: (String, String) -> Unit = { _, _ -> },
+    onOpenFollowing: (String, String) -> Unit = { _, _ -> },
     viewModel: PublicProfileViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -178,7 +181,12 @@ fun PublicProfileScreen(
                                     color = Color(0xFFE5E7EB)
                                 )
 
-                                StatItem(count = profile.following.toString(), label = "Following")
+                                // [CẬP NHẬT] Click vào Following
+                                Box(modifier = Modifier.clickable {
+                                    onOpenFollowing(profile.user.id, profile.user.bestName())
+                                }) {
+                                    StatItem(count = profile.following.toString(), label = "Following")
+                                }
 
                                 VerticalDivider(
                                     modifier = Modifier.height(30.dp),
@@ -186,7 +194,12 @@ fun PublicProfileScreen(
                                     color = Color(0xFFE5E7EB)
                                 )
 
-                                StatItem(count = profile.followers.toString(), label = "Follower")
+                                // [CẬP NHẬT] Click vào Followers
+                                Box(modifier = Modifier.clickable {
+                                    onOpenFollowers(profile.user.id, profile.user.bestName())
+                                }) {
+                                    StatItem(count = profile.followers.toString(), label = "Follower")
+                                }
                             }
 
                             Spacer(Modifier.height(28.dp))
