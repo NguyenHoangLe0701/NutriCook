@@ -164,13 +164,8 @@ fun ProfileScreen(
                                 IconButton(onClick = onOpenSearch) {
                                     Icon(Icons.Outlined.Search, contentDescription = "Search", tint = TextDark)
                                 }
-                                Row {
-                                    IconButton(onClick = onOpenRecent) {
-                                        Icon(Icons.Outlined.History, contentDescription = "Recent", tint = TextDark)
-                                    }
-                                    IconButton(onClick = onOpenSettings) {
-                                        Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = TextDark)
-                                    }
+                                IconButton(onClick = onOpenSettings) {
+                                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = TextDark)
                                 }
                             }
 
@@ -197,15 +192,6 @@ fun ProfileScreen(
                                         modifier = Modifier.size(110.dp).clip(CircleShape).background(Color.White),
                                         contentScale = ContentScale.Crop
                                     )
-                                }
-                                Box(
-                                    modifier = Modifier.offset(x = 6.dp, y = 6.dp).size(32.dp)
-                                        .clip(CircleShape).background(TealPrimary)
-                                        .border(2.dp, Color.White, CircleShape)
-                                        .clickable { onEditAvatar() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                 }
                             }
 
