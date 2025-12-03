@@ -50,4 +50,14 @@
     <string name="hoat_dong_gan_day">Hoạt động gần đây</string>
     <string name="da_luu">Đã lưu</string>
     <string name="bieu_do_cho_o_day">Biểu đồ sẽ đặt ở đây</string>
+
+    <!-- APP ID TỪ FACEBOOK DEVELOPER CONSOLE: 1353265716453207 -->
+    <string name="facebook_app_id">1353265716453207</string>
+
+    <!-- CLIENT TOKEN TỪ FACEBOOK DEVELOPER CONSOLE (RẤT QUAN TRỌNG) -->
+    <string name="facebook_client_token">432d070270350ea2ba9d315c275452379b48126cf94e31f90a332b7a97d66860</string>
+
+    <!-- Protocol Scheme: LUÔN LUÔN là "fb" + App ID -->
+    <string name="fb_login_protocol_scheme">fb1353265716453207</string>
+
 </resources>

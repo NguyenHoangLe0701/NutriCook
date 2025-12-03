@@ -11,4 +11,8 @@ class FirebaseLoginRepository @Inject constructor(
 ) : LoginRepository {
     override suspend fun signIn(email: String, password: String): Result<IUser> =
         runCatching { ds.signIn(email, password).toDomain() }
+
+    // Đã thêm override để khớp với Interface
+    override suspend fun signInWithFacebook(accessToken: String): Result<IUser> =
+        runCatching { ds.signInWithFacebook(accessToken).toDomain() }
 }

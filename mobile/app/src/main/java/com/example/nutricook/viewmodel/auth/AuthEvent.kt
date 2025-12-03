@@ -33,9 +33,16 @@ sealed class AuthEvent {
     // Gửi lại email xác thực
     data object ResendEmailVerification : AuthEvent()
 
-    // --- Các sự kiện khác ---
+    // --- Các sự kiện khác (Đăng nhập bên thứ ba) ---
+
     // Google Login
     data class GoogleIdToken(val idToken: String) : AuthEvent()
+
+    /**
+     * [MỚI THÊM] Facebook Login:
+     * Cần truyền Access Token nhận được từ Facebook SDK ở tầng UI.
+     */
+    data class FacebookAccessToken(val accessToken: String) : AuthEvent()
 
     // Xóa thông báo lỗi sau khi đã hiển thị (Toast/Snackbar)
     data object ConsumeMessage : AuthEvent()

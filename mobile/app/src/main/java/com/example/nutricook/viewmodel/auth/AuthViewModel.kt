@@ -73,9 +73,12 @@ class AuthViewModel @Inject constructor(
             AuthEvent.ResendEmailVerification -> resendEmailVerification()
 
             is AuthEvent.GoogleIdToken -> signInWithGoogle(event.idToken)
+            // 👇 THÊM: Xử lý sự kiện Facebook
+            is AuthEvent.FacebookAccessToken -> signInWithFacebook(event.accessToken)
+
             AuthEvent.ConsumeMessage -> _uiState.update { it.copy(message = null) }
 
-            // 👇 LOGIC MỚI: Reset cờ isAuthSuccess/isRegisterSuccess sau khi điều hướng
+            // LOGIC MỚI: Reset cờ isAuthSuccess/isRegisterSuccess sau khi điều hướng
             AuthEvent.ConsumeAuthSuccess -> _uiState.update { it.copy(isAuthSuccess = false, isRegisterSuccess = false) }
 
             AuthEvent.Logout -> signOut()
@@ -167,7 +170,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // 👇 HÀM FORGOT PASSWORD MỚI: Chỉ gửi email và set cờ chuyển màn hình
+    // HÀM FORGOT PASSWORD MỚI: Chỉ gửi email và set cờ chuyển màn hình
     private fun forgotPassword(email: String) = viewModelScope.launch {
         if (email.isBlank()) {
             _uiState.update { it.copy(message = "Vui lòng nhập email") }
@@ -178,7 +181,7 @@ class AuthViewModel @Inject constructor(
 
         val result = forgotPasswordRepo.sendPasswordResetEmail(email)
         result.onSuccess {
-            // 👇 QUAN TRỌNG: Dùng isAuthSuccess để trigger chuyển màn hình sang Manual Reset
+            // QUAN TRỌNG: Dùng isAuthSuccess để trigger chuyển màn hình sang Manual Reset
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -192,7 +195,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // 👇 HÀM RESET NEW PASSWORD MỚI: Xử lý nhập mã thủ công và set cờ chuyển Login
+    // HÀM RESET NEW PASSWORD MỚI: Xử lý nhập mã thủ công và set cờ chuyển Login
     private fun resetNewPassword(oobCode: String, newPass: String) = viewModelScope.launch {
         val confirmPass = _uiState.value.confirmPassword
 
@@ -290,6 +293,9 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // ======================== SOCIAL LOGINS ========================
+
+    // Xử lý Google Login (Đã có sẵn)
     private fun signInWithGoogle(idToken: String) = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true, message = null) }
         val credential = GoogleAuthProvider.getCredential(idToken, null)
@@ -313,6 +319,36 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * [MỚI THÊM] Xử lý Facebook Login
+     * Sử dụng Access Token để đăng nhập/đăng ký vào Firebase.
+     */
+    private fun signInWithFacebook(accessToken: String) = viewModelScope.launch {
+        _uiState.update { it.copy(isLoading = true, message = null) }
+
+        // 👇 ĐÃ SỬA: Gọi trực tiếp từ Interface, KHÔNG cần ép kiểu (as FirebaseLoginRepository)
+        val result = loginRepo.signInWithFacebook(accessToken)
+
+        result.onSuccess {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    message = "Đăng nhập Facebook thành công",
+                    isAuthSuccess = true
+                )
+            }
+        }.onFailure { e ->
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    message = e.message ?: "Đăng nhập Facebook thất bại"
+                )
+            }
+        }
+    }
+
+    // ======================== LOGOUT ========================
 
     fun signOut() = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true) }

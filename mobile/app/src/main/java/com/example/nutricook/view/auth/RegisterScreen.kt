@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.nutricook.R
 import com.example.nutricook.viewmodel.auth.AuthEvent
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import kotlinx.coroutines.launch
@@ -49,6 +51,14 @@ fun RegisterScreen(
 
     val showSnack: (String) -> Unit = { msg ->
         scope.launch { snackbarHostState.showSnackbar(msg) }
+    }
+
+    // ---------- Facebook Login Placeholder ----------
+    val startFacebookLogin: () -> Unit = {
+        showSnack("Đang chuyển đến Facebook. Xin chờ...")
+        // [TODO]: Kích hoạt Facebook Login SDK (sử dụng LoginManager).
+        // Sau khi nhận được Access Token, bạn cần gọi:
+        // vm.onEvent(AuthEvent.FacebookAccessToken(token))
     }
 
     LaunchedEffect(state.message) {
@@ -257,6 +267,29 @@ fun RegisterScreen(
                     )
                 } else {
                     Text("Đăng ký", fontWeight = FontWeight.Medium)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Social: Facebook (MỚI THÊM)
+            OutlinedButton(
+                onClick = startFacebookLogin,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = ButtonDefaults.outlinedButtonBorder
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_facebook), // Cần resource ic_facebook.xml
+                        contentDescription = "Facebook",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("Đăng ký với Facebook")
                 }
             }
 

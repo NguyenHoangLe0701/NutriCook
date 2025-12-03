@@ -2,6 +2,7 @@ package com.example.nutricook.data.firebase.auth
 
 import android.app.Activity
 import com.google.firebase.auth.ActionCodeSettings
+import com.google.firebase.auth.FacebookAuthProvider // Import mới cần thiết cho Facebook Sign-in
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.PhoneAuthCredential
@@ -38,6 +39,19 @@ class FirebaseAuthDataSource @Inject constructor(
         // Tùy chọn: Gửi email xác thực ngay khi đăng ký thành công
         result.user?.sendEmailVerification()?.await()
         return result.user ?: error("User is null after signUp")
+    }
+
+    /**
+     * [MỚI THÊM] Đăng nhập Firebase bằng Facebook Access Token.
+     */
+    suspend fun signInWithFacebook(accessToken: String): FirebaseUser {
+        // 1. Tạo Firebase Credential từ Facebook Access Token
+        val credential = FacebookAuthProvider.getCredential(accessToken)
+
+        // 2. Đăng nhập vào Firebase bằng Credential
+        val result = auth.signInWithCredential(credential).await()
+
+        return result.user ?: error("User is null after Facebook sign-in")
     }
 
     fun signOut() = auth.signOut()

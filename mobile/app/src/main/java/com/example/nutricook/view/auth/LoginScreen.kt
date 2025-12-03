@@ -1,5 +1,7 @@
 package com.example.nutricook.view.auth
 
+import android.app.Activity
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -35,10 +37,17 @@ import com.example.nutricook.viewmodel.auth.AuthEvent
 import com.example.nutricook.viewmodel.auth.AuthViewModel
 import kotlinx.coroutines.launch
 
-// Google
+// Google Imports
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+
+// Facebook Imports
+import com.facebook.CallbackManager
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
 
 private val Teal   = Color(0xFF20B2AA)
 private val Orange = Color(0xFFFF8A00)
@@ -56,13 +65,13 @@ fun LoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val showSnack: (String) -> Unit = { msg ->
         scope.launch { snackbarHostState.showSnackbar(msg) }
     }
 
-    // ---------- Google launcher ----------
-    val context = LocalContext.current
+    // ================== GOOGLE LOGIN SETUP ==================
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(context.getString(R.string.default_web_client_id))
@@ -88,6 +97,45 @@ fun LoginScreen(
         }
     }
 
+    // ================== FACEBOOK LOGIN SETUP ==================
+    // Lưu ý: CallbackManager cần được Activity gọi onActivityResult để nhận kết quả
+    val callbackManager = remember { CallbackManager.Factory.create() }
+    val loginManager = LoginManager.getInstance()
+
+    // Đăng ký Callback
+    DisposableEffect(Unit) {
+        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                val token = result.accessToken.token
+                vm.onEvent(AuthEvent.FacebookAccessToken(token))
+            }
+
+            override fun onCancel() {
+                showSnack("Đã hủy đăng nhập Facebook")
+            }
+
+            override fun onError(error: FacebookException) {
+                showSnack("Lỗi Facebook: ${error.message}")
+            }
+        })
+        onDispose {
+            // loginManager.unregisterCallback(callbackManager) // Không bắt buộc ở phiên bản mới
+        }
+    }
+
+    // Hành động khi nhấn nút Facebook
+    val startFacebookLogin: () -> Unit = {
+        val activity = context as? Activity
+        if (activity != null) {
+            // SỬA LỖI: Dùng hàm chuẩn thay vì createLogInIntent
+            loginManager.logInWithReadPermissions(activity, listOf("email", "public_profile"))
+        } else {
+            showSnack("Không tìm thấy Activity context")
+        }
+    }
+
+    // ================== UI LOGIC ==================
+
     LaunchedEffect(state.message) {
         state.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -108,7 +156,7 @@ fun LoginScreen(
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Back
+            // Back Button
             Surface(
                 modifier = Modifier
                     .align(Alignment.Start)
@@ -140,7 +188,7 @@ fun LoginScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Card form
+            // Form
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -207,6 +255,7 @@ fun LoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            // Login Button
             Button(
                 enabled = !state.isLoading,
                 onClick = {
@@ -238,7 +287,7 @@ fun LoginScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Social: Google có logo
+            // Social: Google
             OutlinedButton(
                 onClick = { googleLauncher.launch(googleClient.signInIntent) },
                 modifier = Modifier
@@ -256,6 +305,29 @@ fun LoginScreen(
                     )
                     Spacer(Modifier.width(10.dp))
                     Text("Đăng nhập với Google")
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Social: Facebook
+            OutlinedButton(
+                onClick = startFacebookLogin,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = ButtonDefaults.outlinedButtonBorder
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_facebook),
+                        contentDescription = "Facebook",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("Đăng nhập với Facebook")
                 }
             }
 

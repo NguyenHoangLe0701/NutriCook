@@ -1,9 +1,14 @@
 package com.example.nutricook
 
 import android.Manifest
+import android.content.Intent // 👇 Import cần thiết cho onActivityResult
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,10 +22,6 @@ import com.example.nutricook.view.nav.NavGraph
 import com.example.nutricook.view.notifications.NotificationScheduler
 import com.example.nutricook.view.notifications.NotificationUtils
 import com.example.nutricook.service.ExerciseService
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -53,7 +54,7 @@ class MainActivity : ComponentActivity() {
 
         // 🔹 Tạo kênh thông báo (chỉ cần 1 lần)
         NotificationUtils.createNotificationChannel(this)
-        
+
         // 🔹 Tạo kênh thông báo cho Exercise Service
         createExerciseNotificationChannel(this)
 
@@ -82,7 +83,15 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
+    // 👇 [QUAN TRỌNG] Override hàm này để nhận kết quả từ Facebook Login
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        // Dù chúng ta dùng LoginManager trong Compose, Facebook SDK vẫn dựa vào Activity
+        // để nhận kết quả trả về. Hàm super sẽ phân phối kết quả này đến đúng nơi.
+    }
+
     private fun createExerciseNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(NotificationManager::class.java)
@@ -93,7 +102,7 @@ class MainActivity : ComponentActivity() {
                 if (existingChannel != null) {
                     notificationManager.deleteNotificationChannel(ExerciseService.CHANNEL_ID)
                 }
-                
+
                 val channel = NotificationChannel(
                     ExerciseService.CHANNEL_ID,
                     "Đang tập thể dục",
