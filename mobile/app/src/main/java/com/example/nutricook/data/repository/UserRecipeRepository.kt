@@ -227,14 +227,53 @@ class UserRecipeRepository @Inject constructor(
      */
     suspend fun getUserRecipes(userId: String): List<Map<String, Any>> {
         return try {
-            val snapshot = firestore.collection("userRecipes")
-                .whereEqualTo("userId", userId)
-                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .get()
-                .await()
+            android.util.Log.d("UserRecipeRepo", "Getting recipes for userId: $userId")
             
-            snapshot.documents.map { it.data ?: emptyMap() }
+            // Thử query với orderBy trước, nếu lỗi thì query không orderBy
+            val snapshot = try {
+                firestore.collection("userRecipes")
+                    .whereEqualTo("userId", userId)
+                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .get()
+                    .await()
+            } catch (e: Exception) {
+                // Nếu lỗi do thiếu composite index, thử query không orderBy
+                android.util.Log.w("UserRecipeRepo", "Query with orderBy failed, trying without orderBy: ${e.message}")
+                firestore.collection("userRecipes")
+                    .whereEqualTo("userId", userId)
+                    .get()
+                    .await()
+            }
+            
+            val recipes = snapshot.documents.mapNotNull { doc ->
+                val data = doc.data?.toMutableMap()
+                if (data != null) {
+                    data["docId"] = doc.id // Thêm docId để có thể navigate
+                    // Log để debug
+                    val recipeName = data["recipeName"] as? String ?: "Unknown"
+                    val recipeUserId = data["userId"] as? String ?: "No userId"
+                    android.util.Log.d("UserRecipeRepo", "Found recipe: $recipeName, userId: $recipeUserId")
+                    data
+                } else {
+                    null
+                }
+            }
+            
+            // Sort manually nếu query không có orderBy
+            val sortedRecipes = recipes.sortedByDescending { recipe ->
+                val createdAt = recipe["createdAt"]
+                when (createdAt) {
+                    is com.google.firebase.Timestamp -> createdAt.toDate().time
+                    is Long -> createdAt
+                    else -> 0L
+                }
+            }
+            
+            android.util.Log.d("UserRecipeRepo", "Total recipes found: ${sortedRecipes.size}")
+            sortedRecipes
         } catch (e: Exception) {
+            android.util.Log.e("UserRecipeRepo", "Error getting user recipes: ${e.message}", e)
+            e.printStackTrace()
             emptyList()
         }
     }

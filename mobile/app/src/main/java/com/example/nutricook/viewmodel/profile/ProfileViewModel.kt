@@ -3,6 +3,7 @@ package com.example.nutricook.viewmodel.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutricook.data.profile.ProfileRepository
+import com.example.nutricook.data.repository.UserRecipeRepository
 import com.example.nutricook.model.newsfeed.Post
 import com.example.nutricook.model.profile.Profile
 import com.google.firebase.auth.FirebaseAuth
@@ -22,6 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val repo: ProfileRepository,
+    private val userRecipeRepo: UserRecipeRepository,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -35,6 +37,10 @@ class ProfileViewModel @Inject constructor(
     // [MỚI] Danh sách bài viết của chính tôi
     private val _userPosts = MutableStateFlow<List<Post>>(emptyList())
     val userPosts: StateFlow<List<Post>> = _userPosts.asStateFlow()
+
+    // [MỚI] Danh sách công thức của chính tôi
+    private val _userRecipes = MutableStateFlow<List<Map<String, Any>>>(emptyList())
+    val userRecipes: StateFlow<List<Map<String, Any>>> = _userRecipes.asStateFlow()
 
     init {
         // 1. Tự động lắng nghe thay đổi từ Firestore (Real-time)
@@ -153,6 +159,24 @@ class ProfileViewModel @Inject constructor(
             }
             .onFailure { e ->
                 e.printStackTrace()
+            }
+    }
+
+    // [MỚI] Hàm lấy công thức của chính mình
+    fun loadUserRecipes() = viewModelScope.launch {
+        val uid = auth.currentUser?.uid ?: return@launch
+        
+        android.util.Log.d("ProfileViewModel", "Loading user recipes for userId: $uid")
+
+        runCatching { userRecipeRepo.getUserRecipes(uid) }
+            .onSuccess { recipes ->
+                android.util.Log.d("ProfileViewModel", "Loaded ${recipes.size} recipes")
+                _userRecipes.value = recipes
+            }
+            .onFailure { e ->
+                android.util.Log.e("ProfileViewModel", "Error loading user recipes: ${e.message}", e)
+                e.printStackTrace()
+                _userRecipes.value = emptyList()
             }
     }
 

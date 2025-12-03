@@ -263,6 +263,7 @@ fun NavGraph(navController: NavHostController) {
         // 5. PROFILE
         composable("profile") {
             ProfileScreen(
+                navController = navController,
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenRecent = {
                     val uid = authState.currentUser?.id ?: return@ProfileScreen

@@ -283,18 +283,6 @@ fun ModernTopBar(currentUserAvatarUrl: String? = null) {
             IconButton(onClick = { /* Search */ }) {
                 Icon(Icons.Outlined.Search, null, tint = TextMuted)
             }
-            IconButton(onClick = { /* Notifications */ }) {
-                Box {
-                    Icon(Icons.Outlined.Notifications, null, tint = TextMuted)
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .offset(x = 4.dp, y = (-4).dp)
-                            .clip(CircleShape)
-                            .background(HeartRed)
-                    )
-                }
-            }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground),
         modifier = Modifier.shadow(elevation = 1.dp)

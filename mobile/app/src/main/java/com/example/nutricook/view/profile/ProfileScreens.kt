@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.nutricook.model.newsfeed.Post
@@ -86,6 +88,7 @@ interface GeminiServiceEntryPoint {
 
 @Composable
 fun ProfileScreen(
+    navController: NavController? = null,
     onOpenSettings: () -> Unit = {},
     onOpenRecent: () -> Unit = {},
     onEditAvatar: () -> Unit = {},
@@ -101,6 +104,7 @@ fun ProfileScreen(
     val nutritionState by nutritionVm.ui.collectAsState()
     val savedPosts by vm.savedPosts.collectAsState()
     val userPosts by vm.userPosts.collectAsState() // [MỚI] Lấy danh sách bài viết của tôi
+    val userRecipes by vm.userRecipes.collectAsState() // [MỚI] Lấy danh sách công thức của tôi
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
@@ -121,11 +125,52 @@ fun ProfileScreen(
 
     // Logic: Load dữ liệu khi chuyển tab
     LaunchedEffect(selectedTabIndex) {
+        if (selectedTabIndex == 0) {
+            vm.loadUserRecipes() // [MỚI] Load công thức của tôi
+        }
         if (selectedTabIndex == 1) {
             vm.loadUserPosts() // [MỚI] Load bài viết của tôi
         }
         if (selectedTabIndex == 2) {
             vm.loadSavedPosts() // Load bài đã lưu
+        }
+    }
+    
+    // Load công thức khi màn hình được hiển thị lần đầu và khi quay lại từ các màn hình khác
+    LaunchedEffect(Unit) {
+        vm.loadUserRecipes()
+    }
+    
+    // Debug: Log số lượng recipes (chỉ log một lần khi có thay đổi)
+    LaunchedEffect(userRecipes) {
+        android.util.Log.d("ProfileScreen", "User recipes updated - count: ${userRecipes.size}")
+        if (userRecipes.isNotEmpty()) {
+            userRecipes.forEachIndexed { index, recipe ->
+                val name = recipe["recipeName"] as? String ?: "Unknown"
+                val userId = recipe["userId"] as? String ?: "No userId"
+                val docId = recipe["docId"] as? String ?: "No docId"
+                android.util.Log.d("ProfileScreen", "Recipe $index: name=$name, userId=$userId, docId=$docId")
+            }
+        } else {
+            android.util.Log.d("ProfileScreen", "No recipes found for current user")
+        }
+    }
+    
+    // Reload khi quay lại từ CreateRecipe hoặc UploadSuccess
+    DisposableEffect(navController) {
+        val listener = navController?.let { nc ->
+            androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
+                if (destination.route == "profile" && selectedTabIndex == 0) {
+                    // Reload recipes khi quay lại profile và đang ở tab Công thức
+                    vm.loadUserRecipes()
+                }
+            }
+        }
+        
+        navController?.addOnDestinationChangedListener(listener ?: return@DisposableEffect onDispose {})
+        
+        onDispose {
+            listener?.let { navController?.removeOnDestinationChangedListener(it) }
         }
     }
 
@@ -303,10 +348,47 @@ fun ProfileScreen(
                 // ==========================================
                 when (selectedTabIndex) {
                     0 -> { // CÔNG THỨC
-                        item {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
-                                Text("Bếp của bạn chưa đỏ lửa 🔥", color = TextGray)
-                                TextButton(onClick = { }) { Text("Tạo công thức ngay", color = TealPrimary) }
+                        if (userRecipes.isEmpty()) {
+                            item {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally, 
+                                    modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
+                                ) {
+                                    Text("Bếp của bạn chưa đỏ lửa 🔥", color = TextGray)
+                                    Spacer(Modifier.height(8.dp))
+                                    TextButton(onClick = { 
+                                        navController?.navigate("create_recipe_step1")
+                                    }) { 
+                                        Text("Tạo công thức ngay", fontSize = 13.sp, color = TealPrimary) 
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    // Nút refresh để reload
+                                    TextButton(onClick = { 
+                                        vm.loadUserRecipes()
+                                    }) { 
+                                        Icon(
+                                            Icons.Filled.Refresh,
+                                            contentDescription = "Refresh",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = TealPrimary
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Làm mới", fontSize = 12.sp, color = TealPrimary) 
+                                    }
+                                }
+                            }
+                        } else {
+                            items(userRecipes, key = { (it["docId"] as? String) ?: (it["recipeName"] as? String) ?: "" }) { recipe ->
+                                UserRecipeCard(
+                                    recipe = recipe,
+                                    onClick = {
+                                        val recipeId = recipe["docId"] as? String
+                                        if (recipeId != null) {
+                                            navController?.navigate("user_recipe_info/$recipeId")
+                                        }
+                                    }
+                                )
+                                Spacer(Modifier.height(16.dp))
                             }
                         }
                     }
@@ -418,6 +500,141 @@ fun SimpleSavedPostCard(post: Post) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun UserRecipeCard(
+    recipe: Map<String, Any>,
+    onClick: () -> Unit
+) {
+    val recipeName = recipe["recipeName"] as? String ?: "Công thức"
+    val imageUrls = recipe["imageUrls"] as? List<*>
+    val firstImageUrl = imageUrls?.firstOrNull() as? String
+    val estimatedTime = recipe["estimatedTime"] as? String ?: "0"
+    val servings = recipe["servings"] as? String ?: "1"
+    val description = recipe["description"] as? String ?: ""
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Ảnh Thumbnail
+            if (!firstImageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(firstImageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(12.dp))
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(TealLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Outlined.Restaurant,
+                        contentDescription = null,
+                        tint = TealPrimary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+            }
+
+            // Nội dung
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = recipeName,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = TextDark
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+                
+                if (description.isNotBlank()) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = TextGray,
+                            fontSize = 13.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (estimatedTime.isNotBlank() && estimatedTime != "0") {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.AccessTime,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = TextGray
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "$estimatedTime phút",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = TextGray,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
+                    
+                    if (servings.isNotBlank() && servings != "1") {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.People,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = TextGray
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "$servings phần",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = TextGray,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = TextGray,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
