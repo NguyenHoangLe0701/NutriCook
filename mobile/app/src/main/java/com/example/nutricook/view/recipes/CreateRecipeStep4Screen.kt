@@ -70,7 +70,12 @@ fun CreateRecipeStep4Screen(
     val estimatedTime = recipeState.estimatedTime
     val servings = recipeState.servings
     val selectedImageUris = recipeState.selectedImageUris
-    val ingredients = recipeState.ingredients.filter { it.name.isNotBlank() } // Lọc nguyên liệu hợp lệ
+    // Lọc nguyên liệu hợp lệ: phải có name, quantity và foodItemId
+    val ingredients = recipeState.ingredients.filter { 
+        it.name.isNotBlank() && 
+        it.quantity.isNotBlank() && 
+        it.foodItemId != null 
+    }
     val cookingSteps = recipeState.cookingSteps.filter { it.description.isNotBlank() } // Lọc bước hợp lệ
     val description = recipeState.description
     val notes = recipeState.notes
@@ -78,18 +83,44 @@ fun CreateRecipeStep4Screen(
     
     // Debug: Log để kiểm tra dữ liệu
     LaunchedEffect(recipeState) {
+        Log.d("Step4", "=== Recipe State Update ===")
         Log.d("Step4", "Recipe State: name='$recipeName', time='$estimatedTime', servings='$servings'")
-        Log.d("Step4", "Ingredients: ${ingredients.size}, Steps: ${cookingSteps.size}, Images: ${selectedImageUris.size}")
+        Log.d("Step4", "Total ingredients in state: ${recipeState.ingredients.size}")
+        Log.d("Step4", "Valid ingredients (after filter): ${ingredients.size}")
+        Log.d("Step4", "Steps: ${cookingSteps.size}, Images: ${selectedImageUris.size}")
+        recipeState.ingredients.forEachIndexed { index, ing ->
+            Log.d("Step4", "  Ingredient[$index]: name='${ing.name}', quantity='${ing.quantity}', foodItemId=${ing.foodItemId}, unit=${ing.unit}")
+        }
+        ingredients.forEachIndexed { index, ing ->
+            Log.d("Step4", "  Valid[$index]: name='${ing.name}', quantity='${ing.quantity}', foodItemId=${ing.foodItemId}, unit=${ing.unit}")
+        }
+    }
+    
+    // Sử dụng allFoodItems thay vì foodItems để có tất cả nguyên liệu từ mọi categories
+    val allFoodItems by categoriesViewModel.allFoodItems.collectAsState()
+    
+    // Load tất cả foodItems nếu chưa có
+    LaunchedEffect(Unit) {
+        if (allFoodItems.isEmpty()) {
+            categoriesViewModel.loadAllFoodItems()
+        }
     }
     
     // Tính toán dinh dưỡng
-    val foodItemsMap = remember(foodItems) {
-        foodItems.associateBy { it.id }
+    val foodItemsMap = remember(allFoodItems) {
+        allFoodItems.associateBy { it.id }
     }
     
-    val nutritionData = remember(ingredients, foodItemsMap, servings) {
+    val nutritionData = remember(ingredients, foodItemsMap, servings, allFoodItems) {
         val servingsInt = servings.toIntOrNull() ?: 1
-        NutritionCalculator.calculateNutrition(ingredients, foodItemsMap, servingsInt)
+        Log.d("Step4", "=== Calculating Nutrition ===")
+        Log.d("Step4", "Ingredients count: ${ingredients.size}")
+        Log.d("Step4", "FoodItemsMap size: ${foodItemsMap.size}")
+        Log.d("Step4", "AllFoodItems size: ${allFoodItems.size}")
+        Log.d("Step4", "Servings: $servingsInt")
+        val result = NutritionCalculator.calculateNutrition(ingredients, foodItemsMap, servingsInt)
+        Log.d("Step4", "Calculated result: calories=${result.calories}, fat=${result.fat}, carbs=${result.carbs}, protein=${result.protein}")
+        result
     }
     
     // Lưu nutritionData vào ViewModel
@@ -409,6 +440,17 @@ fun CreateRecipeStep4Screen(
                     isSubmitting = true
                     scope.launch {
                         try {
+                            // Tính lại nutritionData ngay trước khi lưu để đảm bảo dữ liệu mới nhất
+                            val servingsInt = currentServings.toIntOrNull() ?: 1
+                            val currentNutritionData = NutritionCalculator.calculateNutrition(
+                                currentIngredients,
+                                foodItemsMap,
+                                servingsInt
+                            )
+                            
+                            // Lưu nutritionData vào ViewModel để đồng bộ
+                            createRecipeViewModel.setNutritionData(currentNutritionData)
+                            
                             val result = if (isEditMode && editingRecipeId != null) {
                                 // Update existing recipe
                                 val recipeIdString = editingRecipeId as String
@@ -429,7 +471,7 @@ fun CreateRecipeStep4Screen(
                                     description = currentDescription,
                                     notes = currentNotes,
                                     tips = currentTips,
-                                    nutritionData = nutritionData,
+                                    nutritionData = currentNutritionData,
                                     existingImageUrls = existingImageUrlsStr
                                 ).map { recipeIdString }
                             } else {
@@ -444,7 +486,7 @@ fun CreateRecipeStep4Screen(
                                     description = currentDescription,
                                     notes = currentNotes,
                                     tips = currentTips,
-                                    nutritionData = nutritionData
+                                    nutritionData = currentNutritionData
                                 )
                             }
                             

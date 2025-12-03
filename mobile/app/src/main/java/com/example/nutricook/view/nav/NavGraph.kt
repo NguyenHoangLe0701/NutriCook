@@ -404,7 +404,10 @@ fun NavGraph(navController: NavHostController) {
         composable("nutrition_facts") {
             Scaffold(bottomBar = { BottomNavigationBar(navController) }) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                    NutritionFactsScreen(navController = navController)
+                    NutritionFactsScreen(
+                        navController = navController,
+                        createRecipeViewModel = createRecipeViewModel
+                    )
                 }
             }
         }
@@ -487,7 +490,12 @@ fun NavGraph(navController: NavHostController) {
         }
         composable("recipe_direction") { RecipeDirectionsScreen(navController) }
         composable("recipe_guidance") { RecipeGuidanceScreen(navController) }
-        composable("nutrition_facts") { NutritionFactsScreen(navController) }
+        composable("nutrition_facts") {
+            NutritionFactsScreen(
+                navController = navController,
+                createRecipeViewModel = createRecipeViewModel
+            )
+        }
         composable(
             route = "review_screen/{recipeId}",
             arguments = listOf(navArgument("recipeId") { type = NavType.StringType })

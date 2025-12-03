@@ -777,6 +777,7 @@ fun CreateRecipeStep1Screen(
                                                                 item.copy(
                                                                     name = foodItem.name,
                                                                     foodItemId = foodItem.id,
+                                                                    categoryId = foodItem.categoryId,
                                                                     unit = unitFromFood
                                                                 )
                                                             } else item
@@ -824,7 +825,16 @@ fun CreateRecipeStep1Screen(
                                             }
                                         },
                                         modifier = Modifier.weight(1.2f),
-                                        placeholder = { Text("Số lượng", fontSize = 13.sp) },
+                                        placeholder = { Text("VD: 100, 1/2, 2/3", fontSize = 13.sp) },
+                                        supportingText = {
+                                            if (ingredient.quantity.isBlank()) {
+                                                Text(
+                                                    text = "Có thể nhập số hoặc phân số",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF6B7280)
+                                                )
+                                            }
+                                        },
                                         singleLine = true,
                                         shape = RoundedCornerShape(10.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
@@ -952,10 +962,21 @@ fun CreateRecipeStep1Screen(
                         Toast.makeText(context, "Vui lòng nhập số phần ăn", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-                    val validIngredients = ingredients.filter { it.name.isNotBlank() }
+                    // Filter ingredients: chỉ lưu những ingredient có đầy đủ thông tin (name, quantity, foodItemId)
+                    val validIngredients = ingredients.filter { 
+                        it.name.isNotBlank() && 
+                        it.quantity.isNotBlank() && 
+                        it.foodItemId != null 
+                    }
                     if (validIngredients.isEmpty()) {
-                        Toast.makeText(context, "Vui lòng nhập ít nhất một nguyên liệu", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Vui lòng nhập ít nhất một nguyên liệu hợp lệ (có tên, số lượng và chọn từ danh sách)", Toast.LENGTH_SHORT).show()
                         return@Button
+                    }
+                    
+                    // Log để debug
+                    android.util.Log.d("Step1", "Saving ${validIngredients.size} valid ingredients:")
+                    validIngredients.forEachIndexed { index, ing ->
+                        android.util.Log.d("Step1", "[$index] name='${ing.name}', quantity='${ing.quantity}', foodItemId=${ing.foodItemId}, unit=${ing.unit}")
                     }
                     
                     // Lưu dữ liệu vào ViewModel trước khi chuyển bước

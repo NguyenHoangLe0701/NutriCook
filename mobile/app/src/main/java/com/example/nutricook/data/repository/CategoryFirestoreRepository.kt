@@ -93,6 +93,64 @@ class CategoryFirestoreRepository @Inject constructor(
                     name = doc.getString("name") ?: "",
                     calories = doc.getString("calories") ?: "0 kcal",
                     imageUrl = fullImageUrl,
+                    categoryId = (doc.getLong("categoryId") ?: doc.getDouble("categoryId")?.toLong()),
+                    unit = doc.getString("unit") ?: "g",
+                    fat = (doc.getDouble("fat") ?: doc.getLong("fat")?.toDouble()) ?: 0.0,
+                    carbs = (doc.getDouble("carbs") ?: doc.getLong("carbs")?.toDouble()) ?: 0.0,
+                    protein = (doc.getDouble("protein") ?: doc.getLong("protein")?.toDouble()) ?: 0.0,
+                    cholesterol = (doc.getDouble("cholesterol") ?: doc.getLong("cholesterol")?.toDouble()) ?: 0.0,
+                    sodium = (doc.getDouble("sodium") ?: doc.getLong("sodium")?.toDouble()) ?: 0.0,
+                    vitamin = (doc.getDouble("vitamin") ?: doc.getLong("vitamin")?.toDouble()) ?: 0.0,
+                    vitaminA = (doc.getDouble("vitaminA") ?: doc.getLong("vitaminA")?.toDouble()) ?: 0.0,
+                    vitaminB1 = (doc.getDouble("vitaminB1") ?: doc.getLong("vitaminB1")?.toDouble()) ?: 0.0,
+                    vitaminB2 = (doc.getDouble("vitaminB2") ?: doc.getLong("vitaminB2")?.toDouble()) ?: 0.0,
+                    vitaminB3 = (doc.getDouble("vitaminB3") ?: doc.getLong("vitaminB3")?.toDouble()) ?: 0.0,
+                    vitaminB6 = (doc.getDouble("vitaminB6") ?: doc.getLong("vitaminB6")?.toDouble()) ?: 0.0,
+                    vitaminB9 = (doc.getDouble("vitaminB9") ?: doc.getLong("vitaminB9")?.toDouble()) ?: 0.0,
+                    vitaminB12 = (doc.getDouble("vitaminB12") ?: doc.getLong("vitaminB12")?.toDouble()) ?: 0.0,
+                    vitaminC = (doc.getDouble("vitaminC") ?: doc.getLong("vitaminC")?.toDouble()) ?: 0.0,
+                    vitaminD = (doc.getDouble("vitaminD") ?: doc.getLong("vitaminD")?.toDouble()) ?: 0.0,
+                    vitaminE = (doc.getDouble("vitaminE") ?: doc.getLong("vitaminE")?.toDouble()) ?: 0.0,
+                    vitaminK = (doc.getDouble("vitaminK") ?: doc.getLong("vitaminK")?.toDouble()) ?: 0.0
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+    
+    /**
+     * Lấy tất cả FoodItems từ collection "foodItems" (không filter theo category).
+     * Dùng để tính toán dinh dưỡng cho recipe có nhiều nguyên liệu từ nhiều categories.
+     */
+    suspend fun getAllFoods(): List<FoodItemUI> {
+        val snapshot = firestore.collection("foodItems")
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            try {
+                val imageUrl = doc.getString("imageUrl")
+                val foodId = doc.getLong("id") ?: 0L
+                val foodName = doc.getString("name") ?: ""
+                
+                val fullImageUrl = if (!imageUrl.isNullOrBlank()) {
+                    when {
+                        imageUrl.startsWith("https://res.cloudinary.com") -> imageUrl
+                        imageUrl.startsWith("http://") || imageUrl.startsWith("https://") -> imageUrl
+                        else -> BASE_URL.dropLast(1) + imageUrl
+                    }
+                } else {
+                    ""
+                }
+                
+                FoodItemUI(
+                    id = doc.getLong("id") ?: 0L,
+                    name = doc.getString("name") ?: "",
+                    calories = doc.getString("calories") ?: "0 kcal",
+                    imageUrl = fullImageUrl,
+                    categoryId = (doc.getLong("categoryId") ?: doc.getDouble("categoryId")?.toLong()),
                     unit = doc.getString("unit") ?: "g",
                     fat = (doc.getDouble("fat") ?: doc.getLong("fat")?.toDouble()) ?: 0.0,
                     carbs = (doc.getDouble("carbs") ?: doc.getLong("carbs")?.toDouble()) ?: 0.0,
@@ -164,6 +222,7 @@ class CategoryFirestoreRepository @Inject constructor(
                     name = it.getString("name") ?: "",
                     calories = it.getString("calories") ?: "0 kcal",
                     imageUrl = fullImageUrl,
+                    categoryId = (it.getLong("categoryId") ?: it.getDouble("categoryId")?.toLong()),
                     unit = it.getString("unit") ?: "g",
                     fat = (it.getDouble("fat") ?: it.getLong("fat")?.toDouble()) ?: 0.0,
                     carbs = (it.getDouble("carbs") ?: it.getLong("carbs")?.toDouble()) ?: 0.0,

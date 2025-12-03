@@ -701,7 +701,7 @@ fun MethodGroupViewersRow(
 
         if (remainingCount > 0) {
             Text(
-                text = "+$remainingCount others",
+                text = "+$remainingCount khác",
                 fontSize = 13.sp,
                 color = Color(0xFF374151),
                 fontWeight = FontWeight.Medium

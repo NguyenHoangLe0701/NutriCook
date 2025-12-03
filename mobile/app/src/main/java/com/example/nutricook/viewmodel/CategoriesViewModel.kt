@@ -18,6 +18,7 @@ data class FoodItemUI(
     val name: String,
     val calories: String,
     val imageUrl: String,
+    val categoryId: Long? = null, // ID của category
     val unit: String = "g", // Đơn vị mặc định (g, ml, quả, etc.)
     // Thông tin dinh dưỡng (tính trên 100g)
     val fat: Double = 0.0, // g
@@ -59,11 +60,16 @@ class CategoriesViewModel @Inject constructor(
     private val _foodItems = MutableStateFlow<List<FoodItemUI>>(emptyList())
     val foodItems: StateFlow<List<FoodItemUI>> = _foodItems.asStateFlow()
 
+    // Tất cả foodItems (không filter theo category) - dùng cho tính toán dinh dưỡng
+    private val _allFoodItems = MutableStateFlow<List<FoodItemUI>>(emptyList())
+    val allFoodItems: StateFlow<List<FoodItemUI>> = _allFoodItems.asStateFlow()
+
     private val _selectedCategoryId = MutableStateFlow<Long?>(null)
     val selectedCategoryId: StateFlow<Long?> = _selectedCategoryId.asStateFlow()
 
     init {
         fetchCategories()
+        loadAllFoodItems() // Load tất cả foodItems ngay khi khởi tạo
     }
 
     private fun fetchCategories() {
@@ -102,6 +108,22 @@ class CategoriesViewModel @Inject constructor(
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+    
+    /**
+     * Load tất cả foodItems (không filter theo category).
+     * Dùng để tính toán dinh dưỡng cho recipe có nguyên liệu từ nhiều categories.
+     */
+    fun loadAllFoodItems() {
+        viewModelScope.launch {
+            try {
+                _allFoodItems.value = repository.getAllFoods()
+                android.util.Log.d("CategoriesViewModel", "Loaded all foodItems: ${_allFoodItems.value.size}")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.util.Log.e("CategoriesViewModel", "Error loading all foodItems: ${e.message}", e)
+            }
         }
     }
 }

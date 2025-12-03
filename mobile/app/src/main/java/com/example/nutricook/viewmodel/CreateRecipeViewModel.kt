@@ -147,6 +147,15 @@ class CreateRecipeViewModel @Inject constructor(
         selectedImageUris: List<Uri>,
         ingredients: List<IngredientItem>
     ) {
+        android.util.Log.d("CreateRecipeVM", "=== setStep1Data called ===")
+        android.util.Log.d("CreateRecipeVM", "RecipeName: $recipeName")
+        android.util.Log.d("CreateRecipeVM", "EstimatedTime: $estimatedTime")
+        android.util.Log.d("CreateRecipeVM", "Servings: $servings")
+        android.util.Log.d("CreateRecipeVM", "Ingredients count: ${ingredients.size}")
+        ingredients.forEachIndexed { index, ing ->
+            android.util.Log.d("CreateRecipeVM", "  [$index] name='${ing.name}', quantity='${ing.quantity}', foodItemId=${ing.foodItemId}, categoryId=${ing.categoryId}, unit=${ing.unit}")
+        }
+        
         // Save to SavedStateHandle
         savedStateHandle["recipeName"] = recipeName
         savedStateHandle["estimatedTime"] = estimatedTime
@@ -174,6 +183,8 @@ class CreateRecipeViewModel @Inject constructor(
                 ingredients = ingredients
             )
         }
+        
+        android.util.Log.d("CreateRecipeVM", "State updated. Current state ingredients count: ${_state.value.ingredients.size}")
     }
     
     // Step 2 setter

@@ -495,13 +495,6 @@ fun RecipeDiscoveryScreen(navController: NavController, queryVM: QueryViewModel 
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "Xem tất cả",
-                    fontSize = 14.sp,
-                    color = Color(0xFF79D7D2),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable { }
-                )
             }
         }
 

@@ -41,22 +41,37 @@ object NutritionCalculator {
         var totalVitaminE = 0.0
         var totalVitaminK = 0.0
         
+        android.util.Log.d("NutritionCalculator", "Starting calculation: ingredients=${ingredients.size}, foodItemsMap=${foodItemsMap.size}, servings=$servings")
+        
         ingredients.forEach { ingredient ->
+            android.util.Log.d("NutritionCalculator", "Processing ingredient: name='${ingredient.name}', quantity='${ingredient.quantity}', foodItemId=${ingredient.foodItemId}, unit=${ingredient.unit}")
+            
             if (ingredient.name.isNotBlank() && ingredient.quantity.isNotBlank() && ingredient.foodItemId != null) {
                 val foodItem = foodItemsMap[ingredient.foodItemId]
+                
+                if (foodItem == null) {
+                    android.util.Log.w("NutritionCalculator", "FoodItem not found for ID: ${ingredient.foodItemId}, available IDs: ${foodItemsMap.keys.joinToString()}")
+                } else {
+                    android.util.Log.d("NutritionCalculator", "Found FoodItem: name='${foodItem.name}', calories='${foodItem.calories}', fat=${foodItem.fat}, carbs=${foodItem.carbs}, protein=${foodItem.protein}")
+                }
+                
                 if (foodItem != null) {
                     // Parse số lượng từ string (hỗ trợ phân số như "1/2", "1.5", "2")
                     val quantityInUnits = parseQuantity(ingredient.quantity)
+                    android.util.Log.d("NutritionCalculator", "  Parsed quantity: $quantityInUnits from '${ingredient.quantity}'")
                     
                     // Chuyển đổi từ đơn vị của nguyên liệu sang gram
-                    // Ví dụ: 2 quả trứng = 2 * 100g = 200g, 500ml nước = 500g
+                    // Ví dụ: 2 quả trứng = 2 * 60g = 120g, 500ml nước = 500g
                     val quantityInGrams = ingredient.unit.toGrams(quantityInUnits)
+                    android.util.Log.d("NutritionCalculator", "  Quantity in grams: $quantityInGrams (unit: ${ingredient.unit.displayName})")
                     
                     // Tính dinh dưỡng dựa trên số lượng (giá trị trong FoodItemUI là trên 100g)
                     val multiplier = quantityInGrams / 100.0
+                    android.util.Log.d("NutritionCalculator", "  Multiplier: $multiplier (${quantityInGrams}g / 100g)")
                     
                     // Parse calories từ string (ví dụ: "100 kcal" -> 100.0)
                     val caloriesValue = parseCalories(foodItem.calories)
+                    android.util.Log.d("NutritionCalculator", "  Calories per 100g: $caloriesValue from '${foodItem.calories}'")
                     
                     // Tính dinh dưỡng trực tiếp từ nguyên liệu (không áp dụng phương pháp nấu)
                     val calories = caloriesValue * multiplier
@@ -66,6 +81,8 @@ object NutritionCalculator {
                     val cholesterol = foodItem.cholesterol * multiplier
                     val sodium = foodItem.sodium * multiplier
                     val vitamin = foodItem.vitamin * multiplier
+                    
+                    android.util.Log.d("NutritionCalculator", "  Calculated: calories=$calories, fat=$fat, carbs=$carbs, protein=$protein")
                     
                     // Tính chi tiết vitamin
                     val vitaminA = foodItem.vitaminA * multiplier
@@ -113,6 +130,19 @@ object NutritionCalculator {
             totalCholesterol /= servings
             totalSodium /= servings
             totalVitamin /= servings
+            
+            // Chia chi tiết vitamin cho số phần ăn
+            totalVitaminA /= servings
+            totalVitaminB1 /= servings
+            totalVitaminB2 /= servings
+            totalVitaminB3 /= servings
+            totalVitaminB6 /= servings
+            totalVitaminB9 /= servings
+            totalVitaminB12 /= servings
+            totalVitaminC /= servings
+            totalVitaminD /= servings
+            totalVitaminE /= servings
+            totalVitaminK /= servings
         }
         
         // Tính tổng vitamin từ chi tiết
@@ -136,6 +166,9 @@ object NutritionCalculator {
         } else {
             totalVitamin
         }
+        
+        android.util.Log.d("NutritionCalculator", "Final totals (after dividing by servings=$servings): calories=$totalCalories, fat=$totalFat, carbs=$totalCarbs, protein=$totalProtein")
+        android.util.Log.d("NutritionCalculator", "Vitamin details: A=${totalVitaminA}, B1=${totalVitaminB1}, C=${totalVitaminC}, finalVitamin=$finalVitamin")
         
         return NutritionData(
             calories = totalCalories,

@@ -11,8 +11,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,7 +35,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import com.example.nutricook.utils.NutritionData
 import com.example.nutricook.utils.VitaminDetails
+import com.example.nutricook.utils.NutritionCalculator
 import com.example.nutricook.viewmodel.CreateRecipeViewModel
+import com.example.nutricook.viewmodel.CategoriesViewModel
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.foundation.lazy.items
@@ -43,20 +47,94 @@ import kotlin.math.min
 @Composable
 fun NutritionFactsScreen(
     navController: NavController,
-    createRecipeViewModel: CreateRecipeViewModel = hiltViewModel()
+    createRecipeViewModel: CreateRecipeViewModel,
+    categoriesViewModel: CategoriesViewModel = hiltViewModel()
 ) {
-    // Lấy nutritionData từ ViewModel
-    val recipeState by createRecipeViewModel.state.collectAsState()
-    val nutritionData = recipeState.nutritionData ?: NutritionData(
-        calories = 473.0,
-        fat = 20.0,
-        carbs = 50.0,
-        protein = 24.0,
-        cholesterol = 100.0,
-        sodium = 1281.0,
-        vitamin = 45.0
-    )
     val context = LocalContext.current
+    
+    // Lấy dữ liệu từ ViewModel
+    val recipeState by createRecipeViewModel.state.collectAsState()
+    // Sử dụng allFoodItems thay vì foodItems để có tất cả nguyên liệu từ mọi categories
+    val allFoodItems by categoriesViewModel.allFoodItems.collectAsState()
+    
+    // Debug: Log toàn bộ recipeState
+    LaunchedEffect(recipeState) {
+        android.util.Log.d("NutritionFacts", "=== RecipeState Update ===")
+        android.util.Log.d("NutritionFacts", "RecipeState.ingredients.size: ${recipeState.ingredients.size}")
+        android.util.Log.d("NutritionFacts", "RecipeState.servings: ${recipeState.servings}")
+        android.util.Log.d("NutritionFacts", "RecipeState.recipeName: ${recipeState.recipeName}")
+        recipeState.ingredients.forEachIndexed { index, ing ->
+            android.util.Log.d("NutritionFacts", "RecipeState.ingredients[$index]: name='${ing.name}', quantity='${ing.quantity}', foodItemId=${ing.foodItemId}, unit=${ing.unit}")
+        }
+    }
+    
+    // Lấy ingredients và servings từ state
+    val ingredients = recipeState.ingredients.filter { 
+        it.name.isNotBlank() && it.quantity.isNotBlank() && it.foodItemId != null 
+    }
+    // Cho phép thay đổi số phần ăn trong màn hình này
+    var servingsInput by remember(recipeState.servings) { 
+        mutableStateOf(recipeState.servings) 
+    }
+    val servings = servingsInput.toIntOrNull() ?: 1
+    
+    // Cập nhật servingsInput khi recipeState.servings thay đổi
+    LaunchedEffect(recipeState.servings) {
+        servingsInput = recipeState.servings
+    }
+    
+    // Load tất cả foodItems nếu chưa có (luôn load để đảm bảo có dữ liệu)
+    LaunchedEffect(Unit) {
+        if (allFoodItems.isEmpty()) {
+            android.util.Log.d("NutritionFacts", "Loading allFoodItems on first load...")
+            categoriesViewModel.loadAllFoodItems()
+        }
+    }
+    
+    // Tạo map foodItems để tính toán - sử dụng allFoodItems
+    val foodItemsMap = remember(allFoodItems) {
+        val map = allFoodItems.associateBy { it.id }
+        android.util.Log.d("NutritionFacts", "Created foodItemsMap with ${map.size} items")
+        map
+    }
+    
+    // Tự động tính lại dinh dưỡng từ ingredients và servings (khi servingsInput thay đổi)
+    val nutritionData = remember(ingredients, foodItemsMap, servings, allFoodItems) {
+        android.util.Log.d("NutritionFacts", "=== Recalculating nutrition ===")
+        android.util.Log.d("NutritionFacts", "Calculating nutrition: ingredients=${ingredients.size}, foodItemsMap=${foodItemsMap.size}, servings=$servings (from servingsInput='$servingsInput')")
+        
+        if (ingredients.isEmpty()) {
+            android.util.Log.w("NutritionFacts", "Cannot calculate: ingredients.isEmpty=true, foodItemsMap.isEmpty=${foodItemsMap.isEmpty()}")
+            NutritionData()
+        } else if (foodItemsMap.isEmpty()) {
+            android.util.Log.w("NutritionFacts", "Cannot calculate: ingredients.isEmpty=false, foodItemsMap.isEmpty=true")
+            NutritionData()
+        } else {
+            // Log detailed ingredient info only when we have ingredients to process
+            ingredients.forEachIndexed { index, ingredient ->
+                android.util.Log.d("NutritionFacts", "[$index] Ingredient: name='${ingredient.name}', quantity='${ingredient.quantity}', foodItemId=${ingredient.foodItemId}, unit=${ingredient.unit}")
+                if (ingredient.foodItemId != null) {
+                    val foodItem = foodItemsMap[ingredient.foodItemId]
+                    if (foodItem != null) {
+                        android.util.Log.d("NutritionFacts", "[$index] FoodItem found: name='${foodItem.name}', calories='${foodItem.calories}', fat=${foodItem.fat}, carbs=${foodItem.carbs}, protein=${foodItem.protein}")
+                    } else {
+                        android.util.Log.w("NutritionFacts", "[$index] FoodItem NOT found for ID: ${ingredient.foodItemId}")
+                    }
+                } else {
+                    android.util.Log.w("NutritionFacts", "[$index] Ingredient has no foodItemId")
+                }
+            }
+            
+            val result = NutritionCalculator.calculateNutrition(ingredients, foodItemsMap, servings)
+            android.util.Log.d("NutritionFacts", "Calculated nutrition: calories=${result.calories}, fat=${result.fat}, carbs=${result.carbs}, protein=${result.protein}")
+            result
+        }
+    }
+    
+    // Lưu nutritionData vào ViewModel để đảm bảo đồng bộ
+    LaunchedEffect(nutritionData) {
+        createRecipeViewModel.setNutritionData(nutritionData)
+    }
     
     // Animation cho circular progress
     val caloriesProgress = remember { mutableStateOf(0f) }
@@ -66,7 +144,7 @@ fun NutritionFactsScreen(
         label = "calories_progress"
     )
     
-    LaunchedEffect(Unit) {
+    LaunchedEffect(nutritionData) {
         caloriesProgress.value = min(nutritionData.getCaloriesPercent() / 100f, 1f)
     }
     
@@ -100,6 +178,114 @@ fun NutritionFactsScreen(
                     color = Color(0xFF1C1C1E),
                     modifier = Modifier.weight(1f)
                 )
+            }
+        }
+        
+        /** 🔹 Servings Selector */
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFF8F9FA),
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Số phần ăn",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1C1C1E)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Thông tin dinh dưỡng dưới đây được tính cho 1 phần ăn",
+                                fontSize = 12.sp,
+                                color = Color(0xFF6B7280)
+                            )
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Nút giảm
+                            IconButton(
+                                onClick = {
+                                    val current = servingsInput.toIntOrNull() ?: 1
+                                    if (current > 1) {
+                                        servingsInput = (current - 1).toString()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        Color(0xFF00BFA5).copy(alpha = 0.1f),
+                                        shape = CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Remove,
+                                    contentDescription = "Giảm",
+                                    tint = Color(0xFF00BFA5),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            // Hiển thị số phần
+                            OutlinedTextField(
+                                value = servingsInput,
+                                onValueChange = { newValue ->
+                                    if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                                        servingsInput = newValue
+                                    }
+                                },
+                                modifier = Modifier.width(60.dp),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                ),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF00BFA5),
+                                    unfocusedBorderColor = Color(0xFFE5E7EB)
+                                )
+                            )
+                            
+                            // Nút tăng
+                            IconButton(
+                                onClick = {
+                                    val current = servingsInput.toIntOrNull() ?: 1
+                                    servingsInput = (current + 1).toString()
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        Color(0xFF00BFA5).copy(alpha = 0.1f),
+                                        shape = CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Tăng",
+                                    tint = Color(0xFF00BFA5),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
         
@@ -156,6 +342,14 @@ fun NutritionFactsScreen(
                         fontSize = 16.sp,
                         color = Color.Gray
                     )
+                    if (servings > 1) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "(${servings} phần)",
+                            fontSize = 12.sp,
+                            color = Color(0xFF6B7280)
+                        )
+                    }
                 }
             }
         }
