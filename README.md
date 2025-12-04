@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🍳 NutriCook
+<img src="images/Nutricook.jpg" alt="NutriCook Logo" width="250" style="max-width: 100%; height: auto; margin: 20px auto; display: block;">
+
+
 
 **Hệ thống quản lý dinh dưỡng toàn diện - Makes Your Cooking Healthy**
 
