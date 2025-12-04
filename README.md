@@ -114,7 +114,7 @@
 
 #### QR Code để tải ứng dụng
 
-<img src="images/qr-code-apk.jpg" alt="QR Code APK" width="250" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<img src="images/qr-code-apk.jpg" alt="QR Code APK" width="350" style="max-width: 100%; height: auto; border-radius: 16px; box-shadow: 0 6px 12px rgba(0,0,0,0.15); margin: 20px auto; display: block;">
 
 *Quét mã QR để tải ứng dụng NutriCook*
 
@@ -502,6 +502,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 **NutriCook Team**
 
 - GitHub: [@nguyenhoangle0701](https://github.com/nguyenhoangle0701)
+- GitHub: [@DangTruongTuanAnh](https://github.com/DangTruongTuanAnh)
+- GitHub: [@hqcoder05](https://github.com/hqcoder05)
 - Email: contact@nutricook.com
 
 ---
