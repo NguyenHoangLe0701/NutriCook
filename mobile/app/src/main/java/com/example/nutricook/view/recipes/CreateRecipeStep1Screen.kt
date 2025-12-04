@@ -289,7 +289,15 @@ fun CreateRecipeStep1Screen(
                         }
                         OutlinedTextField(
                             value = estimatedTime,
-                            onValueChange = { estimatedTime = it },
+                            onValueChange = { newTime ->
+                                // Không cho phép nhập số âm
+                                val filteredTime = if (newTime.startsWith("-")) {
+                                    estimatedTime // Giữ nguyên giá trị cũ nếu nhập dấu trừ
+                                } else {
+                                    newTime
+                                }
+                                estimatedTime = filteredTime
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = { Text("VD: 30 phút", fontSize = 13.sp) },
                             singleLine = true,
@@ -330,7 +338,15 @@ fun CreateRecipeStep1Screen(
                         }
                         OutlinedTextField(
                             value = servings,
-                            onValueChange = { servings = it },
+                            onValueChange = { newServings ->
+                                // Không cho phép nhập số âm
+                                val filteredServings = if (newServings.startsWith("-")) {
+                                    servings // Giữ nguyên giá trị cũ nếu nhập dấu trừ
+                                } else {
+                                    newServings
+                                }
+                                servings = filteredServings
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = { Text("VD: 4 người", fontSize = 13.sp) },
                             singleLine = true,
@@ -820,8 +836,14 @@ fun CreateRecipeStep1Screen(
                                     OutlinedTextField(
                                         value = ingredient.quantity,
                                         onValueChange = { newQuantity ->
+                                            // Không cho phép nhập số âm
+                                            val filteredQuantity = if (newQuantity.startsWith("-")) {
+                                                ingredient.quantity // Giữ nguyên giá trị cũ nếu nhập dấu trừ
+                                            } else {
+                                                newQuantity
+                                            }
                                             ingredients = ingredients.mapIndexed { i, item ->
-                                                if (i == index) item.copy(quantity = newQuantity) else item
+                                                if (i == index) item.copy(quantity = filteredQuantity) else item
                                             }
                                         },
                                         modifier = Modifier.weight(1.2f),
