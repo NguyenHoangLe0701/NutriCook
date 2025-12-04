@@ -713,6 +713,162 @@ implementation("com.google.firebase:firebase-firestore-ktx")
 
 ---
 
+---
+
+## 🏃 Thông Báo Exercise (Foreground Service Notification)
+
+### Tổng quan
+
+Khi user bắt đầu tập thể dục, app sử dụng **Foreground Service** để chạy timer nền và hiển thị notification với tiến trình tập luyện. Notification này cho phép user:
+- Xem tiến trình tập luyện (thời gian, calories)
+- Tạm dừng/Tiếp tục từ notification
+- Dừng exercise hoàn toàn
+
+### Cơ chế Resume Exercise từ Notification
+
+#### Vấn đề đã giải quyết:
+
+**Trước đây:** Khi user đang tập "Đạp xe" (5 phút), bấm dừng, rồi chuyển sang màn hình "Bơi lội" và bấm "Tiếp tục" → "Bơi lội" bắt đầu từ 0:00 (sai).
+
+**Hiện tại:** Khi user bấm "Tiếp tục" từ notification hoặc màn hình khác:
+- Service kiểm tra xem có exercise nào đang dừng không
+- Nếu có exercise đang dừng (ví dụ "Đạp xe" ở 5 phút), resume exercise đó
+- Exercise mới (ví dụ "Bơi lội") không bắt đầu nếu có exercise cũ đang dừng
+
+#### Code Implementation:
+
+```kotlin
+// File: mobile/app/src/main/java/com/example/nutricook/service/ExerciseService.kt
+
+// Service lưu trữ exercise đang chạy/dừng
+private var exerciseName = ""
+private var currentSeconds = 0
+private var isRunning = false
+
+// Method kiểm tra có exercise đang active không
+fun hasActiveExercise(): Boolean = exerciseName.isNotEmpty() && (isRunning || currentSeconds > 0)
+fun getExerciseName(): String = exerciseName
+
+// Khi nhận ACTION_START
+override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    when (intent?.action) {
+        ACTION_START -> {
+            val newExerciseName = intent.getStringExtra(EXTRA_EXERCISE_NAME) ?: "Bài tập"
+            val hasActiveExercise = exerciseName.isNotEmpty() && (isRunning || currentSeconds > 0)
+            val isDifferentExercise = exerciseName != newExerciseName && exerciseName.isNotEmpty()
+            
+            // Nếu có exercise đang dừng và khác với exercise mới, KHÔNG start exercise mới
+            if (hasActiveExercise && isDifferentExercise && !isRunning) {
+                return START_STICKY // Không start exercise mới
+            }
+            
+            // ... logic start exercise mới hoặc resume exercise hiện tại
+        }
+        ACTION_RESUME -> {
+            // Resume exercise đang dừng (bất kể màn hình nào)
+            resumeExercise()
+        }
+    }
+}
+```
+
+#### UI Logic (ExerciseDetailScreen.kt):
+
+```kotlin
+// File: mobile/app/src/main/java/com/example/nutricook/view/profile/ExerciseDetailScreen.kt
+
+Button(onClick = {
+    if (isRunning) {
+        // Pause exercise
+        val intent = Intent(context, ExerciseService::class.java).apply {
+            action = ExerciseService.ACTION_PAUSE
+        }
+        context.startService(intent)
+    } else {
+        // Kiểm tra xem có exercise khác đang dừng không
+        if (isServiceBound && service != null) {
+            val serviceExerciseName = service!!.getExerciseName()
+            val serviceHasActive = service!!.hasActiveExercise()
+            val serviceIsRunning = service!!.getIsRunning()
+            
+            // Nếu có exercise khác đang dừng, resume exercise đó
+            if (serviceHasActive && serviceExerciseName != exerciseName && !serviceIsRunning) {
+                // Resume exercise cũ thay vì start exercise mới
+                val resumeIntent = Intent(context, ExerciseService::class.java).apply {
+                    action = ExerciseService.ACTION_RESUME
+                }
+                context.startService(resumeIntent)
+                return@onClick
+            }
+        }
+        
+        // Start exercise mới hoặc resume exercise hiện tại
+        val intent = Intent(context, ExerciseService::class.java).apply {
+            action = ExerciseService.ACTION_START
+            putExtra(ExerciseService.EXTRA_EXERCISE_NAME, exerciseName)
+            // ...
+        }
+        context.startForegroundService(intent)
+    }
+})
+```
+
+#### Notification Actions:
+
+```kotlin
+// File: mobile/app/src/main/java/com/example/nutricook/service/ExerciseService.kt
+
+private fun createNotification(): Notification {
+    // Pause/Resume button
+    val pauseResumeIntent = Intent(this, ExerciseService::class.java).apply {
+        action = if (isRunning) ACTION_PAUSE else ACTION_RESUME
+    }
+    val pauseResumePendingIntent = PendingIntent.getService(
+        this, 2, pauseResumeIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    
+    return NotificationCompat.Builder(this, CHANNEL_ID)
+        .addAction(
+            R.drawable.ic_launcher_foreground,
+            if (isRunning) "⏸ Tạm dừng" else "▶ Tiếp tục",
+            pauseResumePendingIntent
+        )
+        .addAction(
+            R.drawable.ic_launcher_foreground,
+            "⏹ Dừng",
+            stopPendingIntent
+        )
+        // ...
+}
+```
+
+#### Luồng hoạt động:
+
+```
+1. User tập "Đạp xe" 5 phút → Bấm dừng
+   ↓
+2. Service lưu: exerciseName = "Đạp xe", currentSeconds = 300, isRunning = false
+   ↓
+3. User chuyển sang màn hình "Bơi lội" (hiển thị 00:00)
+   ↓
+4. User bấm "Tiếp tục" từ notification hoặc màn hình "Bơi lội"
+   ↓
+5. Service kiểm tra: hasActiveExercise() = true, exerciseName = "Đạp xe"
+   ↓
+6. Service resume "Đạp xe" từ 5 phút (không start "Bơi lội")
+   ↓
+7. Notification hiển thị: "Đạp xe • 05:00 / 15:00 • 33/100 kcal"
+```
+
+#### File locations:
+
+- **Service:** `mobile/app/src/main/java/com/example/nutricook/service/ExerciseService.kt`
+- **UI:** `mobile/app/src/main/java/com/example/nutricook/view/profile/ExerciseDetailScreen.kt`
+- **Notification Channel:** `exercise_channel` (IMPORTANCE_HIGH)
+
+---
+
 ## 🎉 Kết Luận
 
 Hệ thống thông báo của NutriCook hoạt động hoàn chỉnh với:
@@ -722,6 +878,9 @@ Hệ thống thông báo của NutriCook hoạt động hoàn chỉnh với:
 - ✅ Click vào notification → Mở app
 - ✅ Hiển thị logo trong notification
 - ✅ Quản lý FCM tokens trong Firestore
+- ✅ **Foreground Service Notification cho exercise** (mới)
+- ✅ **Resume exercise từ notification** (mới)
+- ✅ **Kiểm tra và resume exercise đang dừng** (mới)
 
 Tất cả các file đã được triển khai và sẵn sàng sử dụng! 🚀
 
