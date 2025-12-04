@@ -114,7 +114,7 @@
 
 #### QR Code để tải ứng dụng
 
-<img src="images/qr-code-apk.png" alt="QR Code APK" width="250" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<img src="images/qr-code-apk.jpg" alt="QR Code APK" width="250" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 
 *Quét mã QR để tải ứng dụng NutriCook*
 
