@@ -114,7 +114,7 @@
 
 #### QR Code để tải ứng dụng
 
-![QR Code APK](images/qr-code-apk.png)
+<img src="images/qr-code-apk.png" alt="QR Code APK" width="250" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 
 *Quét mã QR để tải ứng dụng NutriCook*
 
@@ -122,7 +122,7 @@
 
 #### Màn hình chính (Home Screen)
 
-![Home Screen](images/mobile-home.png)
+<img src="images/mobile-home.png" alt="Home Screen" width="300" style="max-width: 100%; height: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Màn hình chính với tìm kiếm, danh mục, và thông tin dinh dưỡng*
 
@@ -130,7 +130,7 @@
 
 #### Màn hình theo dõi dinh dưỡng
 
-![Nutrition Tracking](images/mobile-nutrition.png)
+<img src="images/mobile-nutrition.png" alt="Nutrition Tracking" width="300" style="max-width: 100%; height: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Theo dõi calories, protein, fat, carb với biểu đồ trực quan*
 
@@ -138,7 +138,7 @@
 
 #### Màn hình tập thể dục
 
-![Exercise Screen](images/mobile-exercise.png)
+<img src="images/mobile-exercise.png" alt="Exercise Screen" width="300" style="max-width: 100%; height: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Timer tập thể dục với vòng tròn progress và tính calories đốt cháy*
 
@@ -146,7 +146,7 @@
 
 #### Màn hình công thức
 
-![Recipe Screen](images/mobile-recipe.png)
+<img src="images/mobile-recipe.png" alt="Recipe Screen" width="300" style="max-width: 100%; height: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Tạo và xem công thức nấu ăn với tính dinh dưỡng tự động*
 
@@ -158,7 +158,7 @@
 
 #### Dashboard Overview
 
-![Dashboard Overview](images/dashboard-overview.png)
+<img src="images/dashboard-overview.png" alt="Dashboard Overview" width="800" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Tổng quan hệ thống với thống kê và biểu đồ*
 
@@ -166,7 +166,7 @@
 
 #### Quản lý Thực phẩm
 
-![Food Management](images/dashboard-foods.png)
+<img src="images/dashboard-foods.png" alt="Food Management" width="800" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Quản lý thực phẩm với CRUD operations và upload ảnh*
 
@@ -174,7 +174,7 @@
 
 #### Quản lý Người dùng
 
-![User Management](images/dashboard-users.png)
+<img src="images/dashboard-users.png" alt="User Management" width="800" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Quản lý users với thống kê và chi tiết*
 
@@ -182,7 +182,7 @@
 
 #### Gửi Thông báo
 
-![Notification](images/dashboard-notifications.png)
+<img src="images/dashboard-notifications.png" alt="Notification" width="800" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 
 *Gửi push notification đến users*
 
