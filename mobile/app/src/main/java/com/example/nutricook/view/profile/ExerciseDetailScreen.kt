@@ -61,9 +61,19 @@ fun ExerciseDetailScreen(
 ) {
     val context = LocalContext.current
     val exerciseSteps = remember(exerciseName) { getExerciseSteps(exerciseName) }
-    val totalSeconds = remember(exerciseName) {
+    val defaultTotalSeconds = remember(exerciseName) {
         exerciseDuration.replace(" phút", "").toIntOrNull()?.times(60) ?: 900
     }
+    val defaultCalories = remember(exerciseName) { exerciseCalories }
+    
+    // Custom time state - Cho phép người dùng chọn thời gian tùy chỉnh
+    var customTotalSeconds by remember(exerciseName) { mutableStateOf(defaultTotalSeconds) }
+    var customTotalCalories by remember(exerciseName) { mutableStateOf(defaultCalories) }
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+    
+    // Sử dụng custom time nếu đã chọn, nếu không dùng default
+    val totalSeconds = customTotalSeconds
+    val totalCalories = customTotalCalories
     
     // Timer state - Reset khi chuyển sang exercise khác
     var currentSeconds by remember(exerciseName) { mutableStateOf(0) }
@@ -303,14 +313,14 @@ fun ExerciseDetailScreen(
                                 ) {
                                     InfoChip(
                                         icon = Icons.Default.AccessTime,
-                                        text = exerciseDuration,
+                                        text = "${totalSeconds / 60} phút",
                                         gradient = Brush.horizontalGradient(
                                             listOf(Color(0xFF20B2AA), Color(0xFF2DD4BF))
                                         )
                                     )
                                     InfoChip(
                                         icon = Icons.Default.LocalFireDepartment,
-                                        text = "${exerciseCalories} kcal",
+                                        text = "$totalCalories kcal",
                                         gradient = Brush.horizontalGradient(
                                             listOf(Color(0xFFFF6B35), Color(0xFFFF8A65))
                                         )
@@ -424,17 +434,37 @@ fun ExerciseDetailScreen(
                                             tint = Color(0xFFFF6B35),
                                             modifier = Modifier.size(22.dp)
                                         )
-                                        Text(
-                                            text = "$caloriesBurned / $exerciseCalories kcal",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color(0xFFFF6B35)
-                                        )
+                                    Text(
+                                        text = "$caloriesBurned / $totalCalories kcal",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFFF6B35)
+                                    )
                                     }
                                 }
                             }
                             
                             Spacer(modifier = Modifier.height(28.dp))
+                            
+                            // Nút chọn thời gian tùy chỉnh (chỉ hiển thị khi chưa bắt đầu)
+                            if (!isRunning && currentSeconds == 0) {
+                                OutlinedButton(
+                                    onClick = { showTimePickerDialog = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFF20B2AA)
+                                    ),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 2.dp)
+                                ) {
+                                    Icon(Icons.Default.AccessTime, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Chọn thời gian tùy chỉnh", fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                             
                             // Control Buttons
                             Row(
@@ -507,7 +537,7 @@ fun ExerciseDetailScreen(
                                                         action = ExerciseService.ACTION_START
                                                         putExtra(ExerciseService.EXTRA_EXERCISE_NAME, exerciseName)
                                                         putExtra(ExerciseService.EXTRA_TOTAL_SECONDS, totalSeconds)
-                                                        putExtra(ExerciseService.EXTRA_TOTAL_CALORIES, exerciseCalories)
+                                                        putExtra(ExerciseService.EXTRA_TOTAL_CALORIES, totalCalories)
                                                         // Gửi currentSeconds hiện tại để resume nếu cùng exercise
                                                         putExtra(ExerciseService.EXTRA_CURRENT_SECONDS, currentSeconds)
                                                     }
@@ -763,7 +793,7 @@ fun ExerciseDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Bạn đã đốt cháy $exerciseCalories kcal",
+                                    text = "Bạn đã đốt cháy $totalCalories kcal",
                                     fontSize = 18.sp,
                                     color = Color.White.copy(alpha = 0.95f),
                                     textAlign = TextAlign.Center
@@ -782,6 +812,29 @@ fun ExerciseDetailScreen(
                 
                 item { Spacer(modifier = Modifier.height(20.dp)) }
             }
+        }
+        
+        // Dialog chọn thời gian tùy chỉnh
+        if (showTimePickerDialog) {
+            TimePickerDialog(
+                currentMinutes = customTotalSeconds / 60,
+                defaultCalories = defaultCalories,
+                defaultTotalSeconds = defaultTotalSeconds,
+                onDismiss = { showTimePickerDialog = false },
+                onConfirm = { minutes ->
+                    if (minutes > 0) {
+                        customTotalSeconds = minutes * 60
+                        // Tính lại calories dựa trên tỷ lệ với thời gian mặc định
+                        customTotalCalories = (defaultCalories.toFloat() / defaultTotalSeconds * customTotalSeconds).toInt()
+                        showTimePickerDialog = false
+                        // Reset timer nếu đã chọn thời gian mới
+                        if (currentSeconds == 0 && !isRunning) {
+                            currentSeconds = 0
+                            caloriesBurned = 0
+                        }
+                    }
+                }
+            )
         }
     }
 }
@@ -965,6 +1018,200 @@ fun ExerciseStepItem(
             }
         }
     }
+}
+
+@Composable
+fun TimePickerDialog(
+    currentMinutes: Int,
+    defaultCalories: Int,
+    defaultTotalSeconds: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    var selectedMinutes by remember { mutableStateOf(currentMinutes) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Chọn thời gian tập luyện",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Thời gian (phút)",
+                    fontSize = 16.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                // Time picker với slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Nút giảm
+                    IconButton(
+                        onClick = {
+                            if (selectedMinutes > 1) {
+                                selectedMinutes--
+                            }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                Color(0xFF20B2AA).copy(alpha = 0.1f),
+                                CircleShape
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Remove,
+                            contentDescription = "Giảm",
+                            tint = Color(0xFF20B2AA)
+                        )
+                    }
+                    
+                    // Hiển thị số phút
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                Color(0xFFF5F5F5),
+                                RoundedCornerShape(16.dp)
+                            )
+                            .padding(vertical = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$selectedMinutes phút",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF20B2AA)
+                        )
+                    }
+                    
+                    // Nút tăng
+                    IconButton(
+                        onClick = {
+                            if (selectedMinutes < 180) { // Tối đa 180 phút (3 giờ)
+                                selectedMinutes++
+                            }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                Color(0xFF20B2AA).copy(alpha = 0.1f),
+                                CircleShape
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Tăng",
+                            tint = Color(0xFF20B2AA)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Slider để chọn nhanh
+                Text(
+                    text = "Kéo để chọn nhanh",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Slider(
+                    value = selectedMinutes.toFloat(),
+                    onValueChange = { selectedMinutes = it.toInt().coerceIn(1, 180) },
+                    valueRange = 1f..180f,
+                    steps = 179, // Cho phép chọn từ 1 đến 180 phút
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF20B2AA),
+                        activeTrackColor = Color(0xFF20B2AA),
+                        inactiveTrackColor = Color(0xFFE0E0E0)
+                    )
+                )
+                
+                // Hiển thị calories ước tính
+                Spacer(modifier = Modifier.height(8.dp))
+                val estimatedCalories = remember(selectedMinutes) {
+                    // Tính calories dựa trên tỷ lệ với thời gian mặc định
+                    if (defaultTotalSeconds > 0) {
+                        val caloriesPerMinute = (defaultCalories.toFloat() / defaultTotalSeconds * 60)
+                        (caloriesPerMinute * selectedMinutes).toInt()
+                    } else {
+                        0
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color(0xFFFF6B35).copy(alpha = 0.1f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = Color(0xFFFF6B35),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Ước tính: $estimatedCalories kcal",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF6B35)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(selectedMinutes) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF20B2AA)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "Xác nhận",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.Gray
+                )
+            ) {
+                Text("Hủy")
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(24.dp)
+    )
 }
 
 fun formatTime(seconds: Int): String {

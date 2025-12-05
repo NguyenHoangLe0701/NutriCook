@@ -496,18 +496,102 @@ private fun calculateCaloriesBurned(): Int {
 
 ---
 
+## ⏰ Chọn Thời Gian Tùy Chỉnh
+
+### Tính năng mới: Người dùng có thể chọn thời gian tập luyện
+
+**Trước đây:** Thời gian tập luyện được cố định (ví dụ: 15 phút, 20 phút, 30 phút).
+
+**Hiện tại:** Người dùng có thể chọn thời gian tùy chỉnh từ 1 đến 180 phút (3 giờ).
+
+### Cách hoạt động:
+
+1. **Dialog chọn thời gian:**
+   - Người dùng bấm nút "Chọn thời gian tùy chỉnh" (chỉ hiển thị khi chưa bắt đầu tập)
+   - Dialog hiển thị:
+     - Nút +/- để tăng/giảm thời gian
+     - Slider để chọn nhanh (1-180 phút)
+     - Hiển thị calories ước tính dựa trên thời gian đã chọn
+
+2. **Tính calories tự động:**
+   - Calories được tính dựa trên tỷ lệ với thời gian mặc định
+   - Công thức: `Calories mới = (Calories mặc định / Thời gian mặc định) × Thời gian mới`
+   - Ví dụ: Nếu 15 phút = 100 kcal, thì 30 phút = 200 kcal
+
+3. **Cập nhật UI và Notification:**
+   - UI hiển thị thời gian và calories mới
+   - Notification cập nhật với thời gian và calories mới
+   - Timer và progress bar sử dụng thời gian mới
+
+### Code Implementation:
+
+```kotlin
+// File: ExerciseDetailScreen.kt
+// State cho thời gian tùy chỉnh
+val defaultTotalSeconds = remember(exerciseName) {
+    exerciseDuration.replace(" phút", "").toIntOrNull()?.times(60) ?: 900
+}
+val defaultCalories = remember(exerciseName) { exerciseCalories }
+
+var customTotalSeconds by remember(exerciseName) { 
+    mutableStateOf(defaultTotalSeconds) 
+}
+var customTotalCalories by remember(exerciseName) { 
+    mutableStateOf(defaultCalories) 
+}
+
+// Sử dụng custom time
+val totalSeconds = customTotalSeconds
+val totalCalories = customTotalCalories
+
+// Khi người dùng chọn thời gian mới
+onConfirm = { minutes ->
+    if (minutes > 0) {
+        customTotalSeconds = minutes * 60
+        // Tính lại calories dựa trên tỷ lệ
+        customTotalCalories = (defaultCalories.toFloat() / defaultTotalSeconds * customTotalSeconds).toInt()
+    }
+}
+
+// Gửi thời gian và calories mới vào service
+val intent = Intent(context, ExerciseService::class.java).apply {
+    action = ExerciseService.ACTION_START
+    putExtra(ExerciseService.EXTRA_EXERCISE_NAME, exerciseName)
+    putExtra(ExerciseService.EXTRA_TOTAL_SECONDS, totalSeconds)  // Thời gian tùy chỉnh
+    putExtra(ExerciseService.EXTRA_TOTAL_CALORIES, totalCalories)  // Calories tùy chỉnh
+}
+```
+
+### Ví dụ sử dụng:
+
+**Scenario 1: Đạp xe với thời gian tùy chỉnh**
+- Exercise mặc định: 15 phút = 100 kcal
+- Người dùng chọn: 30 phút
+- Calories mới: (100 / 900) × 1800 = 200 kcal
+- Notification hiển thị: "00:00 / 30:00 • 0/200 kcal"
+
+**Scenario 2: Chạy bộ với thời gian tùy chỉnh**
+- Exercise mặc định: 20 phút = 200 kcal
+- Người dùng chọn: 45 phút
+- Calories mới: (200 / 1200) × 2700 = 450 kcal
+- Notification hiển thị: "00:00 / 45:00 • 0/450 kcal"
+
+---
+
 ## 🎯 Các Exercise Types
 
-### Danh sách exercises:
+### Danh sách exercises (thời gian mặc định):
 
-| Exercise Name | Duration | Calories | Difficulty |
-|--------------|----------|----------|------------|
+| Exercise Name | Duration (Mặc định) | Calories (Mặc định) | Difficulty |
+|--------------|-------------------|---------------------|------------|
 | Đạp xe | 15 phút | 100 kcal | Trung bình |
 | Đi bộ nhanh | 20 phút | 100 kcal | Thấp |
 | Yoga nhẹ | 30 phút | 100 kcal | Thấp |
 | Bơi lội nhẹ | 15 phút | 100 kcal | Trung bình |
 | Chạy bộ | 20 phút | 200 kcal | Cao |
-| Nhảy dây | 10 phút | 150 kcal | Trung bình |
+| Nhảy dây | 15 phút | 150 kcal | Trung bình |
+
+**Lưu ý:** Người dùng có thể chọn thời gian tùy chỉnh từ 1-180 phút, và calories sẽ được tính tự động dựa trên tỷ lệ với thời gian mặc định.
 
 ### Cấu hình exercise:
 
@@ -694,6 +778,8 @@ LinearProgressIndicator(
 - [x] ✅ Calories display
 - [x] ✅ Control buttons (Start/Pause, Reset)
 - [x] ✅ Sync state với service
+- [x] ✅ TimePickerDialog - Dialog chọn thời gian tùy chỉnh (1-180 phút)
+- [x] ✅ Tính calories tự động dựa trên thời gian tùy chỉnh
 
 ### Notification:
 - [x] ✅ Notification channel (exercise_channel)
@@ -719,6 +805,9 @@ Hệ thống đốt calories của NutriCook hoạt động hoàn chỉnh với:
 - ✅ Resume exercise đang dừng (không start exercise mới)
 - ✅ Reset exercise về 0
 - ✅ UI sync với service mỗi 500ms
+- ✅ **Chọn thời gian tùy chỉnh (1-180 phút)** - Tính năng mới
+- ✅ **Tính calories tự động dựa trên thời gian tùy chỉnh** - Tính năng mới
+- ✅ **Notification cập nhật với thời gian và calories tùy chỉnh** - Tính năng mới
 
 Tất cả các file đã được triển khai và sẵn sàng sử dụng! 🚀
 
